@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production builds
+dist/
+build/
+*/dist/
+
+# Environment files
+.env
+.env.local
+*.env
+!.env.example
+!*/.env.example
+
+# Logs and runtime caches
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Uploads & local file attachments
+server/uploads/*
+!server/uploads/.gitkeep
