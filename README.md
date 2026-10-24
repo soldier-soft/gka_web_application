@@ -219,19 +219,7 @@ Double-click `start-dev.bat` in the root directory to open both the API and Clie
 ---
 
 
-## 🔑 Default Test Credentials
 
-All demo accounts are pre-seeded and accessible via quick 1-click role buttons on the `/login` page:
-
-| Role | Email Address | Password | Permissions & Scope |
-| :--- | :--- | :--- | :--- |
-| **Owner / Super Admin** | `owner@gkaconstruction.com` | `GKAadmin2026!` | Full ERP access, financial ledgers, settings, user management |
-| **Project Manager** | `pm@gkaconstruction.com` | `GKApm2026!` | Project workspaces, milestone updates, quotation approvals |
-| **Site Supervisor** | `supervisor@gkaconstruction.com` | `GKAsuper2026!` | Mobile site diary, labour headcounts, progress photo uploads |
-| **Accounts Staff** | `accounts@gkaconstruction.com` | `GKAaccounts2026!` | Tax invoices, expense vouchers, customer payment collections |
-| **Client** | `client@gingerhotel.com` | `GKAclient2026!` | Isolated portal for Roots Corp Ginger Hotel project progress & invoices |
-
----
 
 ## 🧪 Automated Testing
 
