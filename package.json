@@ -2,7 +2,7 @@
   "name": "gka-erp-workspace",
   "version": "1.0.0",
   "private": true,
-  "description": "GKA Construction ERP, Project Management & Client Portal Workspace",
+  "main": "server.js",
   "scripts": {
     "install:all": "node scripts/postinstall.js",
     "postinstall": "node scripts/postinstall.js",
@@ -13,7 +13,7 @@
     "build:client": "npm run build --prefix client",
     "build:server": "npm run build --prefix server",
     "build": "npm run build:client && npm run build:server",
-    "start": "npm run start --prefix server"
+    "start": "node server.js"
   },
   "dependencies": {
     "vite": "^6.0.5"

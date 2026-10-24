@@ -1,0 +1,18 @@
+# GKA Construction ERP - Hostinger Reverse Proxy Configuration
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Allow physical files if any
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Reverse proxy all web traffic to local Node.js application process
+    RewriteRule ^(.*)$ http://127.0.0.1:5000/$1 [P,L]
+</IfModule>
+
+<IfModule mod_proxy.c>
+    ProxyRequests Off
+    ProxyPreserveHost On
+    ProxyPassReverse / http://127.0.0.1:5000/
+</IfModule>
