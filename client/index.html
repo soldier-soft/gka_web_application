@@ -159,6 +159,94 @@
       ]
     }
     </script>
+
+    <!-- JSON-LD BreadcrumbList Schema for Rich Site Hierarchy -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://www.gkaconstruction.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Services & Capabilities",
+          "item": "https://www.gkaconstruction.com/services"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Projects Portfolio",
+          "item": "https://www.gkaconstruction.com/projects"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "name": "Instant Cost Estimator",
+          "item": "https://www.gkaconstruction.com/cost-estimator"
+        },
+        {
+          "@type": "ListItem",
+          "position": 5,
+          "name": "Contact & Site Assessment",
+          "item": "https://www.gkaconstruction.com/contact"
+        }
+      ]
+    }
+    </script>
+
+    <!-- JSON-LD Service & Construction OfferCatalog Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "serviceType": "Turnkey Building Construction & Civil Engineering",
+      "provider": {
+        "@type": "GeneralContractor",
+        "name": "GKA Construction",
+        "url": "https://www.gkaconstruction.com"
+      },
+      "areaServed": {
+        "@type": "State",
+        "name": "Tamil Nadu"
+      },
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "GKA Construction Services",
+        "itemListElement": [
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Independent House & Villa Construction",
+              "description": "Custom 2D/3D architectural planning, RCC frame, masonry, branded finishes, and turnkey handover."
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Commercial & Hospitality Civil Works",
+              "description": "Multi-floor offices, showrooms, hotels civil refurbishment, and industrial grade flooring."
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Building Renovation & Waterproofing",
+              "description": "Structural repair, rebar anti-corrosion, terrace waterproofing, and modern bathroom renovation."
+            }
+          }
+        ]
+      }
+    }
+    </script>
   </head>
   <body class="bg-slate-50 text-slate-900 font-sans antialiased selection:bg-brand-gold-500 selection:text-white">
     <div id="root"></div>

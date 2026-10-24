@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, Mail, Eye, EyeOff, ShieldCheck, ArrowRight, UserCheck, HardHat } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, ShieldCheck, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { GKA_COMPANY } from '@shared/constants';
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('owner@gkaconstruction.com');
-  const [password, setPassword] = useState('GKAadmin2026!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,12 +31,6 @@ export const LoginPage: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const setPresetUser = (presetEmail: string, presetPass: string) => {
-    setEmail(presetEmail);
-    setPassword(presetPass);
-    setError('');
   };
 
   return (
@@ -127,62 +121,22 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Quick Preset Selector for Easy Testing & Demo */}
-          <div className="pt-4 border-t border-slate-200">
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 text-center">
-              Quick 1-Click Role Login (Demo & Testing):
+          {/* Security & Access Notice */}
+          <div className="pt-4 border-t border-slate-100 space-y-3">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <div className="flex items-center gap-1.5 text-slate-600">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>256-Bit SSL Encrypted Session</span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-400">Authorized Access Only</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed text-center">
+              Staff, field supervisors, and registered clients can contact administration at{' '}
+              <a href={`tel:${GKA_COMPANY.phoneDisplay}`} className="text-brand-navy-950 hover:text-brand-gold-600 font-semibold">
+                +91 {GKA_COMPANY.phoneDisplay}
+              </a>{' '}
+              for account activation or credential resets.
             </p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setPresetUser('owner@gkaconstruction.com', 'GKAadmin2026!')}
-                className="p-2 text-left bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-amber-900 font-semibold"
-              >
-                👑 Owner / Admin
-                <span className="block text-[10px] font-normal text-amber-700">Full Business ERP</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPresetUser('pm@gkaconstruction.com', 'GKApm2026!')}
-                className="p-2 text-left bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-900 font-semibold"
-              >
-                📋 Project Manager
-                <span className="block text-[10px] font-normal text-blue-700">Milestones & Quotes</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPresetUser('supervisor@gkaconstruction.com', 'GKAsuper2026!')}
-                className="p-2 text-left bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-emerald-900 font-semibold"
-              >
-                👷 Site Supervisor
-                <span className="block text-[10px] font-normal text-emerald-700">Mobile Site Diary</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPresetUser('accounts@gkaconstruction.com', 'GKAaccounts2026!')}
-                className="p-2 text-left bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg text-purple-900 font-semibold"
-              >
-                📊 Accounts Lead
-                <span className="block text-[10px] font-normal text-purple-700">Invoices & Finance</span>
-              </button>
-            </div>
-
-            <div className="mt-2">
-              <button
-                type="button"
-                onClick={() => setPresetUser('client@gingerhotel.com', 'GKAclient2026!')}
-                className="w-full p-2 text-left bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-lg text-cyan-900 font-semibold text-xs flex justify-between items-center"
-              >
-                <div>
-                  🏨 Client Portal: Ginger Hotel
-                  <span className="block text-[10px] font-normal text-cyan-700">Progress, Photos & Invoices</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-cyan-700" />
-              </button>
-            </div>
           </div>
         </div>
 
