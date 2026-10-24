@@ -35,6 +35,20 @@ const startServer = async () => {
             }
             process.exit(1);
         });
+        // Support standard port 3000 concurrently if configured port differs
+        if (port !== 3000) {
+            try {
+                const secondary = app.listen(3000, () => {
+                    console.log(`  Secondary Port Listener: 3000`);
+                });
+                secondary.on('error', () => {
+                    // Secondary port already bound or restricted, safe to proceed
+                });
+            }
+            catch (secErr) {
+                // Safe to ignore
+            }
+        }
         // Connect to database in non-blocking manner so HTTP server starts instantly
         (0, db_1.connectDB)().catch((dbErr) => {
             console.error('[Database Error] Database initialization warning:', dbErr.message);

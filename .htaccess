@@ -1,0 +1,57 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Directly serve existing physical files and directories (assets, images, scripts, stylesheets)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # 2. Check in dist folder if root match was not found
+  RewriteCond %{DOCUMENT_ROOT}/dist/$1 -f
+  RewriteRule ^(.*)$ dist/$1 [L]
+
+  RewriteCond %{DOCUMENT_ROOT}/dist/assets/$1 -f
+  RewriteRule ^assets/(.*)$ dist/assets/$1 [L]
+
+  # 3. Route API endpoints to the Node.js backend
+  RewriteCond %{REQUEST_URI} ^/api/ [NC]
+  RewriteRule ^(.*)$ http://127.0.0.1:5000/$1 [P,L]
+
+  # 4. SPA Fallback: Route all frontend client navigation to index.html
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} !^/api/ [NC]
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Modern MIME Types
+<IfModule mod_mime.c>
+  AddType application/javascript .js .mjs
+  AddType text/css .css
+  AddType image/svg+xml .svg
+  AddType image/webp .webp
+  AddType application/json .json
+  AddType font/woff2 .woff2
+</IfModule>
+
+# Caching for Production Performance
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+# Clean Security and Permissions-Policy Headers
+<IfModule mod_headers.c>
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(self), payment=()"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

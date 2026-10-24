@@ -53,7 +53,17 @@ if (fs.existsSync(clientDist)) {
   if (fs.existsSync(clientAssets)) {
     fs.cpSync(clientAssets, rootAssets, { recursive: true });
   }
-  console.log('[Deploy Build] Static output ready at client/dist, root dist, and root assets.');
+
+  // Also sync essential root static entry points
+  const rootFiles = ['index.html', 'logo.png', 'robots.txt', 'sitemap.xml'];
+  for (const file of rootFiles) {
+    const srcFile = path.join(clientDist, file);
+    if (fs.existsSync(srcFile)) {
+      fs.copyFileSync(srcFile, path.join(root, file));
+    }
+  }
+
+  console.log('[Deploy Build] Static output ready at client/dist, root dist, root assets, and project root.');
 }
 
 console.log('====================================================');
