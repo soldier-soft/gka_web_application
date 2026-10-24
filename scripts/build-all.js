@@ -41,6 +41,21 @@ try {
   process.exit(1);
 }
 
+// 3. Sync client distribution artifacts to root dist and root assets folders
+const clientDist = path.join(root, 'client', 'dist');
+const rootDist = path.join(root, 'dist');
+const rootAssets = path.join(root, 'assets');
+
+if (fs.existsSync(clientDist)) {
+  console.log('[Deploy Build] Syncing client artifacts to root dist and assets folder...');
+  fs.cpSync(clientDist, rootDist, { recursive: true });
+  const clientAssets = path.join(clientDist, 'assets');
+  if (fs.existsSync(clientAssets)) {
+    fs.cpSync(clientAssets, rootAssets, { recursive: true });
+  }
+  console.log('[Deploy Build] Static output ready at client/dist, root dist, and root assets.');
+}
+
 console.log('====================================================');
 console.log('[Deploy Build] Fullstack build complete! All artifacts ready.');
 console.log('====================================================');

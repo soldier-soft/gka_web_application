@@ -40,6 +40,38 @@ const createApp = () => {
             version: '1.0.0',
         });
     });
+    // Discover frontend distribution directory
+    const clientDistCandidates = [
+        path_1.default.resolve(__dirname, '../../client/dist'),
+        path_1.default.resolve(__dirname, '../../dist'),
+        path_1.default.resolve(process.cwd(), 'client/dist'),
+        path_1.default.resolve(process.cwd(), 'dist'),
+        path_1.default.resolve(__dirname, '../client/dist'),
+        path_1.default.resolve(process.cwd(), '../client/dist'),
+        process.cwd(),
+    ];
+    const resolvedDist = clientDistCandidates.find((cand) => fs_1.default.existsSync(cand) && fs_1.default.existsSync(path_1.default.join(cand, 'index.html')));
+    // Serve static assets BEFORE API & SPA fallback
+    if (resolvedDist) {
+        console.log(`[Frontend] Serving static assets from: ${resolvedDist}`);
+        const assetsDir = path_1.default.join(resolvedDist, 'assets');
+        if (fs_1.default.existsSync(assetsDir)) {
+            // Dedicated route for built Vite bundles (/assets/index-*.js, /assets/index-*.css)
+            app.use('/assets', express_1.default.static(assetsDir, {
+                maxAge: '1y',
+                immutable: true,
+                fallthrough: false, // Never send missing JS/CSS to HTML fallback
+            }));
+        }
+        // Serve other root static files (favicon, logo.png, robots.txt, sitemap.xml)
+        app.use(express_1.default.static(resolvedDist, {
+            maxAge: '1h',
+            index: false,
+        }));
+    }
+    else {
+        console.warn('[Frontend] Notice: No pre-compiled index.html found in candidate directories.');
+    }
     // REST API v1 Routing
     const apiRouter = express_1.default.Router();
     apiRouter.use('/auth', authRoutes_1.default);
@@ -55,20 +87,23 @@ const createApp = () => {
     apiRouter.use('/finance', financeRoutes_1.default);
     apiRouter.use('/client-portal', clientPortalRoutes_1.default);
     app.use('/api/v1', apiRouter);
-    // Serve frontend build in production or if client/dist exists
-    const clientDistCandidates = [
-        path_1.default.resolve(__dirname, '../../client/dist'),
-        path_1.default.resolve(__dirname, '../client/dist'),
-        path_1.default.resolve(process.cwd(), '../client/dist'),
-        path_1.default.resolve(process.cwd(), 'client/dist'),
-    ];
-    const resolvedDist = clientDistCandidates.find((cand) => fs_1.default.existsSync(cand));
+    // Static Asset 404 Guard: Ensure missing static files return 404, never index.html
+    app.use('/assets', (req, res) => {
+        res.status(404).type('text/plain').send('Static asset not found');
+    });
+    // SPA Fallback: Serve index.html strictly for HTML page navigation
     if (resolvedDist) {
-        app.use(express_1.default.static(resolvedDist));
         app.get('*', (req, res, next) => {
+            // 1. Never intercept API or upload routes
             if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
                 return next();
             }
+            // 2. Never send HTML fallback for asset extensions
+            if (req.path.startsWith('/assets/') ||
+                /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|json|txt|xml|pdf)$/i.test(req.path)) {
+                return res.status(404).type('text/plain').send('Resource not found');
+            }
+            // 3. Send index.html for React client-side route navigation
             res.sendFile(path_1.default.join(resolvedDist, 'index.html'));
         });
     }

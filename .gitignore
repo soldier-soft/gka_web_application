@@ -3,10 +3,11 @@ node_modules/
 */node_modules/
 
 # Production builds
-dist/
 build/
 !server/dist/
 !client/dist/
+!dist/
+!assets/
 
 # Environment files
 .env
