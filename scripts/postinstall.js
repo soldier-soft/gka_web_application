@@ -9,12 +9,22 @@ const nodeDir = path.dirname(process.execPath);
 const localNpm = path.join(nodeDir, process.platform === 'win32' ? 'npm.cmd' : 'npm');
 const npmBin = fs.existsSync(localNpm) ? `"${localNpm}"` : 'npm';
 
+// Force development environment for npm install so all dependencies are installed even if host sets NODE_ENV=production
+const installEnv = {
+  ...process.env,
+  NODE_ENV: 'development',
+};
+
 console.log('----------------------------------------------------');
 console.log(`[Deploy Postinstall] Using npm binary: ${npmBin}`);
-console.log('[Deploy Postinstall] Installing client dependencies...');
+console.log('[Deploy Postinstall] Installing client dependencies (including all build tools)...');
 console.log('----------------------------------------------------');
 try {
-  execSync(`${npmBin} install --prefix client`, { stdio: 'inherit', cwd: root });
+  execSync(`${npmBin} install --prefix client --include=dev`, {
+    stdio: 'inherit',
+    cwd: root,
+    env: installEnv,
+  });
 } catch (err) {
   console.error('[Deploy Postinstall] Error installing client dependencies:', err.message);
   process.exit(1);
@@ -24,7 +34,11 @@ console.log('----------------------------------------------------');
 console.log('[Deploy Postinstall] Installing server dependencies...');
 console.log('----------------------------------------------------');
 try {
-  execSync(`${npmBin} install --prefix server`, { stdio: 'inherit', cwd: root });
+  execSync(`${npmBin} install --prefix server --include=dev`, {
+    stdio: 'inherit',
+    cwd: root,
+    env: installEnv,
+  });
 } catch (err) {
   console.warn('[Deploy Postinstall] Server dependencies note:', err.message);
 }
