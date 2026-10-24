@@ -9,10 +9,10 @@ const path_1 = __importDefault(require("path"));
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../../.env') });
 exports.ENV = {
     PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 5000,
-    NODE_ENV: process.env.NODE_ENV || 'development',
+    NODE_ENV: process.env.NODE_ENV || 'production',
     MONGODB_URI: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/gka_construction_erp',
     JWT_SECRET: process.env.JWT_SECRET || 'gka-super-secure-production-jwt-secret-key-2026',
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
-    CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:3000',
+    CLIENT_URL: process.env.CLIENT_URL || 'https://www.gkaconstruction.com',
     UPLOAD_DIR: process.env.UPLOAD_DIR || path_1.default.resolve(__dirname, '../../uploads'),
 };

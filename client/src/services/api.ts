@@ -1,6 +1,8 @@
 // GKA Construction ERP API Client
 
-const BASE_URL = '/api/v1';
+const BASE_URL = (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.includes('localhost'))
+  ? import.meta.env.VITE_API_URL
+  : '/api/v1';
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('gka_token');

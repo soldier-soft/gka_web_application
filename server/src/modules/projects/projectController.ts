@@ -276,10 +276,9 @@ export const downloadProjectWelcomePDF = async (req: Request, res: Response, nex
     const quotations = await Quotation.find({ projectId: project._id }).sort({ createdAt: -1 });
     const invoices = await Invoice.find({ projectId: project._id }).sort({ issueDate: -1 });
 
-    const host = req.get('host') || 'localhost:3000';
-    const clientHost = host.replace(':5000', ':3000');
-    const protocol = req.protocol || 'http';
-    const portalUrl = `${protocol}://${clientHost}/login`;
+    const host = req.get('host') || 'www.gkaconstruction.com';
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+    const portalUrl = isLocal ? 'http://localhost:3000/login' : 'https://www.gkaconstruction.com/login';
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=GKA_Project_Welcome_${project.projectId}.pdf`);

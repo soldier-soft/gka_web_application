@@ -9,11 +9,12 @@ const startServer = async () => {
 
     const server = app.listen(port, '0.0.0.0', () => {
       console.log(`====================================================`);
-      console.log(`  GKA CONSTRUCTION ERP SERVER RUNNING`);
+      console.log(`  GKA CONSTRUCTION ERP PRODUCTION SERVER`);
+      console.log(`  Domain: ${ENV.CLIENT_URL}`);
       console.log(`  Port: ${port}`);
       console.log(`  Environment: ${ENV.NODE_ENV}`);
-      console.log(`  REST API: http://localhost:${port}/api/v1`);
-      console.log(`  Health Check: http://localhost:${port}/api/health`);
+      console.log(`  REST API: ${ENV.CLIENT_URL}/api/v1`);
+      console.log(`  Health Check: ${ENV.CLIENT_URL}/api/health`);
       console.log(`====================================================`);
     });
 
