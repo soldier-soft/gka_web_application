@@ -13,11 +13,13 @@ import {
   RotateCcw,
   X,
   Printer,
+  Share2,
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toPaise, toRupees } from '@shared/types';
 import { STANDARD_RATE_LIBRARY } from '@shared/constants';
 import { DocumentVisualView } from '../../components/documents/DocumentVisualView';
+import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
 export const QuotationsPage: React.FC = () => {
   const [quotations, setQuotations] = useState<any[]>([]);
@@ -25,6 +27,8 @@ export const QuotationsPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareQuotation, setShareQuotation] = useState<any>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -357,6 +361,19 @@ export const QuotationsPage: React.FC = () => {
                           <FileText className="w-3.5 h-3.5" />
                         </a>
 
+                        {/* Share via WhatsApp & Mail */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShareQuotation(q);
+                            setShowShareModal(true);
+                          }}
+                          className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-bold"
+                          title="Share via WhatsApp & Mail"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+
                         {/* Approve or Convert */}
                         {q.status !== 'approved' ? (
                           <button
@@ -632,6 +649,33 @@ export const QuotationsPage: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Share Document Modal (WhatsApp & Mail) */}
+      {shareQuotation && (
+        <ShareDocumentModal
+          isOpen={showShareModal}
+          onClose={() => {
+            setShowShareModal(false);
+            setShareQuotation(null);
+          }}
+          data={{
+            documentType: 'quotation',
+            title: shareQuotation.subject,
+            number: shareQuotation.quotationNumber,
+            clientName: shareQuotation.clientCompany || shareQuotation.clientName,
+            clientContactPerson: shareQuotation.clientContactPerson,
+            clientEmail: shareQuotation.clientEmail || '',
+            clientPhone: shareQuotation.clientPhone || '',
+            projectTitle: shareQuotation.projectTitle,
+            siteLocation: shareQuotation.siteLocation || shareQuotation.clientAddress,
+            amount: toRupees(shareQuotation.totalAmountPaise),
+            pdfUrl: `/api/v1/quotations/${shareQuotation._id}/pdf`,
+            docxUrl: `/api/v1/quotations/${shareQuotation._id}/docx`,
+            username: shareQuotation.clientEmail || 'client@gingerhotel.com',
+            password: 'GKAclient2026!',
+          }}
+        />
       )}
     </div>
   );

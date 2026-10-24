@@ -22,10 +22,12 @@ import {
   X,
   FileCheck,
   Send,
+  Share2,
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { formatINR, toPaise } from '@shared/types';
+import { formatINR, toPaise, toRupees } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
+import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
 export const FinancePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -34,6 +36,9 @@ export const FinancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'invoices' | 'payments' | 'expenses' | 'gst'>(
     initialTab === 'gst' ? 'gst' : initialTab === 'payments' ? 'payments' : initialTab === 'expenses' ? 'expenses' : 'invoices'
   );
+
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareInvoice, setShareInvoice] = useState<any>(null);
 
   const handleTabChange = (tab: 'invoices' | 'payments' | 'expenses' | 'gst') => {
     setActiveTab(tab);
@@ -451,15 +456,30 @@ export const FinancePage: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <a
-                        href={`/api/v1/finance/invoices/${inv._id}/pdf`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800"
-                      >
-                        <FileDown className="w-3.5 h-3.5 text-brand-navy-900" />
-                        <span>Tax Invoice PDF</span>
-                      </a>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <a
+                          href={`/api/v1/finance/invoices/${inv._id}/pdf`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800"
+                        >
+                          <FileDown className="w-3.5 h-3.5 text-brand-navy-900" />
+                          <span>PDF</span>
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShareInvoice(inv);
+                            setShowShareModal(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          title="Share via WhatsApp & Mail"
+                        >
+                          <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Share</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1252,6 +1272,34 @@ export const FinancePage: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Share Document Modal (WhatsApp & Mail) */}
+      {shareInvoice && (
+        <ShareDocumentModal
+          isOpen={showShareModal}
+          onClose={() => {
+            setShowShareModal(false);
+            setShareInvoice(null);
+          }}
+          data={{
+            documentType: 'invoice',
+            title: shareInvoice.subject,
+            number: shareInvoice.invoiceNumber,
+            clientName: shareInvoice.clientCompany || shareInvoice.clientName,
+            clientContactPerson: shareInvoice.clientContactPerson,
+            clientEmail: shareInvoice.clientId?.email || shareInvoice.clientEmail || '',
+            clientPhone: shareInvoice.clientId?.phone || shareInvoice.clientPhone || '',
+            projectTitle: shareInvoice.projectTitle,
+            siteLocation: shareInvoice.billingAddress,
+            amount: toRupees(shareInvoice.totalAmountPaise),
+            dueDate: shareInvoice.dueDate ? new Date(shareInvoice.dueDate).toLocaleDateString('en-IN') : undefined,
+            pdfUrl: `/api/v1/finance/invoices/${shareInvoice._id}/pdf`,
+            docxUrl: `/api/v1/finance/invoices/${shareInvoice._id}/docx`,
+            username: shareInvoice.clientId?.email || 'client@gingerhotel.com',
+            password: 'GKAclient2026!',
+          }}
+        />
       )}
     </div>
   );

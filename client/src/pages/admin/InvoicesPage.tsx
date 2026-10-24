@@ -21,10 +21,12 @@ import {
   Printer,
   X,
   Check,
+  Share2,
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toPaise, toRupees } from '@shared/types';
 import { DocumentVisualView } from '../../components/documents/DocumentVisualView';
+import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
 export const InvoicesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,6 +34,8 @@ export const InvoicesPage: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [approvedQuotations, setApprovedQuotations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareInvoice, setShareInvoice] = useState<any>(null);
 
   // Filter and search states
   const [searchTerm, setSearchTerm] = useState('');
@@ -640,6 +644,19 @@ export const InvoicesPage: React.FC = () => {
                           >
                             <FileText className="w-3.5 h-3.5" />
                           </a>
+
+                          {/* Share via WhatsApp & Mail */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShareInvoice(inv);
+                              setShowShareModal(true);
+                            }}
+                            className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-bold"
+                            title="Share via WhatsApp & Mail"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1206,6 +1223,34 @@ export const InvoicesPage: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Share Document Modal (WhatsApp & Mail) */}
+      {shareInvoice && (
+        <ShareDocumentModal
+          isOpen={showShareModal}
+          onClose={() => {
+            setShowShareModal(false);
+            setShareInvoice(null);
+          }}
+          data={{
+            documentType: 'invoice',
+            title: shareInvoice.subject,
+            number: shareInvoice.invoiceNumber,
+            clientName: shareInvoice.clientCompany || shareInvoice.clientName,
+            clientContactPerson: shareInvoice.clientContactPerson,
+            clientEmail: shareInvoice.clientId?.email || shareInvoice.clientEmail || '',
+            clientPhone: shareInvoice.clientId?.phone || shareInvoice.clientPhone || '',
+            projectTitle: shareInvoice.projectTitle,
+            siteLocation: shareInvoice.billingAddress,
+            amount: toRupees(shareInvoice.totalAmountPaise),
+            dueDate: shareInvoice.dueDate ? new Date(shareInvoice.dueDate).toLocaleDateString('en-IN') : undefined,
+            pdfUrl: `/api/v1/finance/invoices/${shareInvoice._id}/pdf`,
+            docxUrl: `/api/v1/finance/invoices/${shareInvoice._id}/docx`,
+            username: shareInvoice.clientId?.email || 'client@gingerhotel.com',
+            password: 'GKAclient2026!',
+          }}
+        />
       )}
     </div>
   );

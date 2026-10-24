@@ -30,10 +30,12 @@ import {
   Users,
   Copy,
   Key,
+  Share2,
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
-import { formatINR } from '@shared/types';
+import { formatINR, toRupees } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
+import { ShareDocumentModal, ShareDocumentData } from '../../components/common/ShareDocumentModal';
 
 type WorkspaceTab =
   | 'overview'
@@ -59,6 +61,10 @@ export const ProjectDetailPage: React.FC = () => {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [clientFeedbacks, setClientFeedbacks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Share Modal State
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareModalData, setShareModalData] = useState<ShareDocumentData | null>(null);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
@@ -244,6 +250,31 @@ export const ProjectDetailPage: React.FC = () => {
             >
               <FileDown className="w-4 h-4 text-[#D6A21D]" />
               <span>Download Welcome PDF</span>
+            </button>
+
+            {/* Share Welcome Packet (WhatsApp & Mail) */}
+            <button
+              onClick={() => {
+                setShareModalData({
+                  documentType: 'welcome',
+                  number: project.projectId,
+                  projectTitle: project.title,
+                  clientName: project.clientId?.name,
+                  clientContactPerson: project.clientId?.contactPerson,
+                  clientEmail: project.clientId?.email || '',
+                  clientPhone: project.clientId?.phone || '',
+                  siteLocation: `${project.siteAddress?.street || ''}, ${project.siteAddress?.city || ''}`,
+                  amount: toRupees(project.contractValuePaise || 0),
+                  pdfUrl: `/api/v1/projects/${project._id}/welcome-pdf`,
+                  username: project.clientId?.email || 'client@gingerhotel.com',
+                  password: 'GKAclient2026!',
+                });
+                setShowShareModal(true);
+              }}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Share Welcome Packet</span>
             </button>
 
             {/* Quick Portal Preview switch */}
@@ -703,6 +734,33 @@ export const ProjectDetailPage: React.FC = () => {
                       <span>DOCX</span>
                     </button>
 
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShareModalData({
+                          documentType: 'quotation',
+                          number: q.quotationNumber,
+                          projectTitle: q.projectTitle || project.title,
+                          clientName: q.clientCompany || q.clientName || project.clientId?.name,
+                          clientContactPerson: q.clientContactPerson,
+                          clientEmail: project.clientId?.email || '',
+                          clientPhone: project.clientId?.phone || '',
+                          siteLocation: q.siteLocation || `${project.siteAddress?.street || ''}, ${project.siteAddress?.city || ''}`,
+                          amount: toRupees(q.totalAmountPaise || 0),
+                          pdfUrl: `/api/v1/quotations/${q._id}/pdf`,
+                          docxUrl: `/api/v1/quotations/${q._id}/docx`,
+                          username: project.clientId?.email || 'client@gingerhotel.com',
+                          password: 'GKAclient2026!',
+                        });
+                        setShowShareModal(true);
+                      }}
+                      className="px-3 py-1.5 rounded-lg border bg-white text-emerald-700 hover:bg-emerald-50 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
+                      title="Share via WhatsApp & Mail"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Share</span>
+                    </button>
+
                     {q.status === 'approved' && (
                       <button
                         onClick={() => handleConvertQuotation(q._id)}
@@ -769,6 +827,34 @@ export const ProjectDetailPage: React.FC = () => {
                       >
                         <FileText className="w-3.5 h-3.5 text-blue-600" />
                         <span>DOCX</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShareModalData({
+                            documentType: 'invoice',
+                            number: inv.invoiceNumber,
+                            projectTitle: inv.projectTitle || project.title,
+                            clientName: inv.clientCompany || inv.clientName || project.clientId?.name,
+                            clientContactPerson: inv.clientContactPerson,
+                            clientEmail: project.clientId?.email || '',
+                            clientPhone: project.clientId?.phone || '',
+                            siteLocation: inv.billingAddress || `${project.siteAddress?.street || ''}, ${project.siteAddress?.city || ''}`,
+                            amount: toRupees(inv.totalAmountPaise || 0),
+                            dueDate: inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-IN') : undefined,
+                            pdfUrl: `/api/v1/finance/invoices/${inv._id}/pdf`,
+                            docxUrl: `/api/v1/finance/invoices/${inv._id}/docx`,
+                            username: project.clientId?.email || 'client@gingerhotel.com',
+                            password: 'GKAclient2026!',
+                          });
+                          setShowShareModal(true);
+                        }}
+                        className="px-3 py-1.5 rounded-lg border bg-white text-emerald-700 hover:bg-emerald-50 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
+                        title="Share via WhatsApp & Mail"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Share</span>
                       </button>
                     </div>
                   </div>
@@ -1108,6 +1194,16 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Share Document Modal (WhatsApp & Mail) */}
+      <ShareDocumentModal
+        isOpen={showShareModal}
+        onClose={() => {
+          setShowShareModal(false);
+          setShareModalData(null);
+        }}
+        data={shareModalData}
+      />
     </div>
   );
 };

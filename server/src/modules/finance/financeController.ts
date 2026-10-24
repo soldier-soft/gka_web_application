@@ -6,6 +6,8 @@ import { Expense } from '../../models/Expense';
 import { Payment } from '../../models/Payment';
 import { Project } from '../../models/Project';
 import { TaxReconciliation } from '../../models/TaxReconciliation';
+import { Client } from '../../models/Client';
+import { User } from '../../models/User';
 import { PDFService } from '../../services/pdfService';
 import { DOCXService } from '../../services/docxService';
 import { toPaise } from '../../shared/types';
@@ -115,6 +117,21 @@ export const downloadInvoicePDF = async (req: Request, res: Response, next: Next
       res.status(403).json({ success: false, message: 'Forbidden. Access not permitted.' });
       return;
     }
+
+    let clientPortalUsername = 'client@gingerhotel.com';
+    let clientPortalPassword = 'GKAclient2026!';
+    if (invoice.clientId) {
+      const client = await Client.findById(invoice.clientId);
+      if (client?.email) {
+        clientPortalUsername = client.email.toLowerCase();
+        const clientUser = await User.findOne({ email: client.email.toLowerCase() });
+        if (clientUser?.defaultPassword) {
+          clientPortalPassword = clientUser.defaultPassword;
+        }
+      }
+    }
+    (invoice as any).clientPortalUsername = clientPortalUsername;
+    (invoice as any).clientPortalPassword = clientPortalPassword;
 
     const docStream = PDFService.generateInvoicePDF(invoice);
 

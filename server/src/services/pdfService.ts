@@ -188,7 +188,7 @@ export class PDFService {
     doc: InstanceType<typeof PDFDocument>,
     startY: number
   ): void {
-    const bottomY = Math.max(startY + 10, 580);
+    const bottomY = Math.max(startY + 8, 565);
 
     // Left Card: BANK DETAILS (Light Blue border, Deep Navy Header)
     doc.rect(40, bottomY, 255, 124).fill('#F8FAFC').stroke('#B8D5E5').lineWidth(1).stroke();
@@ -393,7 +393,7 @@ export class PDFService {
       align: 'right',
     });
 
-    y += 28;
+    y += 26;
 
     // 6. AMOUNT IN WORDS Banner (Clean distinct box and coordinates)
     doc.rect(40, y, 515, 20).fill('#FFFBEB').stroke('#FDE68A').lineWidth(0.8).stroke();
@@ -401,9 +401,35 @@ export class PDFService {
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#D6A21D').text('AMOUNT IN WORDS:', 58, y + 5, { width: 105 });
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(amountInWords(totalRupees), 168, y + 5, { width: 380 });
 
-    y += 26;
+    y += 24;
 
-    // 7. Bottom Sections (Bank Details + Terms + Seal) and Footer Banner
+    // 7. CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS
+    const clientUsername =
+      (quotation as any).clientPortalUsername ||
+      (quotation as any).clientEmail ||
+      (quotation.clientContactPerson ? `${quotation.clientContactPerson.toLowerCase().replace(/[^a-z0-9]/g, '')}@client.com` : 'client@gingerhotel.com');
+    const clientPassword = (quotation as any).clientPortalPassword || (quotation as any).defaultPassword || 'GKAclient2026!';
+    const portalUrl = 'https://www.gkaconstruction.com/login';
+
+    doc.rect(40, y, 515, 34).fill('#EFF6FF').stroke('#93C5FD').lineWidth(0.8).stroke();
+    doc.rect(40, y, 515, 13).fill('#1E40AF');
+    doc.circle(47, y + 6.5, 2).fill('#93C5FD');
+    doc.fillColor('#FFFFFF').fontSize(6.8).font('Helvetica-Bold').text('CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS', 53, y + 3);
+
+    // Three Columns: Portal Link | Login Username | Password
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#1E40AF').text('PORTAL LINK:', 48, y + 19);
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(portalUrl, 102, y + 19);
+
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#1E40AF').text('LOGIN USERNAME:', 262, y + 19);
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(clientUsername, 345, y + 19);
+
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#1E40AF').text('PASSWORD:', 436, y + 19);
+    doc.rect(486, y + 15, 64, 15).fill('#FEF3C7').stroke('#F59E0B').lineWidth(0.6).stroke();
+    doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#92400E').text(clientPassword, 487, y + 18.5, { width: 62, align: 'center' });
+
+    y += 38;
+
+    // 8. Bottom Sections (Bank Details + Terms + Seal) and Footer Banner
     this.drawBottomAndFooter(doc, y);
 
     doc.end();
@@ -523,7 +549,7 @@ export class PDFService {
       align: 'right',
     });
 
-    y += 28;
+    y += 26;
 
     // 6. AMOUNT IN WORDS
     doc.rect(40, y, 515, 20).fill('#FFFBEB').stroke('#FDE68A').lineWidth(0.8).stroke();
@@ -531,9 +557,35 @@ export class PDFService {
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#D6A21D').text('AMOUNT IN WORDS:', 58, y + 5, { width: 105 });
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(amountInWords(totalRupees), 168, y + 5, { width: 380 });
 
-    y += 26;
+    y += 24;
 
-    // 7. Bottom Sections and Footer
+    // 7. CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS
+    const clientUsername =
+      (invoice as any).clientPortalUsername ||
+      (invoice as any).clientEmail ||
+      (invoice.clientContactPerson ? `${invoice.clientContactPerson.toLowerCase().replace(/[^a-z0-9]/g, '')}@client.com` : 'client@gingerhotel.com');
+    const clientPassword = (invoice as any).clientPortalPassword || (invoice as any).defaultPassword || 'GKAclient2026!';
+    const portalUrl = 'https://www.gkaconstruction.com/login';
+
+    doc.rect(40, y, 515, 34).fill('#EFF6FF').stroke('#93C5FD').lineWidth(0.8).stroke();
+    doc.rect(40, y, 515, 13).fill('#1E40AF');
+    doc.circle(47, y + 6.5, 2).fill('#93C5FD');
+    doc.fillColor('#FFFFFF').fontSize(6.8).font('Helvetica-Bold').text('CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS', 53, y + 3);
+
+    // Three Columns: Portal Link | Login Username | Password
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#1E40AF').text('PORTAL LINK:', 48, y + 19);
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(portalUrl, 102, y + 19);
+
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#1E40AF').text('LOGIN USERNAME:', 262, y + 19);
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(clientUsername, 345, y + 19);
+
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#1E40AF').text('PASSWORD:', 436, y + 19);
+    doc.rect(486, y + 15, 64, 15).fill('#FEF3C7').stroke('#F59E0B').lineWidth(0.6).stroke();
+    doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#92400E').text(clientPassword, 487, y + 18.5, { width: 62, align: 'center' });
+
+    y += 38;
+
+    // 8. Bottom Sections and Footer
     this.drawBottomAndFooter(doc, y);
 
     doc.end();

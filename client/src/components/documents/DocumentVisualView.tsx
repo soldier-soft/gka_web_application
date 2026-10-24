@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Building2,
   FileDown,
@@ -16,6 +16,7 @@ import {
 import { formatINR, toRupees } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
 import { getFileUrl } from '../../services/api';
+import { ShareDocumentModal, ShareDocumentData } from '../common/ShareDocumentModal';
 
 interface DocumentVisualViewProps {
   type: 'quotation' | 'invoice';
@@ -75,9 +76,19 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
   onDownloadPdf,
   onDownloadDocx,
 }) => {
+  const [showShareModal, setShowShareModal] = useState(false);
+
   const isQuotation = type === 'quotation';
   const docNumber = isQuotation ? data.quotationNumber : data.invoiceNumber;
   const docDate = isQuotation ? data.createdAt || data.date : data.issueDate;
+
+  const clientPortalUsername =
+    data.clientPortalUsername ||
+    data.clientEmail ||
+    (data.clientContactPerson
+      ? `${data.clientContactPerson.toLowerCase().replace(/[^a-z0-9]/g, '')}@client.com`
+      : 'client@gingerhotel.com');
+  const clientPortalPassword = data.clientPortalPassword || data.defaultPassword || 'GKAclient2026!';
 
   const subtotalPaise = data.subtotalPaise || 0;
   const taxPaise = isQuotation
@@ -153,6 +164,16 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
               <span>Download DOCX</span>
             </a>
           )}
+
+          {/* Share Button (WhatsApp & Email) */}
+          <button
+            type="button"
+            onClick={() => setShowShareModal(true)}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center gap-1.5 shadow"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share (Mail & WhatsApp)</span>
+          </button>
 
           <button
             onClick={() => window.print()}
@@ -379,13 +400,44 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
         </div>
 
         {/* 8. AMOUNT IN WORDS BANNER */}
-        <div className="bg-[#FFFBEB] border border-[#FDE68A] p-2.5 rounded-xl mb-6 text-xs flex items-center gap-2">
+        <div className="bg-[#FFFBEB] border border-[#FDE68A] p-2.5 rounded-xl mb-4 text-xs flex items-center gap-2">
           <span className="font-bold text-[#D6A21D] flex items-center gap-1 uppercase tracking-wider shrink-0 text-[11px]">
             <span>📋</span> AMOUNT IN WORDS:
           </span>
           <strong className="text-[#0F254B] font-bold leading-tight">
             {amountWords}
           </strong>
+        </div>
+
+        {/* 8.5 CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS */}
+        <div className="bg-[#EFF6FF] border border-[#93C5FD] rounded-xl overflow-hidden mb-6 text-xs">
+          <div className="bg-[#1E40AF] text-white px-3.5 py-1.5 font-heading font-bold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#93C5FD]" />
+            <span>CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS</span>
+          </div>
+          <div className="p-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-[11px] items-center">
+            <div>
+              <span className="text-[#1E40AF] font-bold block text-[10px]">PORTAL LINK:</span>
+              <a
+                href="https://www.gkaconstruction.com/login"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#0F254B] font-bold underline hover:text-[#D6A21D]"
+              >
+                gkaconstruction.com/login
+              </a>
+            </div>
+            <div>
+              <span className="text-[#1E40AF] font-bold block text-[10px]">LOGIN USERNAME:</span>
+              <span className="text-[#0F254B] font-bold">{clientPortalUsername}</span>
+            </div>
+            <div>
+              <span className="text-[#1E40AF] font-bold block text-[10px]">ACCESS PASSWORD:</span>
+              <span className="bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B] px-2.5 py-0.5 rounded font-bold inline-block">
+                {clientPortalPassword}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* 9. BOTTOM DUAL SECTION: Bank Details (Left) & Terms + Signature + Seal (Right) */}
@@ -494,6 +546,29 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Share Document Modal (WhatsApp & Email) */}
+      <ShareDocumentModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        data={{
+          documentType: type,
+          title: subject,
+          number: docNumber,
+          clientName: clientCompany,
+          clientContactPerson: clientContact,
+          clientEmail: data.clientEmail || '',
+          clientPhone: data.clientPhone || '',
+          projectTitle: data.projectTitle || subject,
+          siteLocation: clientAddress,
+          amount: totalRupees,
+          dueDate: data.dueDate ? new Date(data.dueDate).toLocaleDateString('en-IN') : undefined,
+          pdfUrl: `/api/v1/${isQuotation ? 'quotations' : 'finance/invoices'}/${data._id}/pdf`,
+          docxUrl: `/api/v1/${isQuotation ? 'quotations' : 'finance/invoices'}/${data._id}/docx`,
+          username: clientPortalUsername,
+          password: clientPortalPassword,
+        }}
+      />
     </div>
   );
 };
