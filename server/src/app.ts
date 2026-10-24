@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
+import fs from 'fs';
 
 import authRoutes from './modules/auth/authRoutes';
 import crmRoutes from './modules/crm/crmRoutes';
@@ -60,8 +61,28 @@ export const createApp = (): express.Application => {
 
   app.use('/api/v1', apiRouter);
 
+  // Serve frontend build in production or if client/dist exists
+  const clientDistCandidates = [
+    path.resolve(__dirname, '../../client/dist'),
+    path.resolve(__dirname, '../client/dist'),
+    path.resolve(process.cwd(), '../client/dist'),
+    path.resolve(process.cwd(), 'client/dist'),
+  ];
+  const resolvedDist = clientDistCandidates.find((cand) => fs.existsSync(cand));
+
+  if (resolvedDist) {
+    app.use(express.static(resolvedDist));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+        return next();
+      }
+      res.sendFile(path.join(resolvedDist, 'index.html'));
+    });
+  }
+
   // Centralized Error Handler
   app.use(errorHandler);
 
   return app;
 };
+

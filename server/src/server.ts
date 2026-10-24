@@ -7,7 +7,7 @@ const startServer = async () => {
     await connectDB();
     const app = createApp();
 
-    app.listen(ENV.PORT, () => {
+    app.listen(ENV.PORT, '0.0.0.0', () => {
       console.log(`====================================================`);
       console.log(`  GKA CONSTRUCTION ERP SERVER RUNNING`);
       console.log(`  Port: ${ENV.PORT}`);

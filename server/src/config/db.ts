@@ -2,27 +2,42 @@ import mongoose from 'mongoose';
 import { ENV } from './env';
 
 export const connectDB = async (): Promise<void> => {
+  mongoose.set('strictQuery', true);
+
+  const connectOptions: mongoose.ConnectOptions = {
+    autoIndex: true,
+    maxPoolSize: 20,
+    serverSelectionTimeoutMS: 4000,
+    dbName: 'gka_construction_erp',
+  };
+
+  // 1. Attempt primary MongoDB connection (e.g. MongoDB Atlas)
   try {
-    mongoose.set('strictQuery', true);
-    await mongoose.connect(ENV.MONGODB_URI, {
-      autoIndex: true,
-      maxPoolSize: 20,
-      serverSelectionTimeoutMS: 8000,
-      dbName: 'gka_construction_erp',
-    });
+    console.log('[MongoDB] Connecting to primary database...');
+    await mongoose.connect(ENV.MONGODB_URI, connectOptions);
     console.log(`[MongoDB] Connected successfully to ${mongoose.connection.host}/${mongoose.connection.name}`);
+    return;
   } catch (error: any) {
-    console.error('[MongoDB] Connection error with primary URI:', error.message);
-    if (ENV.NODE_ENV !== 'production' && ENV.MONGODB_URI.includes('mongodb+srv://')) {
-      console.warn('[MongoDB] Falling back to local MongoDB for development...');
-      try {
-        await mongoose.connect('mongodb://127.0.0.1:27017/gka_construction_erp');
-        console.log('[MongoDB] Connected successfully to local development MongoDB');
-        return;
-      } catch (fallbackErr) {
-        console.error('[MongoDB] Local fallback also failed:', fallbackErr);
-      }
-    }
-    process.exit(1);
+    console.warn(`[MongoDB] Primary connection failed: ${error.message}`);
+    console.warn('[MongoDB] (Note: Ensure 0.0.0.0/0 is whitelisted in MongoDB Atlas Network Access for cloud access)');
   }
+
+  // 2. Fallback to Local MongoDB (running on 127.0.0.1:27017)
+  const fallbackUris = [
+    'mongodb://127.0.0.1:27017/gka_construction_erp',
+    'mongodb://localhost:27017/gka_construction_erp',
+  ];
+
+  for (const uri of fallbackUris) {
+    try {
+      console.log(`[MongoDB] Connecting to fallback local database (${uri})...`);
+      await mongoose.connect(uri, { ...connectOptions, serverSelectionTimeoutMS: 3000 });
+      console.log(`[MongoDB] Connected successfully to fallback local database: ${uri}`);
+      return;
+    } catch (fallbackErr: any) {
+      console.warn(`[MongoDB] Fallback connection to ${uri} failed: ${fallbackErr.message}`);
+    }
+  }
+
+  console.error('[MongoDB] Warning: Could not connect to Atlas or local MongoDB. Server will remain running.');
 };
