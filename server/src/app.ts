@@ -26,6 +26,11 @@ export const createApp = (): express.Application => {
 
   // Security & Utility Middleware
   app.use(helmet({ contentSecurityPolicy: false }));
+  app.use((_req, res, next) => {
+    // Override browser unrecognized feature warnings (attribution-reporting, private-aggregation, etc.)
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=()');
+    next();
+  });
   app.use(cors({ origin: true, credentials: true }));
   app.use(morgan('dev'));
   app.use(express.json({ limit: '10mb' }));
