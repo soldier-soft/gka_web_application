@@ -59,43 +59,23 @@ export const InvoicesPage: React.FC = () => {
   const [gstModalPeriod, setGstModalPeriod] = useState('2026-10');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // New Invoice form state
+  // New Invoice form state (clean live application default)
   const [invProject, setInvProject] = useState('');
   const [invClientName, setInvClientName] = useState('');
-  const [invContactPerson, setInvContactPerson] = useState('THE CHIEF ENGINEER');
-  const [invClientCompany, setInvClientCompany] = useState('VIVANTHA HOTEL');
-  const [invBillingAddress, setInvBillingAddress] = useState('SHOLINGANALUR, CHENNAI.');
-  const [invSubject, setInvSubject] = useState(
-    'Tax Invoice for Construction Works – Cooling Tower Base & Related Structures.'
-  );
+  const [invContactPerson, setInvContactPerson] = useState('');
+  const [invClientCompany, setInvClientCompany] = useState('');
+  const [invBillingAddress, setInvBillingAddress] = useState('');
+  const [invSubject, setInvSubject] = useState('');
   const [invDueDate, setInvDueDate] = useState(
     new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]
   );
-  const [invNotes, setInvNotes] = useState('Payment due within 14 calendar days via Federal Bank NEFT/RTGS.');
+  const [invNotes, setInvNotes] = useState('Payment due within 14 calendar days.');
   const [invItems, setInvItems] = useState<any[]>([
     {
-      description: 'Cooling tower concrete base Horizontal beam: 1x0.75x 20',
-      quantity: 160,
-      unit: 'CFT',
-      unitRateRupees: 1400,
-    },
-    {
-      description: 'Vertical columns: 0.8x 0.8',
-      quantity: 65,
-      unit: 'CFT',
-      unitRateRupees: 1450,
-    },
-    {
-      description: 'Service platform: 0.5 x3 x25',
-      quantity: 1,
-      unit: 'LOT',
-      unitRateRupees: 50000,
-    },
-    {
-      description: 'Platform support beams: 0.8x3',
-      quantity: 1,
-      unit: 'LOT',
-      unitRateRupees: 71000,
+      description: 'Civil Construction & Finishing Work Scope',
+      quantity: 0,
+      unit: 'sq.ft',
+      unitRateRupees: 0,
     },
   ]);
 
@@ -178,10 +158,10 @@ export const InvoicesPage: React.FC = () => {
     setInvItems([
       ...invItems,
       {
-        description: 'Civil Construction & Finishing Work Scope',
-        quantity: 1,
-        unit: 'CFT',
-        unitRateRupees: 1000,
+        description: '',
+        quantity: 0,
+        unit: 'sq.ft',
+        unitRateRupees: 0,
       },
     ]);
   };

@@ -28,7 +28,7 @@ export const ProjectsPage: React.FC = () => {
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
   const [newSiteLocation, setNewSiteLocation] = useState('');
-  const [newBudgetRupees, setNewBudgetRupees] = useState<number>(2500000);
+  const [newBudgetRupees, setNewBudgetRupees] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchProjects = async () => {

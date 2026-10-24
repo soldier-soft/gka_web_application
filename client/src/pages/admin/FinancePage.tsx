@@ -63,17 +63,17 @@ export const FinancePage: React.FC = () => {
   // New Payment state
   const [payProject, setPayProject] = useState('');
   const [payInvoiceId, setPayInvoiceId] = useState('');
-  const [payAmountRupees, setPayAmountRupees] = useState<number>(200000);
+  const [payAmountRupees, setPayAmountRupees] = useState<number>(0);
   const [payMode, setPayMode] = useState('bank_transfer');
-  const [payTxnRef, setPayTxnRef] = useState('HDFCR52026101899');
-  const [payNotes, setPayNotes] = useState('NEFT transfer towards milestone RA bill');
+  const [payTxnRef, setPayTxnRef] = useState('');
+  const [payNotes, setPayNotes] = useState('');
 
   // New Expense state
   const [expProject, setExpProject] = useState('');
   const [expCategory, setExpCategory] = useState('materials');
-  const [expDesc, setExpDesc] = useState('Purchase of 50 bags cement & fine river sand');
-  const [expAmountRupees, setExpAmountRupees] = useState<number>(25000);
-  const [expPaidTo, setExpPaidTo] = useState('Ultratech Cement Agency');
+  const [expDesc, setExpDesc] = useState('');
+  const [expAmountRupees, setExpAmountRupees] = useState<number>(0);
+  const [expPaidTo, setExpPaidTo] = useState('');
   const [expMethod, setExpMethod] = useState('upi');
 
   // ITC Adjustment State

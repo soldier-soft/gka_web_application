@@ -11,6 +11,7 @@ import { SiteReport } from '../../models/SiteReport';
 import { Client } from '../../models/Client';
 import { User } from '../../models/User';
 import { Quotation } from '../../models/Quotation';
+import { TaxReconciliation } from '../../models/TaxReconciliation';
 import { ClientFeedback } from '../../models/ClientFeedback';
 import { PDFService } from '../../services/pdfService';
 import { STANDARD_MILESTONES } from '../../shared/constants';
@@ -378,7 +379,7 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
       },
     ]);
 
-    const stats = financialAggregation[0] || {
+    const projectStats = financialAggregation[0] || {
       totalContractValuePaise: 0,
       totalBudgetPaise: 0,
       totalActualCostPaise: 0,
@@ -386,8 +387,71 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
       totalCollectedPaise: 0,
     };
 
-    const receivablesPaise = Math.max(0, stats.totalInvoicedPaise - stats.totalCollectedPaise);
-    const estimatedFinalProfitPaise = Math.max(0, stats.totalContractValuePaise - stats.totalBudgetPaise);
+    // Live Invoices Aggregation (Bills & Receivables Due)
+    const invoiceAggregation = await Invoice.aggregate([
+      { $match: { status: { $ne: 'cancelled' } } },
+      {
+        $group: {
+          _id: null,
+          totalInvoicedPaise: { $sum: '$totalAmountPaise' },
+          totalPaidPaise: { $sum: '$paidAmountPaise' },
+          totalDuePaise: { $sum: '$dueAmountPaise' },
+          totalOutputTaxPaise: { $sum: { $add: ['$cgstPaise', '$sgstPaise', '$igstPaise'] } },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Live Payments Aggregation (Verified bank collections)
+    const paymentAggregation = await Payment.aggregate([
+      { $match: { verificationStatus: { $in: ['verified', undefined, null] } } },
+      {
+        $group: {
+          _id: null,
+          totalCollectedPaise: { $sum: '$amountPaise' },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Live Quotations Aggregation
+    const quotationAggregation = await Quotation.aggregate([
+      { $match: { status: { $ne: 'rejected' } } },
+      {
+        $group: {
+          _id: null,
+          totalQuotationValuePaise: { $sum: '$totalAmountPaise' },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Live GST liability
+    const latestTaxRecord = await TaxReconciliation.findOne().sort({ period: -1 });
+    let netGstPayablePaise = 0;
+    let gstFilingStatus = 'not_filed';
+    if (latestTaxRecord) {
+      netGstPayablePaise = latestTaxRecord.netTaxPayablePaise || 0;
+      gstFilingStatus = latestTaxRecord.returnStatus || 'not_filed';
+    } else {
+      const outputTax = invoiceAggregation[0]?.totalOutputTaxPaise || 0;
+      const allExpenses = await Expense.find();
+      const purchases = allExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
+      const eligibleItc = Math.round(purchases * 0.18 * 0.85);
+      netGstPayablePaise = Math.max(0, outputTax - eligibleItc);
+    }
+
+    // Consolidated metrics ensuring absolute synchronization
+    const invoicedPaise = invoiceAggregation[0]?.totalInvoicedPaise ?? projectStats.totalInvoicedPaise;
+    const collectedPaise = paymentAggregation[0]?.totalCollectedPaise ?? projectStats.totalCollectedPaise;
+    const receivablesPaise =
+      invoiceAggregation[0]?.totalDuePaise !== undefined
+        ? invoiceAggregation[0].totalDuePaise
+        : Math.max(0, invoicedPaise - collectedPaise);
+    const estimatedFinalProfitPaise = Math.max(0, projectStats.totalContractValuePaise - projectStats.totalBudgetPaise);
+    const quotationValuePaise = quotationAggregation[0]?.totalQuotationValuePaise || 0;
+    const totalQuotations = quotationAggregation[0]?.count || 0;
+    const totalInvoices = invoiceAggregation[0]?.count || 0;
 
     // Recent activity
     const recentSiteReports = await SiteReport.find()
@@ -408,13 +472,19 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
         activeProjects,
         planningProjects,
         completedProjects,
-        contractValuePaise: stats.totalContractValuePaise,
-        budgetPaise: stats.totalBudgetPaise,
-        actualCostPaise: stats.totalActualCostPaise,
-        invoicedPaise: stats.totalInvoicedPaise,
-        collectedPaise: stats.totalCollectedPaise,
+        contractValuePaise: projectStats.totalContractValuePaise,
+        budgetPaise: projectStats.totalBudgetPaise,
+        actualCostPaise: projectStats.totalActualCostPaise,
+        invoicedPaise,
+        collectedPaise,
         receivablesPaise,
+        totalOutstandingPaise: receivablesPaise,
         estimatedFinalProfitPaise,
+        quotationValuePaise,
+        totalQuotations,
+        totalInvoices,
+        netGstPayablePaise,
+        gstFilingStatus,
       },
       recentSiteReports,
       recentExpenses,

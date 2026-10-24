@@ -545,26 +545,27 @@ export const getTaxReconciliations = async (req: Request, res: Response, next: N
   try {
     let records = await TaxReconciliation.find().sort({ period: -1 });
 
+    const allInvoices = await Invoice.find({ status: { $ne: 'cancelled' } });
+    let totalTaxableSalesPaise = 0;
+    let outputCgstPaise = 0;
+    let outputSgstPaise = 0;
+    let outputIgstPaise = 0;
+
+    allInvoices.forEach((inv) => {
+      totalTaxableSalesPaise += inv.subtotalPaise || 0;
+      outputCgstPaise += inv.cgstPaise || 0;
+      outputSgstPaise += inv.sgstPaise || 0;
+      outputIgstPaise += inv.igstPaise || 0;
+    });
+
+    const totalOutputTaxPaise = outputCgstPaise + outputSgstPaise + outputIgstPaise;
+
+    const allExpenses = await Expense.find();
+    const totalPurchasesPaise = allExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
+    const totalPurchaseGstPaise = Math.round(totalPurchasesPaise * 0.18);
+
     // If no record exists, auto-seed one from existing invoices and expenses
     if (records.length === 0) {
-      const allInvoices = await Invoice.find({ status: { $ne: 'cancelled' } });
-      let totalTaxableSalesPaise = 0;
-      let outputCgstPaise = 0;
-      let outputSgstPaise = 0;
-      let outputIgstPaise = 0;
-
-      allInvoices.forEach((inv) => {
-        totalTaxableSalesPaise += inv.subtotalPaise || 0;
-        outputCgstPaise += inv.cgstPaise || 0;
-        outputSgstPaise += inv.sgstPaise || 0;
-        outputIgstPaise += inv.igstPaise || 0;
-      });
-
-      const totalOutputTaxPaise = outputCgstPaise + outputSgstPaise + outputIgstPaise;
-
-      const allExpenses = await Expense.find();
-      const totalPurchasesPaise = allExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
-      const totalPurchaseGstPaise = Math.round(totalPurchasesPaise * 0.18);
       const eligibleItcPaise = Math.round(totalPurchaseGstPaise * 0.85); // 85% eligible ITC baseline
       const ineligibleItcPaise = totalPurchaseGstPaise - eligibleItcPaise;
       const netTaxPayablePaise = Math.max(0, totalOutputTaxPaise - eligibleItcPaise);
@@ -587,7 +588,7 @@ export const getTaxReconciliations = async (req: Request, res: Response, next: N
         paymentStatus: 'pending',
         returnStatus: 'not_filed',
         reconciliationStatus: 'draft_needs_review',
-        notes: 'Initial auto-reconciliation period calculated from active project tax invoices and material bills.',
+        notes: 'Live reconciliation period calculated from active project tax invoices and material bills.',
         auditTrail: [
           {
             fieldChanged: 'initial_calculation',
@@ -602,6 +603,25 @@ export const getTaxReconciliations = async (req: Request, res: Response, next: N
       });
 
       records = [defaultRecord];
+    } else if (records[0].returnStatus !== 'filed') {
+      // Keep draft tax record in live sync with newly created invoices / bills
+      const currentRec = records[0];
+      const hasCustomItc = (currentRec.auditTrail || []).some((a: any) => a.fieldChanged === 'eligibleItcPaise');
+      const eligibleItcPaise = hasCustomItc ? currentRec.eligibleItcPaise : Math.round(totalPurchaseGstPaise * 0.85);
+      const ineligibleItcPaise = Math.max(0, totalPurchaseGstPaise - eligibleItcPaise);
+      const netTaxPayablePaise = Math.max(0, totalOutputTaxPaise - eligibleItcPaise + (currentRec.taxAdjustmentsPaise || 0));
+
+      currentRec.totalTaxableSalesPaise = totalTaxableSalesPaise;
+      currentRec.outputCgstPaise = outputCgstPaise;
+      currentRec.outputSgstPaise = outputSgstPaise;
+      currentRec.outputIgstPaise = outputIgstPaise;
+      currentRec.totalOutputTaxPaise = totalOutputTaxPaise;
+      currentRec.totalTaxablePurchasesPaise = totalPurchasesPaise;
+      currentRec.totalPurchaseGstPaise = totalPurchaseGstPaise;
+      currentRec.eligibleItcPaise = eligibleItcPaise;
+      currentRec.ineligibleItcPaise = ineligibleItcPaise;
+      currentRec.netTaxPayablePaise = netTaxPayablePaise;
+      await currentRec.save();
     }
 
     res.json({ success: true, count: records.length, records });

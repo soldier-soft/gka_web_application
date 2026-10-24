@@ -11,6 +11,9 @@ import {
   HardHat,
   Camera,
   Activity,
+  Receipt,
+  ShieldCheck,
+  Calculator,
 } from 'lucide-react';
 import {
   BarChart,
@@ -66,6 +69,7 @@ export const DashboardPage: React.FC = () => {
     { name: 'Actual Cost', amount: toRupees(stats?.actualCostPaise || 0) },
     { name: 'Total Invoiced', amount: toRupees(stats?.invoicedPaise || 0) },
     { name: 'Total Collected', amount: toRupees(stats?.collectedPaise || 0) },
+    { name: 'Total Outstanding', amount: toRupees(stats?.receivablesPaise || 0) },
   ];
 
   // Pie chart distribution
@@ -74,6 +78,8 @@ export const DashboardPage: React.FC = () => {
     { name: 'Outstanding Receivables', value: toRupees(stats?.receivablesPaise || 0), color: '#DC2626' },
     { name: 'Estimated Final Profit', value: toRupees(stats?.estimatedFinalProfitPaise || 0), color: '#C59A27' },
   ];
+
+  const hasPieData = (stats?.actualCostPaise || 0) + (stats?.receivablesPaise || 0) + (stats?.estimatedFinalProfitPaise || 0) > 0;
 
   return (
     <div className="space-y-8">
@@ -84,14 +90,38 @@ export const DashboardPage: React.FC = () => {
             Owner's ERP Dashboard
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Real-time business performance, project financials, site diaries and cash collection.
+            Real-time live performance, projects, quotations, bills, total outstanding rate & GST compliance.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/admin/projects"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            Projects
+          </Link>
+          <Link
+            to="/admin/quotations"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            Quotations
+          </Link>
+          <Link
+            to="/admin/invoices"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            Bills (Invoices)
+          </Link>
+          <Link
+            to="/admin/finance?tab=gst"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            GST Filing
+          </Link>
           <Link
             to="/admin/crm"
-            className="px-3.5 py-2 rounded-lg text-xs font-bold bg-brand-navy-900 text-white hover:bg-brand-navy-800 transition-colors shadow-sm flex items-center gap-1.5"
+            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-brand-navy-900 text-white hover:bg-brand-navy-800 transition-colors shadow-sm flex items-center gap-1.5"
           >
             <span>Review CRM Leads</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -99,54 +129,88 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Stat Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1 */}
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-subtle space-y-2">
+      {/* KPI Stat Cards Grid - 6 Key Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Card 1: Total Outstanding Rate */}
+        <div className="bg-white rounded-xl p-5 border-2 border-rose-200 shadow-subtle space-y-2 bg-rose-50/20">
           <div className="flex justify-between items-center text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Total Contract Value</span>
-            <Briefcase className="w-4 h-4 text-brand-gold-600" />
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-700">Total Outstanding (Bills Due)</span>
+            <AlertCircle className="w-4 h-4 text-rose-600" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold font-heading text-brand-navy-950">
-            {formatINR(stats?.contractValuePaise || 0)}
+          <p className="text-2xl font-extrabold font-heading text-rose-600">
+            {formatINR(stats?.receivablesPaise || 0)}
           </p>
-          <p className="text-[11px] text-slate-400">Across {stats?.totalProjects || 0} active / planned projects</p>
+          <p className="text-[11px] text-slate-500">
+            Pending client clearance across {stats?.totalInvoices || 0} bill(s)
+          </p>
         </div>
 
-        {/* Card 2 */}
+        {/* Card 2: Total Invoiced */}
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-subtle space-y-2">
+          <div className="flex justify-between items-center text-slate-500">
+            <span className="text-xs font-semibold uppercase tracking-wider">Total Invoiced (Bills)</span>
+            <Receipt className="w-4 h-4 text-brand-navy-800" />
+          </div>
+          <p className="text-2xl font-bold font-heading text-brand-navy-950">
+            {formatINR(stats?.invoicedPaise || 0)}
+          </p>
+          <p className="text-[11px] text-slate-400">
+            Gross bills issued ({stats?.totalInvoices || 0} invoice records)
+          </p>
+        </div>
+
+        {/* Card 3: Verified Collected */}
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-subtle space-y-2">
           <div className="flex justify-between items-center text-slate-500">
             <span className="text-xs font-semibold uppercase tracking-wider">Customer Collected</span>
             <IndianRupee className="w-4 h-4 text-emerald-600" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold font-heading text-emerald-700">
+          <p className="text-2xl font-bold font-heading text-emerald-700">
             {formatINR(stats?.collectedPaise || 0)}
           </p>
           <p className="text-[11px] text-slate-400">Total verified client payments in bank</p>
         </div>
 
-        {/* Card 3 */}
+        {/* Card 4: Quotation Pipeline */}
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-subtle space-y-2">
           <div className="flex justify-between items-center text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Receivables Due</span>
-            <AlertCircle className="w-4 h-4 text-rose-500" />
+            <span className="text-xs font-semibold uppercase tracking-wider">Quotations Pipeline</span>
+            <Calculator className="w-4 h-4 text-brand-gold-600" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold font-heading text-rose-600">
-            {formatINR(stats?.receivablesPaise || 0)}
+          <p className="text-2xl font-bold font-heading text-brand-gold-600">
+            {formatINR(stats?.quotationValuePaise || 0)}
           </p>
-          <p className="text-[11px] text-slate-400">Invoiced amount pending client clearance</p>
+          <p className="text-[11px] text-slate-400">
+            Across {stats?.totalQuotations || 0} active quotation estimate(s)
+          </p>
         </div>
 
-        {/* Card 4 */}
+        {/* Card 5: GST Net Tax Liability */}
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-subtle space-y-2">
           <div className="flex justify-between items-center text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Estimated Final Profit</span>
-            <TrendingUp className="w-4 h-4 text-brand-gold-500" />
+            <span className="text-xs font-semibold uppercase tracking-wider">GST Net Tax Liability</span>
+            <ShieldCheck className="w-4 h-4 text-indigo-600" />
           </div>
-          <p className="text-xl sm:text-2xl font-bold font-heading text-brand-gold-600">
-            {formatINR(stats?.estimatedFinalProfitPaise || 0)}
+          <p className="text-2xl font-bold font-heading text-indigo-900">
+            {formatINR(stats?.netGstPayablePaise || 0)}
           </p>
-          <p className="text-[11px] text-slate-400">Contract value minus execution budget</p>
+          <p className="text-[11px] text-slate-400 capitalize">
+            Status: {stats?.gstFilingStatus === 'filed' ? 'Filed' : 'Pending Filing'} (18% GST Reconciliation)
+          </p>
+        </div>
+
+        {/* Card 6: Project Contracts & Est. Profit */}
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-subtle space-y-2">
+          <div className="flex justify-between items-center text-slate-500">
+            <span className="text-xs font-semibold uppercase tracking-wider">Project Contract Value</span>
+            <Briefcase className="w-4 h-4 text-slate-700" />
+          </div>
+          <p className="text-2xl font-bold font-heading text-brand-navy-950">
+            {formatINR(stats?.contractValuePaise || 0)}
+          </p>
+          <p className="text-[11px] text-slate-400">
+            {stats?.totalProjects || 0} project(s) • Est. Profit: {formatINR(stats?.estimatedFinalProfitPaise || 0)}
+          </p>
         </div>
       </div>
 
@@ -193,28 +257,37 @@ export const DashboardPage: React.FC = () => {
             </h3>
             <p className="text-xs text-slate-500 mb-4">Cost incurred vs pending dues vs profit</p>
 
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={75}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(val: any) => [`₹${Number(val).toLocaleString('en-IN')}`, 'Value']}
-                    contentStyle={{ backgroundColor: '#0F1E36', color: '#fff', borderRadius: '8px', fontSize: '11px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="h-48 w-full flex items-center justify-center">
+              {hasPieData ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(val: any) => [`₹${Number(val).toLocaleString('en-IN')}`, 'Value']}
+                      contentStyle={{ backgroundColor: '#0F1E36', color: '#fff', borderRadius: '8px', fontSize: '11px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center p-4">
+                  <p className="text-xs font-semibold text-slate-500">Live Baseline at ₹0</p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Ready for live project entries. Create your first project, quotation or bill to see capital breakdown.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

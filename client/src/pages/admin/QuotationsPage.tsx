@@ -33,45 +33,22 @@ export const QuotationsPage: React.FC = () => {
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // New Quotation form state (matching reference image)
-  const [quotationNumber, setQuotationNumber] = useState('0910VIVA');
-  const [clientName, setClientName] = useState('THE CHIEF ENGINEER');
-  const [clientCompany, setClientCompany] = useState('VIVANTHA HOTEL');
-  const [projectTitle, setProjectTitle] = useState('Cooling Tower Base & Related Structures');
-  const [siteLocation, setSiteLocation] = useState('SHOLINGANALUR, CHENNAI.');
-  const [subject, setSubject] = useState(
-    'Quotation for Construction Works – Cooling Tower Base & Related Structures.'
-  );
-  const [senderName, setSenderName] = useState('HARI A');
+  // New Quotation form state (clean live application default)
+  const [quotationNumber, setQuotationNumber] = useState('GKA-QUO-2026-001');
+  const [clientName, setClientName] = useState('');
+  const [clientCompany, setClientCompany] = useState('');
+  const [projectTitle, setProjectTitle] = useState('');
+  const [siteLocation, setSiteLocation] = useState('');
+  const [subject, setSubject] = useState('');
+  const [senderName, setSenderName] = useState('Arivazhagan');
   const [senderCompany, setSenderCompany] = useState('GKA CONSTRUCTION');
   const [items, setItems] = useState<any[]>([
     {
-      description: 'Cooling tower concrete base Horizontal beam: 1x0.75x 20',
-      category: 'structural',
-      unit: 'CFT',
-      quantity: 160,
-      unitRateRupees: 1400,
-    },
-    {
-      description: 'Vertical columns: 0.8x 0.8',
-      category: 'structural',
-      unit: 'CFT',
-      quantity: 65,
-      unitRateRupees: 1450,
-    },
-    {
-      description: 'Service platform: 0.5 x3 x25',
-      category: 'finishing',
-      unit: 'LOT',
-      quantity: 1,
-      unitRateRupees: 50000,
-    },
-    {
-      description: 'Platform support beams: 0.8x3',
-      category: 'structural',
-      unit: 'LOT',
-      quantity: 1,
-      unitRateRupees: 71000,
+      description: 'Civil Construction & Finishing Works',
+      category: 'civil',
+      unit: 'sq.ft',
+      quantity: 0,
+      unitRateRupees: 0,
     },
   ]);
 
@@ -100,20 +77,20 @@ export const QuotationsPage: React.FC = () => {
         {
           description: preset.description,
           category: preset.category,
-          unit: preset.unit || 'CFT',
-          quantity: 100,
-          unitRateRupees: preset.unitRateRupees,
+          unit: preset.unit || 'sq.ft',
+          quantity: 0,
+          unitRateRupees: preset.unitRateRupees || 0,
         },
       ]);
     } else {
       setItems([
         ...items,
         {
-          description: 'New Civil Work Item',
+          description: '',
           category: 'civil',
-          unit: 'CFT',
-          quantity: 10,
-          unitRateRupees: 1200,
+          unit: 'sq.ft',
+          quantity: 0,
+          unitRateRupees: 0,
         },
       ]);
     }
