@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const clientPortalController_1 = require("./clientPortalController");
+const auth_1 = require("../../middleware/auth");
+const roleCheck_1 = require("../../middleware/roleCheck");
+const router = (0, express_1.Router)();
+router.use(auth_1.authenticate);
+router.use((0, roleCheck_1.requireRoles)('client', 'super_admin'));
+router.get('/my-projects', clientPortalController_1.getMyProjects);
+router.get('/projects/:id', clientPortalController_1.getClientProjectDetails);
+router.post('/payments/submit-notification', clientPortalController_1.submitPaymentNotification);
+router.post('/feedback', clientPortalController_1.submitFeedback);
+router.get('/feedback', clientPortalController_1.getClientFeedback);
+exports.default = router;

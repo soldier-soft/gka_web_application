@@ -10,9 +10,9 @@
     "test": "npm run test --prefix server",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
-    "build:client": "npm run build --prefix client",
+    "build:client": "node scripts/build-all.js",
     "build:server": "npm run build --prefix server",
-    "build": "npm run build:client && npm run build:server",
+    "build": "node scripts/build-all.js",
     "start": "node server.js"
   },
   "dependencies": {

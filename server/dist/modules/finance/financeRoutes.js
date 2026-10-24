@@ -1,0 +1,29 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const financeController_1 = require("./financeController");
+const auth_1 = require("../../middleware/auth");
+const roleCheck_1 = require("../../middleware/roleCheck");
+const router = (0, express_1.Router)();
+// Invoice PDF & DOCX downloads (supports query param token and direct browser viewing)
+router.get('/invoices/:id/pdf', auth_1.optionalAuthenticate, financeController_1.downloadInvoicePDF);
+router.get('/invoices/:id/docx', auth_1.optionalAuthenticate, financeController_1.downloadInvoiceDOCX);
+router.use(auth_1.authenticate);
+router.get('/invoices', financeController_1.getInvoices);
+router.post('/invoices', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.createInvoice);
+router.put('/invoices/:id', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.updateInvoice);
+router.patch('/invoices/:id/gst-toggle', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.toggleInvoiceGst);
+router.get('/expenses', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts', 'site_supervisor'), financeController_1.getExpenses);
+router.post('/expenses', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts', 'site_supervisor'), financeController_1.createExpense);
+router.get('/payments', financeController_1.getPayments);
+router.post('/payments', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.recordPayment);
+router.patch('/payments/:id/verify', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.verifyPayment);
+router.patch('/payments/:id/reconcile', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.reconcilePayment);
+router.patch('/payments/:id/reject', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.rejectPayment);
+router.get('/profitability/:projectId', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts'), financeController_1.getProfitabilityReport);
+// GST & Tax Reconciliation (Owner & Accounts ONLY)
+router.get('/gst/periods', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.getTaxReconciliations);
+router.patch('/gst/periods/:id/eligible-itc', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.updateEligibleItc);
+router.post('/gst/periods/:id/payment', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.recordTaxPayment);
+router.post('/gst/periods/:id/filing', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.recordTaxFiling);
+exports.default = router;

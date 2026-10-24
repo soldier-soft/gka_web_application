@@ -5,7 +5,8 @@ node_modules/
 # Production builds
 dist/
 build/
-*/dist/
+!server/dist/
+!client/dist/
 
 # Environment files
 .env

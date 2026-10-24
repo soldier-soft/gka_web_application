@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const siteOpsController_1 = require("./siteOpsController");
+const auth_1 = require("../../middleware/auth");
+const roleCheck_1 = require("../../middleware/roleCheck");
+const router = (0, express_1.Router)();
+router.use(auth_1.authenticate);
+router.get('/reports', siteOpsController_1.getSiteReports);
+router.post('/reports', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'site_supervisor'), siteOpsController_1.createSiteReport);
+router.patch('/reports/:id/publish', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager'), siteOpsController_1.togglePublishReport);
+exports.default = router;
