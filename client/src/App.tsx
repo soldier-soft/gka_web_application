@@ -29,6 +29,8 @@ import { QuotationsPage } from './pages/admin/QuotationsPage';
 import { SiteOpsPage } from './pages/admin/SiteOpsPage';
 import { InventoryPage } from './pages/admin/InventoryPage';
 import { FinancePage } from './pages/admin/FinancePage';
+import { PortfolioAdminPage } from './pages/admin/PortfolioAdminPage';
+import { InvoicesPage } from './pages/admin/InvoicesPage';
 
 // Client Portal
 import { ClientPortalPage } from './pages/client/ClientPortalPage';
@@ -95,6 +97,7 @@ export const App: React.FC = () => {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/services" element={<ServicesPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/projects/:slug" element={<ProjectsPage />} />
               <Route path="/cost-estimator" element={<CostEstimatorPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
@@ -112,9 +115,11 @@ export const App: React.FC = () => {
               <Route path="projects" element={<AdminProjectsPage />} />
               <Route path="projects/:id" element={<ProjectDetailPage />} />
               <Route path="quotations" element={<QuotationsPage />} />
+              <Route path="invoices" element={<InvoicesPage />} />
               <Route path="site-ops" element={<SiteOpsPage />} />
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="finance" element={<FinancePage />} />
+              <Route path="portfolio" element={<PortfolioAdminPage />} />
             </Route>
 
             {/* Client Portal */}

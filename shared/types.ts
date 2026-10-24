@@ -385,3 +385,141 @@ export const formatINR = (paise: number): string => {
     maximumFractionDigits: 0,
   }).format(rupees);
 };
+
+// ==========================================
+// Portfolio, Project Ideas & Enquiry Types
+// ==========================================
+
+export type PublicProjectCategory =
+  | 'all'
+  | 'residential'
+  | 'villas'
+  | 'commercial'
+  | 'renovation'
+  | 'civil_finishing'
+  | 'tiling'
+  | 'maintenance';
+
+export interface IProjectImage {
+  url: string;
+  alt: string;
+  caption?: string;
+  order: number;
+  isCover?: boolean;
+  imageType: 'actual_project' | 'illustrative_reference';
+  permissionStatus?: 'verified_work' | 'client_approved' | 'licensed_reference';
+}
+
+export interface IPortfolioProject {
+  _id: string;
+  title: string;
+  slug: string;
+  category: PublicProjectCategory;
+  categoryLabel: string;
+  location: string;
+  description: string;
+  workScope: string[];
+  projectType: 'actual_work' | 'design_reference' | 'concept_reference';
+  status: 'Completed' | 'Active' | 'Design Reference';
+  client?: string;
+  approxAreaSqFt?: number;
+  images: IProjectImage[];
+  isVerified: boolean;
+  isFeatured: boolean;
+  isPublished: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BuiltUpAreaCategory =
+  | 'under_600'
+  | '600_800'
+  | '800_1000'
+  | '1000_1200'
+  | '1200_1500'
+  | '1500_2000'
+  | '2000_2500'
+  | 'above_2500';
+
+export type BedroomFilter = 'all' | '1_bhk' | '2_bhk' | '3_bhk' | '4_bhk_plus' | 'not_applicable';
+
+export type PropertyTypeFilter =
+  | 'all'
+  | 'single_floor'
+  | 'duplex'
+  | 'villa'
+  | 'compact_home'
+  | 'commercial'
+  | 'renovation';
+
+export type ArchitecturalStyleFilter =
+  | 'all'
+  | 'contemporary'
+  | 'traditional'
+  | 'modern'
+  | 'minimalist'
+  | 'elevation_design'
+  | 'interior_reference';
+
+export type ConceptTypeFilter =
+  | 'all'
+  | 'compact_budget'
+  | 'premium_finish'
+  | 'standard_family';
+
+export interface IProjectIdea {
+  _id: string;
+  ideaId: string;
+  slug: string;
+  title: string;
+  builtUpAreaSqFt: number;
+  areaCategory: BuiltUpAreaCategory;
+  areaCategoryLabel: string;
+  bedroomCount: BedroomFilter;
+  propertyType: PropertyTypeFilter;
+  architecturalStyle: ArchitecturalStyleFilter;
+  conceptType: ConceptTypeFilter;
+  description: string;
+  features: string[];
+  images: IProjectImage[];
+  tags: string[];
+  contentType: 'Concept Reference' | 'Actual Project';
+  isPublished: boolean;
+  isFeatured: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IEnquirySubmission {
+  customerName: string;
+  phone: string;
+  email?: string;
+  preferredContactMethod: 'call' | 'whatsapp' | 'email';
+  serviceType: string;
+  projectLocation: string;
+  builtUpAreaSqFt?: number;
+  projectType: 'new_construction' | 'renovation' | 'expansion' | 'other';
+  requirements: string;
+  preferredContactTime?: string;
+  consent: boolean;
+  relatedProjectId?: string;
+  relatedProjectTitle?: string;
+  relatedIdeaId?: string;
+  relatedIdeaTitle?: string;
+}
+
+export interface IEnquiryRecord extends IEnquirySubmission {
+  _id: string;
+  referenceNumber: string;
+  status: 'new' | 'contacted' | 'site_visit_scheduled' | 'quotation_in_progress' | 'converted' | 'closed';
+  notes?: string;
+  emailNotificationSent: boolean;
+  emailNotificationError?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+

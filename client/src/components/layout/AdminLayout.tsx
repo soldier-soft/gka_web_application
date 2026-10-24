@@ -16,6 +16,9 @@ import {
   ChevronRight,
   ShieldAlert,
   UserCheck,
+  Sparkles,
+  Receipt,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { GKA_COMPANY } from '@shared/constants';
@@ -30,10 +33,13 @@ export const AdminLayout: React.FC = () => {
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'CRM & Leads', path: '/admin/crm', icon: Users },
     { name: 'Projects', path: '/admin/projects', icon: Briefcase },
+    { name: 'Portfolio & Ideas', path: '/admin/portfolio', icon: Sparkles },
     { name: 'Quotations & Estimator', path: '/admin/quotations', icon: Calculator },
+    { name: 'Invoices & Billing', path: '/admin/invoices', icon: FileSpreadsheet },
     { name: 'Site Operations', path: '/admin/site-ops', icon: Camera },
     { name: 'Inventory & Materials', path: '/admin/inventory', icon: Boxes },
     { name: 'Finance & Profitability', path: '/admin/finance', icon: IndianRupee },
+    { name: 'GST & Tax Settlement', path: '/admin/finance?tab=gst', icon: Receipt },
   ];
 
   const handleRoleSwitch = async (roleEmail: string) => {
@@ -94,7 +100,11 @@ export const AdminLayout: React.FC = () => {
         {/* Navigation list */}
         <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = location.pathname.startsWith(item.path);
+            const isCurrentQuery = item.path.includes('?');
+            const isActive = isCurrentQuery
+              ? (location.pathname + location.search) === item.path
+              : location.pathname === item.path ||
+                (item.path !== '/admin/dashboard' && location.pathname.startsWith(item.path) && !location.search);
             const Icon = item.icon;
             return (
               <Link

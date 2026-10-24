@@ -7,6 +7,12 @@ import path from 'path';
 import authRoutes from './modules/auth/authRoutes';
 import crmRoutes from './modules/crm/crmRoutes';
 import projectRoutes from './modules/projects/projectRoutes';
+import portfolioRoutes from './modules/portfolio/portfolioRoutes';
+import {
+  getProjectIdeas,
+  getProjectIdeaBySlug,
+  createPublicEnquiry,
+} from './modules/portfolio/portfolioController';
 import quotationRoutes from './modules/quotations/quotationRoutes';
 import siteOpsRoutes from './modules/siteOps/siteOpsRoutes';
 import inventoryRoutes from './modules/inventory/inventoryRoutes';
@@ -42,6 +48,10 @@ export const createApp = (): express.Application => {
   apiRouter.use('/auth', authRoutes);
   apiRouter.use('/crm', crmRoutes);
   apiRouter.use('/projects', projectRoutes);
+  apiRouter.use('/portfolio', portfolioRoutes);
+  apiRouter.get('/project-ideas', getProjectIdeas);
+  apiRouter.get('/project-ideas/:slug', getProjectIdeaBySlug);
+  apiRouter.post('/enquiries', createPublicEnquiry);
   apiRouter.use('/quotations', quotationRoutes);
   apiRouter.use('/site-ops', siteOpsRoutes);
   apiRouter.use('/inventory', inventoryRoutes);

@@ -29,12 +29,15 @@ export const GKA_COMPANY = {
     full: 'Rajan Nagar, Kelambakkam – Vandalur Junction, Chennai, Tamil Nadu'
   },
   bankDetails: {
+    beneficiary: 'GKA CONSTRUCTION',
     accountName: 'GKA CONSTRUCTION',
-    accountNumber: '50200088912345',
-    bankName: 'HDFC Bank',
-    branch: 'Kelambakkam Branch, Chennai',
-    ifscCode: 'HDFC0001824',
-    upiId: 'gkaconstruction@hdfcbank'
+    bankName: 'Federal Bank',
+    accountNumber: '23330200002362',
+    ifscCode: 'FDRL0002333',
+    micr: '606049002',
+    contactMobile: '8838030917',
+    branch: 'Chennai Branch',
+    upiId: '8838030917@federal'
   },
   representativeClients: [
     {
@@ -169,3 +172,69 @@ export const STANDARD_RATE_LIBRARY = [
     breakdown: { material: 9500, labour: 4500, equipment: 500 }
   }
 ];
+
+// Featured Projects Category Filters
+export const PORTFOLIO_PROJECT_FILTERS = [
+  { id: 'all', label: 'All Projects' },
+  { id: 'residential', label: 'Residential Homes' },
+  { id: 'villas', label: 'Villas' },
+  { id: 'commercial', label: 'Commercial & Hospitality' },
+  { id: 'renovation', label: 'Renovation & Civil Works' },
+  { id: 'civil_finishing', label: 'Tiling & Finishing' },
+  { id: 'maintenance', label: 'Building Maintenance' }
+];
+
+// Configurable Square-Footage Ranges for 50+ House Construction Ideas
+export const SQUARE_FOOTAGE_RANGES = [
+  { id: 'all', label: 'All Sizes', minSqFt: 0, maxSqFt: 100000 },
+  { id: 'under_600', label: 'Under 600 sq. ft.', minSqFt: 0, maxSqFt: 600 },
+  { id: '600_800', label: '600–800 sq. ft.', minSqFt: 600, maxSqFt: 800 },
+  { id: '800_1000', label: '800–1,000 sq. ft.', minSqFt: 800, maxSqFt: 1000 },
+  { id: '1000_1200', label: '1,000–1,200 sq. ft.', minSqFt: 1000, maxSqFt: 1200 },
+  { id: '1200_1500', label: '1,200–1,500 sq. ft.', minSqFt: 1200, maxSqFt: 1500 },
+  { id: '1500_2000', label: '1,500–2,000 sq. ft.', minSqFt: 1500, maxSqFt: 2000 },
+  { id: '2000_2500', label: '2,000–2,500 sq. ft.', minSqFt: 2000, maxSqFt: 2500 },
+  { id: 'above_2500', label: 'Above 2,500 sq. ft.', minSqFt: 2500, maxSqFt: 100000 }
+];
+
+// Additional Filters for Exploration
+export const BEDROOM_OPTIONS = [
+  { id: 'all', label: 'All Bedrooms' },
+  { id: '1_bhk', label: '1 BHK' },
+  { id: '2_bhk', label: '2 BHK' },
+  { id: '3_bhk', label: '3 BHK' },
+  { id: '4_bhk_plus', label: '4 BHK & Above' },
+  { id: 'not_applicable', label: 'Layout Reference' }
+];
+
+export const PROPERTY_TYPE_OPTIONS = [
+  { id: 'all', label: 'All Property Types' },
+  { id: 'single_floor', label: 'Single-Floor House' },
+  { id: 'duplex', label: 'Duplex House' },
+  { id: 'villa', label: 'Independent Villa' },
+  { id: 'compact_home', label: 'Compact Urban Home' },
+  { id: 'commercial', label: 'Commercial Space' },
+  { id: 'renovation', label: 'Renovation Scope' }
+];
+
+export const ARCHITECTURAL_STYLE_OPTIONS = [
+  { id: 'all', label: 'All Styles' },
+  { id: 'contemporary', label: 'Contemporary Design' },
+  { id: 'traditional', label: 'Traditional Tamil Nadu' },
+  { id: 'modern', label: 'Modern Front Elevation' },
+  { id: 'minimalist', label: 'Minimalist & Efficient' },
+  { id: 'elevation_design', label: 'Exterior Elevation' },
+  { id: 'interior_reference', label: 'Interior & Finishing' }
+];
+
+export const CONCEPT_TYPE_OPTIONS = [
+  { id: 'all', label: 'All Concepts' },
+  { id: 'compact_budget', label: 'Compact-Budget Concept' },
+  { id: 'premium_finish', label: 'Premium-Finish Concept' },
+  { id: 'standard_family', label: 'Standard Family Living' }
+];
+
+// Official Disclaimer for Pricing & Plans
+export const ESTIMATION_DISCLAIMER_TEXT =
+  'Every project depends on plot dimensions, soil and site conditions, design requirements, material selection, structural specifications and finishing preferences. The ideas shown are references only. For a project-specific recommendation, detailed specifications and an estimate, please request a site visit or contact our team by phone or email.';
+

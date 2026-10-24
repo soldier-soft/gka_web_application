@@ -45,7 +45,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       clientId,
     };
 
-    const token = jwt.sign(payload, ENV.JWT_SECRET, { expiresIn: ENV.JWT_EXPIRES_IN });
+    const token = jwt.sign(payload, ENV.JWT_SECRET, { expiresIn: ENV.JWT_EXPIRES_IN as any });
 
     res.json({
       success: true,

@@ -46,6 +46,58 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   return data;
 }
 
+export const getFileUrl = (path: string): string => {
+  const token = getAuthToken();
+  if (!token) return path;
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}token=${encodeURIComponent(token)}`;
+};
+
+export const downloadFile = async (
+  endpoint: string,
+  filename: string,
+  openInNewTab = false
+): Promise<void> => {
+  const token = getAuthToken();
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const url = endpoint.startsWith('http') || endpoint.startsWith('/api') ? endpoint : `${BASE_URL}${endpoint}`;
+  const response = await fetch(url, { headers });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Download failed' }));
+    throw new Error(errorData.message || 'Download failed');
+  }
+
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+
+  if (openInNewTab) {
+    const newWindow = window.open(blobUrl, '_blank');
+    if (!newWindow) {
+      // If popup blocked, fallback to normal link click
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  } else {
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+};
+
 export const api = {
   // Auth
   login: (credentials: { email: string; password: string }) =>
@@ -58,6 +110,17 @@ export const api = {
   // CRM & Enquiries
   createEnquiry: (data: any) =>
     request<{ success: boolean; message: string; leadId: string }>('/crm/enquiries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  submitEnquiry: (data: any) =>
+    request<{
+      success: boolean;
+      message: string;
+      referenceNumber: string;
+      enquiryId: string;
+      emailNotificationSent: boolean;
+    }>('/enquiries', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -75,7 +138,60 @@ export const api = {
       method: 'POST',
     }),
 
-  // Projects
+  // Public Portfolio & Project Ideas
+  getPublicProjects: (params?: Record<string, string>) => {
+    const q = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request<{ success: boolean; count: number; total: number; projects: any[] }>(`/portfolio/projects${q}`);
+  },
+  getPublicProjectBySlug: (slug: string) =>
+    request<{ success: boolean; project: any; relatedProjects: any[]; relatedIdeas: any[] }>(`/portfolio/projects/${slug}`),
+  getProjectIdeas: (params?: Record<string, string>) => {
+    const q = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request<{ success: boolean; count: number; total: number; ideas: any[] }>(`/project-ideas${q}`);
+  },
+  getProjectIdeaBySlug: (slug: string) =>
+    request<{ success: boolean; idea: any; relatedIdeas: any[] }>(`/project-ideas/${slug}`),
+
+  // Admin Portfolio & Idea Management
+  adminCreateProject: (data: any) =>
+    request<{ success: boolean; project: any }>('/portfolio/admin/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  adminUpdateProject: (id: string, data: any) =>
+    request<{ success: boolean; project: any }>(`/portfolio/admin/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  adminDeleteProject: (id: string) =>
+    request<{ success: boolean; message: string }>(`/portfolio/admin/projects/${id}`, {
+      method: 'DELETE',
+    }),
+  adminCreateProjectIdea: (data: any) =>
+    request<{ success: boolean; idea: any }>('/portfolio/admin/project-ideas', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  adminUpdateProjectIdea: (id: string, data: any) =>
+    request<{ success: boolean; idea: any }>(`/portfolio/admin/project-ideas/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  adminDeleteProjectIdea: (id: string) =>
+    request<{ success: boolean; message: string }>(`/portfolio/admin/project-ideas/${id}`, {
+      method: 'DELETE',
+    }),
+  getEnquiries: (params?: Record<string, string>) => {
+    const q = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request<{ success: boolean; count: number; total: number; enquiries: any[] }>(`/portfolio/admin/enquiries${q}`);
+  },
+  updateEnquiryStatus: (id: string, data: any) =>
+    request<{ success: boolean; enquiry: any }>(`/portfolio/admin/enquiries/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  // Projects (Internal ERP)
   getProjects: (params?: Record<string, string>) => {
     const q = params ? '?' + new URLSearchParams(params).toString() : '';
     return request<{ success: boolean; count: number; projects: any[] }>(`/projects${q}`);
@@ -117,6 +233,11 @@ export const api = {
   approveQuotation: (id: string) =>
     request<{ success: boolean; message: string; quotation: any }>(`/quotations/${id}/approve`, {
       method: 'POST',
+    }),
+  convertQuotationToInvoice: (id: string, data?: any) =>
+    request<{ success: boolean; message: string; invoice: any }>(`/quotations/${id}/convert-to-invoice`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
     }),
 
   // Site Operations
@@ -173,6 +294,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  updateInvoice: (id: string, data: any) =>
+    request<{ success: boolean; message: string; invoice: any }>(`/finance/invoices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  toggleInvoiceGst: (id: string, data: { gstFiled?: boolean; gstFilingArn?: string; gstTaxPeriod?: string }) =>
+    request<{ success: boolean; message: string; invoice: any }>(`/finance/invoices/${id}/gst-toggle`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
   getExpenses: (params?: Record<string, string>) => {
     const q = params ? '?' + new URLSearchParams(params).toString() : '';
     return request<{ success: boolean; count: number; expenses: any[] }>(`/finance/expenses${q}`);
@@ -191,8 +322,40 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  verifyPayment: (id: string) =>
+    request<{ success: boolean; message: string; payment: any }>(`/finance/payments/${id}/verify`, {
+      method: 'PATCH',
+    }),
+  reconcilePayment: (id: string) =>
+    request<{ success: boolean; message: string; payment: any }>(`/finance/payments/${id}/reconcile`, {
+      method: 'PATCH',
+    }),
+  rejectPayment: (id: string, reason?: string) =>
+    request<{ success: boolean; message: string; payment: any }>(`/finance/payments/${id}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    }),
   getProfitability: (projectId: string) =>
     request<{ success: boolean; project: any; categoryExpenses: any[] }>(`/finance/profitability/${projectId}`),
+
+  // GST & Tax Reconciliation
+  getTaxReconciliations: () =>
+    request<{ success: boolean; count: number; records: any[] }>('/finance/gst/periods'),
+  updateEligibleItc: (id: string, data: { eligibleItcPaise: number; taxAdjustmentsPaise?: number; reason?: string }) =>
+    request<{ success: boolean; message: string; record: any }>(`/finance/gst/periods/${id}/eligible-itc`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  recordTaxPayment: (id: string, data: any) =>
+    request<{ success: boolean; message: string; record: any }>(`/finance/gst/periods/${id}/payment`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  recordTaxFiling: (id: string, data: any) =>
+    request<{ success: boolean; message: string; record: any }>(`/finance/gst/periods/${id}/filing`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   // Client Portal
   getClientProjects: () =>
@@ -204,7 +367,24 @@ export const api = {
       milestones: any[];
       publishedReports: any[];
       invoices: any[];
+      payments: any[];
       quotations: any[];
       documents: any[];
+      feedbackTickets: any[];
+      bankDetails: any;
     }>(`/client-portal/projects/${id}`),
+  submitClientPayment: (data: any) =>
+    request<{ success: boolean; message: string; payment: any }>('/client-portal/payments/submit-notification', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  submitClientFeedback: (data: any) =>
+    request<{ success: boolean; message: string; feedback: any }>('/client-portal/feedback', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getClientFeedback: (params?: Record<string, string>) => {
+    const q = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request<{ success: boolean; count: number; tickets: any[] }>(`/client-portal/feedback${q}`);
+  },
 };

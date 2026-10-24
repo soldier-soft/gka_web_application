@@ -18,6 +18,11 @@ export interface IQuotationDocument extends Document {
   igstPaise: number;
   taxRatePercent: number;
   totalAmountPaise: number;
+  subject?: string;
+  clientContactPerson?: string;
+  clientCompany?: string;
+  senderName?: string;
+  senderCompany?: string;
   termsAndConditions: string[];
   revisionNumber: number;
   status: 'draft' | 'sent' | 'revised' | 'approved' | 'rejected';
@@ -35,13 +40,11 @@ const EstimateItemSchema = new Schema(
     id: { type: String, required: true },
     category: {
       type: String,
-      enum: ['civil', 'masonry', 'structural', 'finishing', 'mep', 'interiors', 'labour', 'other'],
       default: 'civil',
     },
     description: { type: String, required: true },
     unit: {
       type: String,
-      enum: ['sq.ft', 'cu.ft', 'bags', 'tons', 'nos', 'rft', 'lumpsum', 'days'],
       default: 'sq.ft',
     },
     quantity: { type: Number, required: true, min: 0 },
@@ -62,7 +65,15 @@ const QuotationSchema = new Schema<IQuotationDocument>(
     leadId: { type: Schema.Types.ObjectId, ref: 'Lead', index: true },
     clientId: { type: Schema.Types.ObjectId, ref: 'Client', required: true, index: true },
     clientName: { type: String, required: true },
-    clientAddress: { type: String, default: '' },
+    clientContactPerson: { type: String, default: 'THE CHIEF ENGINEER' },
+    clientCompany: { type: String, default: 'VIVANTHA HOTEL' },
+    clientAddress: { type: String, default: 'SHOLINGANALUR, CHENNAI.' },
+    senderName: { type: String, default: 'HARI A' },
+    senderCompany: { type: String, default: 'GKA CONSTRUCTION' },
+    subject: {
+      type: String,
+      default: 'Quotation for Construction Works - Cooling Tower Base & Related Structures.',
+    },
     projectTitle: { type: String, required: true },
     siteLocation: { type: String, required: true },
     items: [EstimateItemSchema],

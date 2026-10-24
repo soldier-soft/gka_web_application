@@ -7,10 +7,15 @@ export interface IUserDocument extends Document {
   email: string;
   phone: string;
   passwordHash: string;
+  defaultPassword?: string;
   role: UserRole;
   isActive: boolean;
   avatarUrl?: string;
   assignedProjects: mongoose.Types.ObjectId[];
+  clientId?: mongoose.Types.ObjectId;
+  mustChangePasswordOnLogin?: boolean;
+  activationToken?: string;
+  activationTokenExpires?: Date;
   lastLoginAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -23,6 +28,7 @@ const UserSchema = new Schema<IUserDocument>(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     phone: { type: String, required: true, trim: true },
     passwordHash: { type: String, required: true },
+    defaultPassword: { type: String },
     role: {
       type: String,
       enum: ['super_admin', 'project_manager', 'site_supervisor', 'accounts', 'client'],
@@ -32,6 +38,10 @@ const UserSchema = new Schema<IUserDocument>(
     isActive: { type: Boolean, default: true, index: true },
     avatarUrl: { type: String },
     assignedProjects: [{ type: Schema.Types.ObjectId, ref: 'Project' }],
+    clientId: { type: Schema.Types.ObjectId, ref: 'Client', index: true },
+    mustChangePasswordOnLogin: { type: Boolean, default: false },
+    activationToken: { type: String },
+    activationTokenExpires: { type: Date },
     lastLoginAt: { type: Date },
   },
   { timestamps: true }

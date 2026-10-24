@@ -14,6 +14,10 @@ import { Expense } from '../models/Expense';
 import { Invoice } from '../models/Invoice';
 import { Payment } from '../models/Payment';
 import { ProjectDocument } from '../models/Document';
+import { PortfolioProject } from '../models/PortfolioProject';
+import { ProjectIdea } from '../models/ProjectIdea';
+import { Enquiry } from '../models/Enquiry';
+import { verifiedProjectsData, generateProjectIdeas } from './portfolioSeedData';
 import { connectDB } from '../config/db';
 import { GKA_COMPANY, STANDARD_MILESTONES } from '../shared/constants';
 import { toPaise } from '../shared/types';
@@ -38,6 +42,9 @@ export const runSeed = async () => {
       Invoice.deleteMany({}),
       Payment.deleteMany({}),
       ProjectDocument.deleteMany({}),
+      PortfolioProject.deleteMany({}),
+      ProjectIdea.deleteMany({}),
+      Enquiry.deleteMany({}),
     ]);
 
     console.log('[Seed] Database cleaned. Creating users...');
@@ -744,6 +751,39 @@ export const runSeed = async () => {
       },
     ]);
 
+    // 11. Public Portfolio Projects
+    console.log('[Seed] Seeding verified public portfolio projects...');
+    await PortfolioProject.insertMany(verifiedProjectsData);
+
+    // 12. 50+ Construction Project Ideas by Square-Foot Category
+    console.log('[Seed] Seeding 50+ house construction project ideas...');
+    const projectIdeas = generateProjectIdeas();
+    await ProjectIdea.insertMany(projectIdeas);
+
+    // 13. Starter Enquiry for Admin Review Workflow
+    console.log('[Seed] Seeding initial sample website enquiry...');
+    await Enquiry.create({
+      referenceNumber: 'GKA-ENQ-2026-1001',
+      customerName: 'K. Balaji',
+      phone: '9840233441',
+      email: 'balaji.km@gmail.com',
+      preferredContactMethod: 'call',
+      serviceType: 'residential',
+      projectLocation: 'Medavakkam, Chennai',
+      builtUpAreaSqFt: 1800,
+      projectType: 'new_construction',
+      requirements: 'Interested in the 1,800 Sq. Ft. Modern Duplex Concept for my 30x40 south facing plot. Would like a site visit next Saturday.',
+      preferredContactTime: 'Evening after 5 PM',
+      consent: true,
+      relatedIdeaId: 'IDEA-1604',
+      relatedIdeaTitle: '1,800 Sq. Ft. Modern Duplex Concept',
+      status: 'site_visit_scheduled',
+      notes: 'Initial telephone discussion completed. Site engineer assigned for Saturday visit.',
+      emailNotificationSent: false,
+      emailNotificationError: 'SMTP not configured in local development seed',
+    });
+
+    console.log(`[Seed] Seeded ${verifiedProjectsData.length} portfolio projects, ${projectIdeas.length} project ideas, and initial enquiry.`);
     console.log('[Seed] Database seeding completed successfully!');
     console.log('===========================================================');
     console.log('  TEST CREDENTIALS:');

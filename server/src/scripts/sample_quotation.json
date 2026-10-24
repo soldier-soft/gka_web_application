@@ -1,0 +1,39 @@
+{
+  "quotation_number": "0910VIVA",
+  "date": "09 October 2026",
+  "clientContactPerson": "THE CHIEF ENGINEER",
+  "clientCompany": "VIVANTHA HOTEL",
+  "siteLocation": "SHOLINGANALUR, CHENNAI.",
+  "subject": "Quotation for Construction Works - Cooling Tower Base & Related Structures.",
+  "items": [
+    {
+      "description": "Cooling tower concrete base Horizontal beam: 1x0.75x 20",
+      "qty": 160,
+      "unit": "CFT",
+      "rate": 1400,
+      "amount": 224000
+    },
+    {
+      "description": "Vertical columns: 0.8x 0.8",
+      "qty": 65,
+      "unit": "CFT",
+      "rate": 1450,
+      "amount": 94250
+    },
+    {
+      "description": "Service platform: 0.5 x3 x25",
+      "qty": 1,
+      "unit": "LOT",
+      "rate": 50000,
+      "amount": 50000
+    },
+    {
+      "description": "Platform support beams: 0.8x3",
+      "qty": 1,
+      "unit": "LOT",
+      "rate": 71000,
+      "amount": 71000
+    }
+  ],
+  "gst_percent": 18
+}

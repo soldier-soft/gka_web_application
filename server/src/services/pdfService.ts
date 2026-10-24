@@ -1,159 +1,571 @@
 import PDFDocument from 'pdfkit';
+import path from 'path';
+import fs from 'fs';
 import { GKA_COMPANY, toRupees } from '../shared/constants';
 import { IQuotationDocument } from '../models/Quotation';
 import { IInvoiceDocument } from '../models/Invoice';
 import { IPurchaseOrderDocument } from '../models/PurchaseOrder';
 
+/**
+ * Converts a non-negative integer into English words using the Indian numbering system (Lakhs & Crores).
+ */
+export function numberToWordsIndian(num: number): string {
+  if (num === 0) return 'Zero';
+  const ones = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+    'Seventeen', 'Eighteen', 'Nineteen'
+  ];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  function under1000(n: number): string {
+    const res: string[] = [];
+    if (n >= 100) {
+      res.push(ones[Math.floor(n / 100)], 'Hundred');
+      n %= 100;
+    }
+    if (n >= 20) {
+      res.push(tens[Math.floor(n / 10)]);
+      n %= 10;
+    }
+    if (n > 0) res.push(ones[n]);
+    return res.join(' ');
+  }
+
+  const parts: string[] = [];
+  const units: [string, number][] = [
+    ['Crore', 10000000],
+    ['Lakh', 100000],
+    ['Thousand', 1000],
+    ['', 1],
+  ];
+
+  for (const [unit, divisor] of units) {
+    const chunk = Math.floor(num / divisor);
+    num %= divisor;
+    if (chunk > 0) {
+      if (unit === '') {
+        parts.push(under1000(chunk));
+      } else {
+        parts.push(`${numberToWordsIndian(chunk)} ${unit}`);
+      }
+    }
+  }
+  return parts.join(' ').trim();
+}
+
+export function amountInWords(rupees: number, paise = 0): string {
+  let res = `Rupees ${numberToWordsIndian(Math.floor(rupees))}`;
+  if (paise > 0) {
+    res += ` and ${numberToWordsIndian(paise)} Paise`;
+  }
+  return res + ' Only.';
+}
+
 export class PDFService {
   /**
-   * Generate Branded Quotation PDF stream
+   * Draw the authentic GKA Construction Header with brand colors, pillars, registered office and tax details.
+   */
+  private static drawBrandedHeader(
+    doc: InstanceType<typeof PDFDocument>,
+    title: 'QUOTATION' | 'TAX INVOICE',
+    docNumber: string,
+    docDate: Date
+  ): number {
+    // Decorative Geometric Corner Accents in Top-Right
+    doc.save();
+    doc.polygon([535, 0], [595, 0], [595, 60]).fill('#0F254B');
+    doc.polygon([560, 0], [595, 0], [595, 45]).fill('#D6A21D');
+    doc.restore();
+
+    // Brand Logo & Title on Left (Use authentic cropped brand header image if available)
+    const headerImgPath = path.resolve(__dirname, '../assets/gka_header_full.png');
+    if (fs.existsSync(headerImgPath)) {
+      doc.image(headerImgPath, 38, 16, { width: 205 });
+    } else {
+      doc.fillColor('#0F254B').fontSize(20).font('Helvetica-Bold').text(GKA_COMPANY.name, 40, 20);
+      doc.fillColor('#D6A21D').fontSize(8).font('Helvetica-Bold').text(GKA_COMPANY.tagline, 40, 44);
+      doc.fontSize(6).font('Helvetica-Bold').fillColor('#475569').text('BUILDING CONSTRUCTION | RENOVATION | CONTRACTS | ALLIED WORKS', 40, 58);
+    }
+
+    // Registered Office and GST Details strictly positioned on Right (x=260..535, align right)
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#0F254B');
+    doc.text('Registered Office:', 260, 18, { width: 275, align: 'right' });
+    doc.fontSize(6.8).font('Helvetica').fillColor('#475569');
+    doc.text('No. 965, Pillaiyar Kovil St, Theppanandhal, Kelur,', 260, 29, { width: 275, align: 'right' });
+    doc.text('Tiruvannamalai District, Tamil Nadu - 606907', 260, 38, { width: 275, align: 'right' });
+
+    doc.fontSize(6.8).font('Helvetica-Bold').fillColor('#0F254B');
+    doc.text('GSTIN : 33CDYPA3555M2ZZ  |  PAN NO : CDYPA3555M', 260, 50, { width: 275, align: 'right' });
+    doc.text(`Mobile : ${GKA_COMPANY.phoneDisplay}  |  Email : ${GKA_COMPANY.email}`, 260, 60, { width: 275, align: 'right' });
+    doc.text(`Website : ${GKA_COMPANY.website}`, 260, 70, { width: 275, align: 'right' });
+
+    // Document Title Banner Ribbon
+    const ribbonY = 104;
+    doc.save();
+    // Gold Angled Side Flaps
+    doc.polygon([115, ribbonY], [140, ribbonY], [125, ribbonY + 26], [100, ribbonY + 26]).fill('#D6A21D');
+    doc.polygon([455, ribbonY], [480, ribbonY], [495, ribbonY + 26], [470, ribbonY + 26]).fill('#D6A21D');
+    // Main Navy Center Banner
+    doc.polygon([135, ribbonY], [460, ribbonY], [450, ribbonY + 26], [125, ribbonY + 26]).fill('#0F254B');
+    doc.restore();
+
+    doc.fillColor('#FFFFFF').fontSize(13).font('Helvetica-Bold').text(title, 0, ribbonY + 6, {
+      width: 595,
+      align: 'center',
+    });
+
+    // Quotation / Invoice No. & Date Row
+    const metaY = 138;
+    const numLabel = title === 'QUOTATION' ? 'QUOTATION NO.' : 'INVOICE NO.';
+    doc.fontSize(7).font('Helvetica-Bold').fillColor('#64748B').text(numLabel, 40, metaY);
+    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#0F254B').text(docNumber, 40, metaY + 9);
+
+    doc.fontSize(7).font('Helvetica-Bold').fillColor('#64748B').text('DATE', 420, metaY, { width: 135, align: 'right' });
+    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#0F254B').text(
+      new Date(docDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
+      420,
+      metaY + 9,
+      { width: 135, align: 'right' }
+    );
+
+    return metaY + 26;
+  }
+
+  /**
+   * Draw Two-Column TO / FROM Box and Subject Bar
+   */
+  private static drawClientSenderAndSubject(
+    doc: InstanceType<typeof PDFDocument>,
+    startY: number,
+    client: { contactPerson?: string; company?: string; address?: string; name: string },
+    sender: { name?: string; company?: string },
+    subject: string
+  ): number {
+    const boxY = startY;
+    const boxHeight = 64;
+    const boxWidth = 515;
+
+    // Draw light-blue bordered box
+    doc.rect(40, boxY, boxWidth, boxHeight).fill('#F8FAFC').stroke('#B8D5E5').lineWidth(1).stroke();
+
+    // Vertical Divider
+    doc.moveTo(310, boxY).lineTo(310, boxY + boxHeight).strokeColor('#CBD5E1').lineWidth(0.8).stroke();
+
+    // TO Column (Left)
+    doc.circle(48, boxY + 12, 3.5).fill('#D6A21D');
+    doc.fillColor('#D6A21D').fontSize(8).font('Helvetica-Bold').text('TO:', 56, boxY + 8);
+    doc.fillColor('#0F254B').fontSize(8.5).font('Helvetica-Bold');
+    doc.text(client.contactPerson || client.name.toUpperCase(), 48, boxY + 20, { width: 250 });
+    doc.fontSize(7.5).font('Helvetica');
+    if (client.company) {
+      doc.text(client.company.toUpperCase(), 48, boxY + 31, { width: 250 });
+    }
+    const cleanAddr = (client.address || 'Chennai, Tamil Nadu').replace(/\n/g, ', ');
+    doc.text(cleanAddr, 48, boxY + (client.company ? 42 : 31), { width: 250 });
+
+    // FROM Column (Right)
+    doc.circle(320, boxY + 12, 3.5).fill('#D6A21D');
+    doc.fillColor('#D6A21D').fontSize(8).font('Helvetica-Bold').text('FROM:', 328, boxY + 8);
+    doc.fillColor('#0F254B').fontSize(8.5).font('Helvetica-Bold');
+    doc.text(sender.name || 'HARI A', 320, boxY + 20, { width: 225 });
+    doc.fontSize(7.5).font('Helvetica');
+    doc.text(sender.company || 'GKA CONSTRUCTION', 320, boxY + 31, { width: 225 });
+
+    // SUBJECT Row (Distinct X coordinates to guarantee ZERO text overlay!)
+    const subjY = boxY + boxHeight + 8;
+    doc.rect(40, subjY - 1, 10, 10).fill('#0F254B');
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#D6A21D').text('SUBJECT:', 56, subjY, { width: 55 });
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#0F254B').text(subject, 115, subjY, { width: 440 });
+
+    return subjY + 18;
+  }
+
+  /**
+   * Draw Bank Details, Terms & Conditions, Proprietor Signature & Seal, and Footer
+   */
+  private static drawBottomAndFooter(
+    doc: InstanceType<typeof PDFDocument>,
+    startY: number
+  ): void {
+    const bottomY = Math.max(startY + 10, 580);
+
+    // Left Card: BANK DETAILS (Light Blue border, Deep Navy Header)
+    doc.rect(40, bottomY, 255, 124).fill('#F8FAFC').stroke('#B8D5E5').lineWidth(1).stroke();
+    doc.rect(40, bottomY, 255, 18).fill('#0F254B');
+    doc.circle(48, bottomY + 9, 2.5).fill('#D6A21D');
+    doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold').text('BANK DETAILS', 56, bottomY + 5);
+
+    const bankDetailsList = [
+      ['BENEFICIARY NAME', `:  ${GKA_COMPANY.bankDetails.beneficiary}`],
+      ['ACCOUNT NUMBER', `:  ${GKA_COMPANY.bankDetails.accountNumber}`],
+      ['BANK NAME', `:  ${GKA_COMPANY.bankDetails.bankName.toUpperCase()}`],
+      ['IFSC CODE', `:  ${GKA_COMPANY.bankDetails.ifscCode}`],
+      ['MICR CODE', `:  ${GKA_COMPANY.bankDetails.micr}`],
+      ['MOBILE NUMBER', `:  ${GKA_COMPANY.bankDetails.contactMobile}`],
+      ['ALTERNATE NUMBER', ':  8940455917'],
+      ['MAIL ID', `:  ${GKA_COMPANY.email.toUpperCase()}`],
+      ['WEBSITE', `:  ${GKA_COMPANY.website.toUpperCase()}`],
+    ];
+
+    let bY = bottomY + 23;
+    bankDetailsList.forEach(([lbl, val]) => {
+      doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#475569').text(lbl, 46, bY, { width: 92 });
+      doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#0F254B').text(val, 138, bY, { width: 152 });
+      bY += 10.5;
+    });
+
+    // Right Card: TERMS & CONDITIONS + SIGNATURE & SEAL (Gold Accent Border)
+    doc.rect(305, bottomY, 250, 124).fill('#FFFFFF').stroke('#D6A21D').lineWidth(1).stroke();
+    doc.rect(314, bottomY + 6, 7, 7).fill('#0F254B');
+    doc.fillColor('#0F254B').fontSize(7.5).font('Helvetica-Bold').text('TERMS & CONDITIONS:', 326, bottomY + 6);
+
+    const terms = [
+      '• This quotation is valid for 15 days from the date of issue.',
+      '• Payment terms will be mutually agreed.',
+      '• GST applicable as per government norms.',
+      '• Work executed as per agreed specifications and site conditions.',
+    ];
+
+    let tY = bottomY + 17;
+    doc.font('Helvetica').fontSize(6.2).fillColor('#475569');
+    terms.forEach((t) => {
+      doc.text(t, 314, tY, { width: 236 });
+      tY += 7.8;
+    });
+
+    // Signature and Seal Images (Zero text overlap, ample breathing room)
+    const sigImgPath = path.resolve(__dirname, '../assets/signature.png');
+    const sealImgPath = path.resolve(__dirname, '../assets/seal.png');
+
+    if (fs.existsSync(sigImgPath)) {
+      doc.image(sigImgPath, 314, bottomY + 50, { width: 64 });
+    } else {
+      doc.font('Helvetica-Bold').fontSize(13).fillColor('#0F254B').text('Hari A', 314, bottomY + 54);
+    }
+
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text('For GKA CONSTRUCTION', 314, bottomY + 86);
+    doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text('Proprietor', 314, bottomY + 96);
+
+    if (fs.existsSync(sealImgPath)) {
+      doc.image(sealImgPath, 462, bottomY + 48, { width: 58 });
+      doc.font('Helvetica').fontSize(6).fillColor('#64748B').text('(Company Seal)', 450, bottomY + 104, { width: 82, align: 'center' });
+    } else {
+      const sealCenterX = 491;
+      const sealCenterY = bottomY + 75;
+      doc.circle(sealCenterX, sealCenterY, 22).lineWidth(1.2).strokeColor('#0F254B').stroke();
+      doc.circle(sealCenterX, sealCenterY, 19).lineWidth(0.6).strokeColor('#0F254B').stroke();
+      doc.font('Helvetica-Bold').fontSize(5).fillColor('#0F254B');
+      doc.text('GKA CONSTRUCTION', sealCenterX - 20, sealCenterY - 12, { width: 40, align: 'center' });
+      doc.text('★ CHENNAI ★', sealCenterX - 20, sealCenterY - 3, { width: 40, align: 'center' });
+      doc.text('(Company Seal)', sealCenterX - 20, sealCenterY + 6, { width: 40, align: 'center' });
+    }
+
+    // Bottom Footer Banner Bar with Angled Gold Flaps
+    const footerY = 744;
+    doc.save();
+    doc.rect(0, footerY, 595, 28).fill('#0F254B');
+    doc.polygon([0, footerY], [20, footerY], [0, footerY + 28]).fill('#D6A21D');
+    doc.polygon([595, footerY], [575, footerY], [595, footerY + 28]).fill('#D6A21D');
+    doc.restore();
+
+    doc.fillColor('#FFFFFF').fontSize(7.2).font('Helvetica-Bold');
+    doc.text(`${GKA_COMPANY.phoneDisplay}    |    ${GKA_COMPANY.email}    |    ${GKA_COMPANY.website}`, 30, footerY + 9);
+
+    doc.fillColor('#D6A21D').fontSize(7.2).font('Helvetica-Bold');
+    doc.text('QUALITY CONSTRUCTION FOR A BETTER TOMORROW', 350, footerY + 9, { width: 215, align: 'right' });
+  }
+
+  /**
+   * Generate Branded Quotation PDF stream matching the exact uploaded reference format.
    */
   static generateQuotationPDF(quotation: IQuotationDocument): InstanceType<typeof PDFDocument> {
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
 
-    // Header Branding
-    doc.fillColor('#0F1E36').fontSize(22).font('Helvetica-Bold').text(GKA_COMPANY.name, 40, 40);
-    doc.fillColor('#C59A27').fontSize(10).font('Helvetica-Bold').text(GKA_COMPANY.tagline, 40, 68);
-    
-    doc.fillColor('#475569').fontSize(8).font('Helvetica')
-      .text(`Chennai Branch: ${GKA_COMPANY.chennaiBranch.full}`, 40, 84)
-      .text(`Reg. Office: ${GKA_COMPANY.registeredOffice.full}`, 40, 96)
-      .text(`GSTIN: ${GKA_COMPANY.gstin} | PAN: ${GKA_COMPANY.pan} | Phone: ${GKA_COMPANY.phoneDisplay} | Email: ${GKA_COMPANY.email}`, 40, 108);
+    // 1. Header
+    const yAfterHeader = this.drawBrandedHeader(
+      doc,
+      'QUOTATION',
+      quotation.quotationNumber,
+      new Date(quotation.createdAt || Date.now())
+    );
 
-    doc.moveTo(40, 124).lineTo(555, 124).strokeColor('#CBD5E1').lineWidth(1).stroke();
+    // 2. Client & Subject
+    const client = {
+      name: quotation.clientName,
+      contactPerson: quotation.clientContactPerson || 'THE CHIEF ENGINEER',
+      company: quotation.clientCompany || 'VIVANTHA HOTEL',
+      address: quotation.clientAddress || quotation.siteLocation || 'SHOLINGANALUR, CHENNAI.',
+    };
+    const sender = {
+      name: quotation.senderName || 'HARI A',
+      company: quotation.senderCompany || 'GKA CONSTRUCTION',
+    };
+    const subject = quotation.subject || `Quotation for Construction Works - ${quotation.projectTitle}`;
 
-    // Document Title Banner
-    doc.rect(40, 134, 515, 26).fill('#0F1E36');
-    doc.fillColor('#FFFFFF').fontSize(12).font('Helvetica-Bold').text('ESTIMATE & COMMERCIAL QUOTATION', 48, 142);
+    let y = this.drawClientSenderAndSubject(doc, yAfterHeader, client, sender, subject);
 
-    // Meta Details Box
-    doc.rect(40, 168, 515, 60).strokeColor('#E2E8F0').lineWidth(1).stroke();
-    doc.fillColor('#1E293B').fontSize(9).font('Helvetica-Bold');
-    doc.text(`Quotation No: ${quotation.quotationNumber}`, 50, 176);
-    doc.text(`Date: ${new Date(quotation.createdAt).toLocaleDateString('en-IN')}`, 50, 190);
-    doc.text(`Valid Until: ${new Date(quotation.validUntil).toLocaleDateString('en-IN')}`, 50, 204);
+    // 3. Items Table Header (Solid Deep Navy)
+    doc.rect(40, y, 515, 20).fill('#0F254B');
+    doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold');
+    doc.text('SL. NO.', 45, y + 6, { width: 35, align: 'center' });
+    doc.text('DESCRIPTION', 85, y + 6, { width: 235 });
+    doc.text('QTY', 325, y + 6, { width: 40, align: 'center' });
+    doc.text('UNIT', 370, y + 6, { width: 40, align: 'center' });
+    doc.text('RATE (Rs.)', 415, y + 6, { width: 65, align: 'right' });
+    doc.text('AMOUNT (Rs.)', 485, y + 6, { width: 65, align: 'right' });
 
-    doc.text(`Client: ${quotation.clientName}`, 300, 176);
-    doc.font('Helvetica').fillColor('#475569');
-    doc.text(`Project: ${quotation.projectTitle}`, 300, 190);
-    doc.text(`Site: ${quotation.siteLocation}`, 300, 204);
+    y += 20;
 
-    // Items Table Header
-    let y = 240;
-    doc.rect(40, y, 515, 20).fill('#F1F5F9');
-    doc.fillColor('#0F1E36').fontSize(8).font('Helvetica-Bold');
-    doc.text('#', 48, y + 6, { width: 20 });
-    doc.text('Item Description & Scope', 72, y + 6, { width: 250 });
-    doc.text('Qty', 330, y + 6, { width: 40, align: 'right' });
-    doc.text('Unit', 375, y + 6, { width: 40 });
-    doc.text('Rate (₹)', 420, y + 6, { width: 55, align: 'right' });
-    doc.text('Amount (₹)', 485, y + 6, { width: 60, align: 'right' });
+    // 4. Item Rows (Dynamic Height Calculation with Bold measurement & ample line-height)
+    const tableTopY = y;
+    quotation.items.forEach((item: any, index: number) => {
+      doc.font('Helvetica-Bold').fontSize(7.5);
+      const descHeight = doc.heightOfString(item.description, { width: 230 });
+      const rowHeight = Math.max(20, descHeight + 8);
 
-    y += 24;
-    doc.font('Helvetica').fontSize(8).fillColor('#334155');
-
-    quotation.items.forEach((item, index) => {
-      if (y > 700) {
+      if (y + rowHeight > 540) {
         doc.addPage();
         y = 50;
       }
-      doc.text(`${index + 1}`, 48, y, { width: 20 });
-      doc.text(item.description, 72, y, { width: 250 });
-      doc.text(`${item.quantity}`, 330, y, { width: 40, align: 'right' });
-      doc.text(item.unit, 375, y, { width: 40 });
-      doc.text(`${toRupees(item.unitRatePaise).toLocaleString('en-IN')}`, 420, y, { width: 55, align: 'right' });
-      doc.text(`${toRupees(item.amountPaise).toLocaleString('en-IN')}`, 485, y, { width: 60, align: 'right' });
 
-      y += 20;
+      // Alternating row background for readability
+      if (index % 2 === 1) {
+        doc.rect(40, y, 515, rowHeight).fill('#F8FAFC');
+      }
+
+      doc.fillColor('#0F254B');
+      doc.font('Helvetica').fontSize(7.5).text(`${index + 1}.`, 42, y + 4, { width: 35, align: 'center' });
+      doc.font('Helvetica-Bold').fontSize(7.5).text(item.description, 82, y + 4, { width: 230 });
+      doc.font('Helvetica').fontSize(7.5).text(`${item.quantity}`, 320, y + 4, { width: 40, align: 'center' });
+      doc.text((item.unit || 'CFT').toUpperCase(), 365, y + 4, { width: 40, align: 'center' });
+      doc.text(toRupees(item.unitRatePaise).toLocaleString('en-IN', { minimumFractionDigits: 2 }), 410, y + 4, {
+        width: 65,
+        align: 'right',
+      });
+      doc.text(toRupees(item.amountPaise).toLocaleString('en-IN', { minimumFractionDigits: 2 }), 480, y + 4, {
+        width: 70,
+        align: 'right',
+      });
+
+      // Bottom border line for each row
+      doc.moveTo(40, y + rowHeight).lineTo(555, y + rowHeight).strokeColor('#E2E8F0').lineWidth(0.5).stroke();
+      y += rowHeight;
     });
 
-    doc.moveTo(40, y).lineTo(555, y).strokeColor('#E2E8F0').lineWidth(1).stroke();
-    y += 10;
+    // Outer border around items table
+    doc.rect(40, tableTopY - 20, 515, (y - tableTopY) + 20).strokeColor('#CBD5E1').lineWidth(0.8).stroke();
 
-    // Totals Block
+    // 5. Totals Block (Right Aligned)
     const subtotalRupees = toRupees(quotation.subtotalPaise);
     const taxRupees = toRupees(quotation.cgstPaise + quotation.sgstPaise + quotation.igstPaise);
     const totalRupees = toRupees(quotation.totalAmountPaise);
 
-    doc.font('Helvetica').fontSize(9).fillColor('#475569');
-    doc.text('Subtotal:', 380, y, { width: 80, align: 'right' });
-    doc.text(`₹ ${subtotalRupees.toLocaleString('en-IN')}`, 470, y, { width: 75, align: 'right' });
+    y += 4;
+    // Total Amount Row
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
+    doc.text('TOTAL AMOUNT', 330, y, { width: 130, align: 'right' });
+    doc.fillColor('#0F254B').text(`Rs.  ${subtotalRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
+      width: 85,
+      align: 'right',
+    });
+    y += 14;
+
+    // Taxes Row
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
+    doc.text(`TAXES / GST (${quotation.taxRatePercent || 18}%)`, 330, y, { width: 130, align: 'right' });
+    doc.fillColor('#0F254B').text(`Rs.  ${taxRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
+      width: 85,
+      align: 'right',
+    });
     y += 16;
 
-    if (taxRupees > 0) {
-      doc.text(`GST (${quotation.taxRatePercent}%):`, 380, y, { width: 80, align: 'right' });
-      doc.text(`₹ ${taxRupees.toLocaleString('en-IN')}`, 470, y, { width: 75, align: 'right' });
-      y += 16;
-    }
+    // GRAND TOTAL Banner (Navy bar with Gold side accent)
+    doc.save();
+    doc.polygon([335, y - 2], [345, y - 2], [340, y + 18], [330, y + 18]).fill('#D6A21D');
+    doc.rect(342, y - 2, 213, 20).fill('#0F254B');
+    doc.restore();
 
-    doc.rect(360, y - 2, 195, 22).fill('#0F1E36');
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#FFFFFF');
-    doc.text('Grand Total:', 370, y + 4, { width: 90, align: 'right' });
-    doc.text(`₹ ${totalRupees.toLocaleString('en-IN')}`, 470, y + 4, { width: 75, align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF');
+    doc.text('GRAND TOTAL', 350, y + 3, { width: 100, align: 'left' });
+    doc.text(`Rs.  ${totalRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 450, y + 3, {
+      width: 100,
+      align: 'right',
+    });
 
-    y += 35;
-    // Terms & Conditions
-    if (quotation.termsAndConditions && quotation.termsAndConditions.length > 0) {
-      doc.fillColor('#0F1E36').fontSize(9).font('Helvetica-Bold').text('Terms & Conditions:', 40, y);
-      y += 14;
-      doc.fillColor('#475569').fontSize(7.5).font('Helvetica');
-      quotation.termsAndConditions.forEach((term, idx) => {
-        doc.text(`${idx + 1}. ${term}`, 45, y, { width: 320 });
-        y += 12;
-      });
-    }
+    y += 28;
 
-    // Signatures
-    const sigY = Math.max(y + 20, 720);
-    doc.fillColor('#1E293B').fontSize(8).font('Helvetica-Bold');
-    doc.text('Client Acceptance Signature', 60, sigY);
-    doc.text('For GKA CONSTRUCTION', 400, sigY, { width: 140, align: 'center' });
-    doc.font('Helvetica').fontSize(7).fillColor('#64748B');
-    doc.text('Authorized Signatory', 400, sigY + 30, { width: 140, align: 'center' });
+    // 6. AMOUNT IN WORDS Banner (Clean distinct box and coordinates)
+    doc.rect(40, y, 515, 20).fill('#FFFBEB').stroke('#FDE68A').lineWidth(0.8).stroke();
+    doc.rect(46, y + 5, 8, 8).fill('#D6A21D');
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#D6A21D').text('AMOUNT IN WORDS:', 58, y + 5, { width: 105 });
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(amountInWords(totalRupees), 168, y + 5, { width: 380 });
+
+    y += 26;
+
+    // 7. Bottom Sections (Bank Details + Terms + Seal) and Footer Banner
+    this.drawBottomAndFooter(doc, y);
 
     doc.end();
     return doc;
   }
 
   /**
-   * Generate Branded Tax Invoice PDF stream
+   * Generate Branded Tax Invoice PDF stream matching the exact uploaded reference format.
    */
   static generateInvoicePDF(invoice: IInvoiceDocument): InstanceType<typeof PDFDocument> {
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
 
-    // Header Branding
+    // 1. Header
+    const yAfterHeader = this.drawBrandedHeader(
+      doc,
+      'TAX INVOICE',
+      invoice.invoiceNumber,
+      new Date(invoice.issueDate || Date.now())
+    );
+
+    // 2. Client & Subject
+    const client = {
+      name: invoice.clientName,
+      contactPerson: invoice.clientContactPerson || 'THE CHIEF ENGINEER',
+      company: invoice.clientCompany || 'VIVANTHA HOTEL',
+      address: invoice.billingAddress || 'SHOLINGANALUR, CHENNAI.',
+    };
+    const sender = {
+      name: invoice.senderName || 'HARI A',
+      company: invoice.senderCompany || 'GKA CONSTRUCTION',
+    };
+    const subject = invoice.subject || `Tax Invoice for Construction Works - ${invoice.projectTitle}`;
+
+    let y = this.drawClientSenderAndSubject(doc, yAfterHeader, client, sender, subject);
+
+    // 3. Items Table Header (Solid Deep Navy)
+    doc.rect(40, y, 515, 20).fill('#0F254B');
+    doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold');
+    doc.text('SL. NO.', 45, y + 6, { width: 35, align: 'center' });
+    doc.text('DESCRIPTION', 85, y + 6, { width: 235 });
+    doc.text('QTY', 325, y + 6, { width: 40, align: 'center' });
+    doc.text('UNIT', 370, y + 6, { width: 40, align: 'center' });
+    doc.text('RATE (Rs.)', 415, y + 6, { width: 65, align: 'right' });
+    doc.text('AMOUNT (Rs.)', 485, y + 6, { width: 65, align: 'right' });
+
+    y += 20;
+
+    // 4. Item Rows (Dynamic Height Calculation with Bold measurement & ample line-height)
+    const tableTopY = y;
+    invoice.items.forEach((item: any, index: number) => {
+      doc.font('Helvetica-Bold').fontSize(7.5);
+      const descHeight = doc.heightOfString(item.description, { width: 230 });
+      const rowHeight = Math.max(20, descHeight + 8);
+
+      if (y + rowHeight > 540) {
+        doc.addPage();
+        y = 50;
+      }
+
+      if (index % 2 === 1) {
+        doc.rect(40, y, 515, rowHeight).fill('#F8FAFC');
+      }
+
+      doc.fillColor('#0F254B');
+      doc.font('Helvetica').fontSize(7.5).text(`${index + 1}.`, 42, y + 4, { width: 35, align: 'center' });
+      doc.font('Helvetica-Bold').fontSize(7.5).text(item.description, 82, y + 4, { width: 230 });
+      doc.font('Helvetica').fontSize(7.5).text(`${item.quantity}`, 320, y + 4, { width: 40, align: 'center' });
+      doc.text((item.unit || 'CFT').toUpperCase(), 365, y + 4, { width: 40, align: 'center' });
+      doc.text(toRupees(item.unitPricePaise).toLocaleString('en-IN', { minimumFractionDigits: 2 }), 410, y + 4, {
+        width: 65,
+        align: 'right',
+      });
+      doc.text(toRupees(item.totalPaise).toLocaleString('en-IN', { minimumFractionDigits: 2 }), 480, y + 4, {
+        width: 70,
+        align: 'right',
+      });
+
+      doc.moveTo(40, y + rowHeight).lineTo(555, y + rowHeight).strokeColor('#E2E8F0').lineWidth(0.5).stroke();
+      y += rowHeight;
+    });
+
+    // Outer border around items table
+    doc.rect(40, tableTopY - 20, 515, (y - tableTopY) + 20).strokeColor('#CBD5E1').lineWidth(0.8).stroke();
+
+    // 5. Totals Block
+    const subtotalRupees = toRupees(invoice.subtotalPaise);
+    const taxRupees = toRupees(invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise);
+    const totalRupees = toRupees(invoice.totalAmountPaise);
+
+    y += 4;
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
+    doc.text('TOTAL AMOUNT', 330, y, { width: 130, align: 'right' });
+    doc.fillColor('#0F254B').text(`Rs.  ${subtotalRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
+      width: 85,
+      align: 'right',
+    });
+    y += 14;
+
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
+    doc.text('TAXES / GST (18%)', 330, y, { width: 130, align: 'right' });
+    doc.fillColor('#0F254B').text(`Rs.  ${taxRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
+      width: 85,
+      align: 'right',
+    });
+    y += 16;
+
+    // GRAND TOTAL Banner
+    doc.save();
+    doc.polygon([335, y - 2], [345, y - 2], [340, y + 18], [330, y + 18]).fill('#D6A21D');
+    doc.rect(342, y - 2, 213, 20).fill('#0F254B');
+    doc.restore();
+
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF');
+    doc.text('GRAND TOTAL', 350, y + 3, { width: 100, align: 'left' });
+    doc.text(`Rs.  ${totalRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 450, y + 3, {
+      width: 100,
+      align: 'right',
+    });
+
+    y += 28;
+
+    // 6. AMOUNT IN WORDS
+    doc.rect(40, y, 515, 20).fill('#FFFBEB').stroke('#FDE68A').lineWidth(0.8).stroke();
+    doc.rect(46, y + 5, 8, 8).fill('#D6A21D');
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#D6A21D').text('AMOUNT IN WORDS:', 58, y + 5, { width: 105 });
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(amountInWords(totalRupees), 168, y + 5, { width: 380 });
+
+    y += 26;
+
+    // 7. Bottom Sections and Footer
+    this.drawBottomAndFooter(doc, y);
+
+    doc.end();
+    return doc;
+  }
+
+  /**
+   * Generate Branded Purchase Order PDF stream
+   */
+  static generatePurchaseOrderPDF(po: IPurchaseOrderDocument): InstanceType<typeof PDFDocument> {
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+
     doc.fillColor('#0F1E36').fontSize(22).font('Helvetica-Bold').text(GKA_COMPANY.name, 40, 40);
     doc.fillColor('#C59A27').fontSize(10).font('Helvetica-Bold').text(GKA_COMPANY.tagline, 40, 68);
-    
-    doc.fillColor('#475569').fontSize(8).font('Helvetica')
-      .text(`Chennai Branch: ${GKA_COMPANY.chennaiBranch.full}`, 40, 84)
-      .text(`Reg. Office: ${GKA_COMPANY.registeredOffice.full}`, 40, 96)
-      .text(`GSTIN: ${GKA_COMPANY.gstin} | PAN: ${GKA_COMPANY.pan} | Phone: ${GKA_COMPANY.phoneDisplay}`, 40, 108);
 
-    doc.moveTo(40, 124).lineTo(555, 124).strokeColor('#CBD5E1').lineWidth(1).stroke();
+    doc.rect(40, 110, 515, 26).fill('#0F1E36');
+    doc.fillColor('#FFFFFF').fontSize(12).font('Helvetica-Bold').text('PURCHASE ORDER', 48, 118);
 
-    // Banner
-    doc.rect(40, 134, 515, 26).fill('#0F1E36');
-    doc.fillColor('#FFFFFF').fontSize(12).font('Helvetica-Bold').text('TAX INVOICE', 48, 142);
-
-    // Meta details
-    doc.rect(40, 168, 515, 60).strokeColor('#E2E8F0').lineWidth(1).stroke();
+    doc.rect(40, 144, 515, 50).strokeColor('#E2E8F0').lineWidth(1).stroke();
     doc.fillColor('#1E293B').fontSize(9).font('Helvetica-Bold');
-    doc.text(`Invoice No: ${invoice.invoiceNumber}`, 50, 176);
-    doc.text(`Date of Issue: ${new Date(invoice.issueDate).toLocaleDateString('en-IN')}`, 50, 190);
-    doc.text(`Payment Due: ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}`, 50, 204);
+    doc.text(`PO Number: ${po.poNumber}`, 50, 152);
+    doc.text(`Date: ${new Date(po.createdAt).toLocaleDateString('en-IN')}`, 50, 166);
 
-    doc.text(`Billed To: ${invoice.clientName}`, 300, 176);
+    doc.text(`Supplier: ${po.supplierName}`, 300, 152);
     doc.font('Helvetica').fillColor('#475569');
-    doc.text(`Address: ${invoice.billingAddress || 'Tamil Nadu, India'}`, 300, 190, { width: 240 });
-    doc.text(`Project: ${invoice.projectTitle}`, 300, 204);
+    doc.text(`Project Site: ${po.projectTitle}`, 300, 166);
 
-    // Items table
-    let y = 240;
+    let y = 210;
     doc.rect(40, y, 515, 20).fill('#F1F5F9');
     doc.fillColor('#0F1E36').fontSize(8).font('Helvetica-Bold');
     doc.text('#', 48, y + 6, { width: 20 });
-    doc.text('Description of Work / Stage', 72, y + 6, { width: 250 });
+    doc.text('Material / Item', 72, y + 6, { width: 250 });
     doc.text('Qty', 330, y + 6, { width: 40, align: 'right' });
     doc.text('Unit', 375, y + 6, { width: 40 });
     doc.text('Rate (₹)', 420, y + 6, { width: 55, align: 'right' });
@@ -162,73 +574,346 @@ export class PDFService {
     y += 24;
     doc.font('Helvetica').fontSize(8).fillColor('#334155');
 
-    invoice.items.forEach((item, index) => {
+    po.items.forEach((item: any, index) => {
+      const desc = item.itemDescription || item.name || 'Item';
+      const qty = item.quantityOrdered ?? item.quantity ?? 1;
+      const rate = item.unitRatePaise ?? item.unitPricePaise ?? 0;
       doc.text(`${index + 1}`, 48, y, { width: 20 });
-      doc.text(item.description, 72, y, { width: 250 });
-      doc.text(`${item.quantity}`, 330, y, { width: 40, align: 'right' });
-      doc.text(item.unit, 375, y, { width: 40 });
-      doc.text(`${toRupees(item.unitPricePaise).toLocaleString('en-IN')}`, 420, y, { width: 55, align: 'right' });
-      doc.text(`${toRupees(item.totalPaise).toLocaleString('en-IN')}`, 485, y, { width: 60, align: 'right' });
+      doc.text(desc, 72, y, { width: 250 });
+      doc.text(`${qty}`, 330, y, { width: 40, align: 'right' });
+      doc.text(item.unit || 'Nos', 375, y, { width: 40 });
+      doc.text(`${toRupees(rate).toLocaleString('en-IN')}`, 420, y, { width: 55, align: 'right' });
+      doc.text(`${toRupees(item.totalPaise || (qty * rate)).toLocaleString('en-IN')}`, 485, y, { width: 60, align: 'right' });
       y += 20;
     });
 
     doc.moveTo(40, y).lineTo(555, y).strokeColor('#E2E8F0').lineWidth(1).stroke();
-    y += 10;
+    y += 12;
 
-    // Totals
-    const subtotalRupees = toRupees(invoice.subtotalPaise);
-    const cgstRupees = toRupees(invoice.cgstPaise);
-    const sgstRupees = toRupees(invoice.sgstPaise);
-    const totalRupees = toRupees(invoice.totalAmountPaise);
-    const paidRupees = toRupees(invoice.paidAmountPaise);
-    const balanceRupees = toRupees(invoice.dueAmountPaise);
+    const totalPaise = (po as any).grandTotalPaise ?? (po as any).totalAmountPaise ?? 0;
+    const totalRupees = toRupees(totalPaise);
+    doc.rect(360, y, 195, 22).fill('#0F1E36');
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#FFFFFF');
+    doc.text('Total Order Value:', 370, y + 6, { width: 90, align: 'right' });
+    doc.text(`₹ ${totalRupees.toLocaleString('en-IN')}`, 470, y + 6, { width: 75, align: 'right' });
 
-    doc.font('Helvetica').fontSize(9).fillColor('#475569');
-    doc.text('Subtotal:', 380, y, { width: 80, align: 'right' });
-    doc.text(`₹ ${subtotalRupees.toLocaleString('en-IN')}`, 470, y, { width: 75, align: 'right' });
-    y += 14;
+    const sigY = 700;
+    doc.fillColor('#1E293B').fontSize(8).font('Helvetica-Bold');
+    doc.text('Vendor Acknowledgment', 60, sigY);
+    doc.text('For GKA CONSTRUCTION', 400, sigY, { width: 140, align: 'center' });
 
-    if (cgstRupees > 0 || sgstRupees > 0) {
-      doc.text('CGST (9%):', 380, y, { width: 80, align: 'right' });
-      doc.text(`₹ ${cgstRupees.toLocaleString('en-IN')}`, 470, y, { width: 75, align: 'right' });
-      y += 14;
-      doc.text('SGST (9%):', 380, y, { width: 80, align: 'right' });
-      doc.text(`₹ ${sgstRupees.toLocaleString('en-IN')}`, 470, y, { width: 75, align: 'right' });
-      y += 14;
+    doc.end();
+    return doc;
+  }
+
+  /**
+   * Generate Branded Project Welcome PDF stream with client credentials notice, attached quotations, attached bills, and Federal Bank details.
+   */
+  static generateProjectWelcomePDF(
+    project: any,
+    client: any,
+    inviteDetails: { username: string; temporaryPassword?: string; defaultPassword?: string; portalUrl: string },
+    quotations: any[] = [],
+    invoices: any[] = []
+  ): InstanceType<typeof PDFDocument> {
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+
+    // Geometric Corner Accents in Top-Right
+    doc.save();
+    doc.polygon([535, 0], [595, 0], [595, 60]).fill('#0F254B');
+    doc.polygon([560, 0], [595, 0], [595, 45]).fill('#D6A21D');
+    doc.restore();
+
+    // Brand Logo & Pillars on Left
+    const headerImgPath = path.resolve(__dirname, '../assets/gka_header_full.png');
+    if (fs.existsSync(headerImgPath)) {
+      doc.image(headerImgPath, 38, 16, { width: 205 });
+    } else {
+      doc.fillColor('#0F254B').fontSize(20).font('Helvetica-Bold').text(GKA_COMPANY.name, 40, 20);
+      doc.fillColor('#D6A21D').fontSize(8).font('Helvetica-Bold').text(GKA_COMPANY.tagline, 40, 44);
+      doc.fontSize(6).font('Helvetica-Bold').fillColor('#475569').text('BUILDING CONSTRUCTION | RENOVATION | CONTRACTS | ALLIED WORKS', 40, 58);
     }
 
-    doc.rect(360, y - 2, 195, 20).fill('#0F1E36');
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF');
-    doc.text('Total Invoice Value:', 370, y + 4, { width: 90, align: 'right' });
-    doc.text(`₹ ${totalRupees.toLocaleString('en-IN')}`, 470, y + 4, { width: 75, align: 'right' });
-    y += 24;
+    // Registered Office and GST Details strictly positioned on Right
+    doc.fontSize(8).font('Helvetica-Bold').fillColor('#0F254B');
+    doc.text('Registered Office:', 260, 18, { width: 275, align: 'right' });
+    doc.fontSize(6.8).font('Helvetica').fillColor('#475569');
+    doc.text('No. 965, Pillaiyar Kovil St, Theppanandhal, Kelur,', 260, 29, { width: 275, align: 'right' });
+    doc.text('Tiruvannamalai District, Tamil Nadu - 606907', 260, 38, { width: 275, align: 'right' });
 
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#16A34A');
-    doc.text('Paid to Date:', 380, y, { width: 80, align: 'right' });
-    doc.text(`₹ ${paidRupees.toLocaleString('en-IN')}`, 470, y, { width: 75, align: 'right' });
+    doc.fontSize(6.8).font('Helvetica-Bold').fillColor('#0F254B');
+    doc.text('GSTIN : 33CDYPA3555M2ZZ  |  PAN NO : CDYPA3555M', 260, 50, { width: 275, align: 'right' });
+    doc.text(`Mobile : ${GKA_COMPANY.phoneDisplay}  |  Email : ${GKA_COMPANY.email}`, 260, 60, { width: 275, align: 'right' });
+    doc.text(`Website : ${GKA_COMPANY.website}`, 260, 70, { width: 275, align: 'right' });
+
+    // Document Title Banner Ribbon
+    const ribbonY = 104;
+    doc.save();
+    doc.polygon([80, ribbonY], [105, ribbonY], [95, ribbonY + 26], [70, ribbonY + 26]).fill('#D6A21D');
+    doc.polygon([490, ribbonY], [515, ribbonY], [525, ribbonY + 26], [500, ribbonY + 26]).fill('#D6A21D');
+    doc.polygon([100, ribbonY], [495, ribbonY], [485, ribbonY + 26], [90, ribbonY + 26]).fill('#0F254B');
+    doc.restore();
+
+    doc.fillColor('#FFFFFF').fontSize(11).font('Helvetica-Bold').text('PROJECT WORKSPACE ONBOARDING & CLIENT CREDENTIAL PACKET', 0, ribbonY + 7, {
+      width: 595,
+      align: 'center',
+    });
+
+    // Metadata Row
+    const metaY = 138;
+    doc.fontSize(7).font('Helvetica-Bold').fillColor('#64748B').text('PROJECT WORKSPACE ID', 40, metaY);
+    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#0F254B').text(project.projectId, 40, metaY + 9);
+
+    doc.fontSize(7).font('Helvetica-Bold').fillColor('#64748B').text('PACKET ISSUE DATE', 420, metaY, { width: 135, align: 'right' });
+    doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#0F254B').text(
+      new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
+      420,
+      metaY + 9,
+      { width: 135, align: 'right' }
+    );
+
+    let y = 164;
+
+    // 1. PROJECT WORKSPACE SUMMARY CARD
+    doc.rect(40, y, 515, 66).fill('#F8FAFC').stroke('#CBD5E1').lineWidth(0.8).stroke();
+    doc.rect(40, y, 515, 17).fill('#0F254B');
+    doc.circle(48, y + 8.5, 2.5).fill('#D6A21D');
+    doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold').text('PROJECT WORKSPACE SUMMARY', 56, y + 5);
+
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#475569').text('Project Title:', 48, y + 22);
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(project.title, 110, y + 22, { width: 185 });
+
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#475569').text('Site Address:', 48, y + 44);
+    const siteStreet = project.siteAddress?.street || 'Kelambakkam, Chennai';
+    const siteCity = project.siteAddress?.city ? `, ${project.siteAddress.city}` : '';
+    doc.font('Helvetica').fontSize(7.5).fillColor('#0F254B').text(`${siteStreet}${siteCity}`, 110, y + 44, { width: 185 });
+
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#475569').text('Client Name:', 310, y + 22);
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(client?.name || project.clientName, 375, y + 22, { width: 170 });
+
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#475569').text('Contract Value:', 310, y + 44);
+    const contractRupees = toRupees(project.contractValuePaise || 0);
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#D6A21D').text(
+      `Rs.  ${contractRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+      375,
+      y + 44,
+      { width: 170 }
+    );
+
+    y += 74;
+
+    // 2. CLIENT PORTAL ACCESS CREDENTIALS CARD
+    const defaultPassword = inviteDetails.defaultPassword || inviteDetails.temporaryPassword || 'GKAclient2026!';
+    doc.rect(40, y, 515, 76).fill('#EFF6FF').stroke('#93C5FD').lineWidth(1).stroke();
+    doc.rect(40, y, 515, 17).fill('#1E40AF');
+    doc.circle(48, y + 8.5, 2.5).fill('#93C5FD');
+    doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold').text('CLIENT PORTAL ACCESS CREDENTIALS & DIRECT WORKSPACE LINK', 56, y + 5);
+
+    doc.font('Helvetica').fontSize(6.8).fillColor('#1E293B').text(
+      'An authorized secure account has been provisioned for your project workspace. Log in to access live milestone tracking, daily verified site photographs, engineer reports, progressive billing ledger, and submit payment notifications.',
+      48,
+      y + 22,
+      { width: 495 }
+    );
+
+    // Credential Box details
+    doc.rect(48, y + 42, 498, 26).fill('#FFFFFF').stroke('#BFDBFE').lineWidth(0.8).stroke();
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1E40AF').text('PORTAL URL:', 56, y + 46);
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(inviteDetails.portalUrl, 125, y + 46, { width: 160 });
+
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1E40AF').text('LOGIN USERNAME:', 56, y + 56);
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(inviteDetails.username, 140, y + 56, { width: 145 });
+
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1E40AF').text('DEFAULT PASSWORD:', 295, y + 50);
+    doc.rect(395, y + 46, 140, 18).fill('#FEF3C7').stroke('#F59E0B').lineWidth(0.8).stroke();
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#92400E').text(defaultPassword, 400, y + 51, { width: 130, align: 'center' });
+
+    y += 84;
+
+    // 3. ATTACHED COMMERCIAL QUOTATIONS
+    doc.rect(40, y, 515, 16).fill('#0F254B');
+    doc.circle(48, y + 8, 2.5).fill('#D6A21D');
+    doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold').text('ATTACHED PROJECT COMMERCIAL QUOTATIONS', 56, y + 4.5);
     y += 16;
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#DC2626');
-    doc.text('Balance Due:', 380, y, { width: 80, align: 'right' });
-    doc.text(`₹ ${balanceRupees.toLocaleString('en-IN')}`, 470, y, { width: 75, align: 'right' });
+    if (quotations && quotations.length > 0) {
+      // Table Header
+      doc.rect(40, y, 515, 16).fill('#F1F5F9');
+      doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#475569');
+      doc.text('QUOTATION NO.', 45, y + 5, { width: 85 });
+      doc.text('ISSUE DATE', 135, y + 5, { width: 70 });
+      doc.text('PROJECT SCOPE / TITLE', 210, y + 5, { width: 180 });
+      doc.text('TOTAL AMOUNT (Rs.)', 395, y + 5, { width: 90, align: 'right' });
+      doc.text('STATUS', 490, y + 5, { width: 60, align: 'center' });
+      y += 16;
 
-    // Bank Details Block
-    y += 30;
-    doc.rect(40, y, 280, 85).fill('#F8FAFC').stroke('#CBD5E1').lineWidth(1).stroke();
-    doc.fillColor('#0F1E36').fontSize(9).font('Helvetica-Bold').text('Bank Account Details for NEFT / RTGS / IMPS:', 50, y + 8);
-    doc.font('Helvetica').fontSize(8).fillColor('#334155');
-    doc.text(`Bank Name: ${invoice.bankDetails.bankName}`, 50, y + 24);
-    doc.text(`Account Name: ${invoice.bankDetails.accountName}`, 50, y + 36);
-    doc.text(`Account No: ${invoice.bankDetails.accountNumber}`, 50, y + 48);
-    doc.text(`IFSC Code: ${invoice.bankDetails.ifscCode} | Branch: ${invoice.bankDetails.branch}`, 50, y + 60);
-    doc.text(`UPI ID: ${invoice.bankDetails.upiId}`, 50, y + 72);
+      quotations.slice(0, 3).forEach((q: any) => {
+        doc.rect(40, y, 515, 16).fill('#FFFFFF').stroke('#E2E8F0').lineWidth(0.5).stroke();
+        doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(q.quotationNumber, 45, y + 4.5, { width: 85 });
+        doc.font('Helvetica').fontSize(6.5).fillColor('#475569').text(
+          new Date(q.createdAt || Date.now()).toLocaleDateString('en-IN'),
+          135,
+          y + 4.5,
+          { width: 70 }
+        );
+        doc.font('Helvetica').fontSize(6.5).fillColor('#1E293B').text(q.projectTitle || project.title, 210, y + 4.5, { width: 180 });
+        doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(
+          toRupees(q.totalAmountPaise).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+          395,
+          y + 4.5,
+          { width: 90, align: 'right' }
+        );
+        doc.font('Helvetica-Bold').fontSize(6.5).fillColor(q.status === 'approved' ? '#059669' : '#D6A21D').text(
+          (q.status || 'SENT').toUpperCase(),
+          490,
+          y + 4.5,
+          { width: 60, align: 'center' }
+        );
+        y += 16;
+      });
+    } else {
+      doc.rect(40, y, 515, 20).fill('#FFFFFF').stroke('#E2E8F0').lineWidth(0.5).stroke();
+      doc.font('Helvetica').fontSize(6.8).fillColor('#64748B').text(
+        '• Formal commercial quotation prepared for this project workspace will automatically synchronize with your live client portal.',
+        48,
+        y + 6
+      );
+      y += 20;
+    }
 
-    // Signatures
-    const sigY = 720;
-    doc.fillColor('#1E293B').fontSize(8).font('Helvetica-Bold');
-    doc.text('For GKA CONSTRUCTION', 400, sigY, { width: 140, align: 'center' });
-    doc.font('Helvetica').fontSize(7).fillColor('#64748B');
-    doc.text('Authorized Signatory', 400, sigY + 30, { width: 140, align: 'center' });
+    y += 8;
+
+    // 4. ATTACHED INVOICES & PROGRESSIVE BILLS
+    doc.rect(40, y, 515, 16).fill('#0F254B');
+    doc.circle(48, y + 8, 2.5).fill('#D6A21D');
+    doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold').text('ATTACHED TAX INVOICES & PROGRESSIVE BILLS', 56, y + 4.5);
+    y += 16;
+
+    if (invoices && invoices.length > 0) {
+      // Table Header
+      doc.rect(40, y, 515, 16).fill('#F1F5F9');
+      doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#475569');
+      doc.text('INVOICE NO.', 45, y + 5, { width: 85 });
+      doc.text('ISSUE DATE', 135, y + 5, { width: 70 });
+      doc.text('BILLING DESCRIPTION', 210, y + 5, { width: 180 });
+      doc.text('TOTAL AMOUNT (Rs.)', 395, y + 5, { width: 90, align: 'right' });
+      doc.text('STATUS', 490, y + 5, { width: 60, align: 'center' });
+      y += 16;
+
+      invoices.slice(0, 3).forEach((inv: any) => {
+        doc.rect(40, y, 515, 16).fill('#FFFFFF').stroke('#E2E8F0').lineWidth(0.5).stroke();
+        doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(inv.invoiceNumber, 45, y + 4.5, { width: 85 });
+        doc.font('Helvetica').fontSize(6.5).fillColor('#475569').text(
+          new Date(inv.issueDate || Date.now()).toLocaleDateString('en-IN'),
+          135,
+          y + 4.5,
+          { width: 70 }
+        );
+        doc.font('Helvetica').fontSize(6.5).fillColor('#1E293B').text(inv.projectTitle || project.title, 210, y + 4.5, { width: 180 });
+        doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(
+          toRupees(inv.totalAmountPaise).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+          395,
+          y + 4.5,
+          { width: 90, align: 'right' }
+        );
+        doc.font('Helvetica-Bold').fontSize(6.5).fillColor(inv.status === 'paid' ? '#059669' : '#D97706').text(
+          (inv.status || 'PENDING').toUpperCase(),
+          490,
+          y + 4.5,
+          { width: 60, align: 'center' }
+        );
+        y += 16;
+      });
+    } else {
+      doc.rect(40, y, 515, 20).fill('#FFFFFF').stroke('#E2E8F0').lineWidth(0.5).stroke();
+      doc.font('Helvetica').fontSize(6.8).fillColor('#64748B').text(
+        '• Progressive RA bills and milestone payment demands will be issued and attached directly to your workspace upon milestone verification.',
+        48,
+        y + 6
+      );
+      y += 20;
+    }
+
+    y += 10;
+
+    // 5. BOTTOM SECTION: BANK DETAILS (LEFT) & FORMAL SIGNATURE + SEAL (RIGHT)
+    const bottomY = Math.max(y, 580);
+
+    // Left Card: BANK DETAILS
+    doc.rect(40, bottomY, 255, 124).fill('#F8FAFC').stroke('#B8D5E5').lineWidth(1).stroke();
+    doc.rect(40, bottomY, 255, 18).fill('#0F254B');
+    doc.circle(48, bottomY + 9, 2.5).fill('#D6A21D');
+    doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold').text('OFFICIAL BANK TRANSFER DETAILS', 56, bottomY + 5);
+
+    const bankDetailsList = [
+      ['BENEFICIARY NAME', `:  ${GKA_COMPANY.bankDetails.beneficiary}`],
+      ['ACCOUNT NUMBER', `:  ${GKA_COMPANY.bankDetails.accountNumber}`],
+      ['BANK NAME', `:  ${GKA_COMPANY.bankDetails.bankName.toUpperCase()}`],
+      ['IFSC CODE', `:  ${GKA_COMPANY.bankDetails.ifscCode}`],
+      ['MICR CODE', `:  ${GKA_COMPANY.bankDetails.micr}`],
+      ['MOBILE NUMBER', `:  ${GKA_COMPANY.bankDetails.contactMobile}`],
+      ['ALTERNATE NUMBER', ':  8940455917'],
+      ['MAIL ID', `:  ${GKA_COMPANY.email.toUpperCase()}`],
+      ['WEBSITE', `:  ${GKA_COMPANY.website.toUpperCase()}`],
+    ];
+
+    let bY = bottomY + 23;
+    bankDetailsList.forEach(([lbl, val]) => {
+      doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#475569').text(lbl, 46, bY, { width: 92 });
+      doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#0F254B').text(val, 138, bY, { width: 152 });
+      bY += 10.5;
+    });
+
+    // Right Card: TERMS & CONDITIONS + SIGNATURE & SEAL
+    doc.rect(305, bottomY, 250, 124).fill('#FFFFFF').stroke('#D6A21D').lineWidth(1).stroke();
+    doc.rect(314, bottomY + 6, 7, 7).fill('#0F254B');
+    doc.fillColor('#0F254B').fontSize(7.5).font('Helvetica-Bold').text('WORKSPACE TERMS & AUTHORIZATION:', 326, bottomY + 6);
+
+    const terms = [
+      '• Official client workspace provisioned under contract.',
+      '• Use your portal credentials to track real-time site milestones.',
+      '• Payment receipts issued upon NEFT/RTGS bank clearance.',
+      '• Progressive RA bills verified by Chief Project Director.',
+    ];
+
+    let tY = bottomY + 17;
+    doc.font('Helvetica').fontSize(6.2).fillColor('#475569');
+    terms.forEach((t) => {
+      doc.text(t, 314, tY, { width: 236 });
+      tY += 7.8;
+    });
+
+    // Signature and Seal Images
+    const sigImgPath = path.resolve(__dirname, '../assets/signature.png');
+    const sealImgPath = path.resolve(__dirname, '../assets/seal.png');
+
+    if (fs.existsSync(sigImgPath)) {
+      doc.image(sigImgPath, 314, bottomY + 50, { width: 64 });
+    } else {
+      doc.font('Helvetica-Bold').fontSize(13).fillColor('#0F254B').text('Hari A', 314, bottomY + 54);
+    }
+
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text('For GKA CONSTRUCTION', 314, bottomY + 86);
+    doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text('Proprietor / Project Director', 314, bottomY + 96);
+
+    if (fs.existsSync(sealImgPath)) {
+      doc.image(sealImgPath, 462, bottomY + 48, { width: 58 });
+      doc.font('Helvetica').fontSize(6).fillColor('#64748B').text('(Company Seal)', 450, bottomY + 104, { width: 82, align: 'center' });
+    }
+
+    // Bottom Footer Banner Bar
+    const footerY = 744;
+    doc.save();
+    doc.rect(0, footerY, 595, 28).fill('#0F254B');
+    doc.polygon([0, footerY], [20, footerY], [0, footerY + 28]).fill('#D6A21D');
+    doc.polygon([595, footerY], [575, footerY], [595, footerY + 28]).fill('#D6A21D');
+    doc.restore();
+
+    doc.fillColor('#FFFFFF').fontSize(7.2).font('Helvetica-Bold');
+    doc.text(`${GKA_COMPANY.phoneDisplay}    |    ${GKA_COMPANY.email}    |    ${GKA_COMPANY.website}`, 30, footerY + 9);
+
+    doc.fillColor('#D6A21D').fontSize(7.2).font('Helvetica-Bold');
+    doc.text('QUALITY CONSTRUCTION FOR A BETTER TOMORROW', 350, footerY + 9, { width: 215, align: 'right' });
 
     doc.end();
     return doc;

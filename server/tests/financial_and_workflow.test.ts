@@ -6,12 +6,14 @@ import { Quotation } from '../src/models/Quotation';
 import { User } from '../src/models/User';
 import { ENV } from '../src/config/env';
 
+import { connectTestDB, disconnectTestDB } from './testHelper';
+
 beforeAll(async () => {
-  await mongoose.connect(ENV.MONGODB_URI);
+  await connectTestDB();
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
+  await disconnectTestDB();
 });
 
 describe('1. Financial Precision & Integer Paise Calculations', () => {

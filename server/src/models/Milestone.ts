@@ -12,6 +12,7 @@ export interface IMilestoneDocument extends Document {
   weightagePercent: number;
   progressPercent: number;
   status: 'pending' | 'in_progress' | 'completed' | 'delayed';
+  isPublishedToClient: boolean;
   orderIndex: number;
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +35,7 @@ const MilestoneSchema = new Schema<IMilestoneDocument>(
       enum: ['pending', 'in_progress', 'completed', 'delayed'],
       default: 'pending',
     },
+    isPublishedToClient: { type: Boolean, default: true, index: true },
     orderIndex: { type: Number, default: 1 },
   },
   { timestamps: true }

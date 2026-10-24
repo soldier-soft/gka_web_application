@@ -10,7 +10,13 @@ export interface IPaymentDocument extends Document {
   paymentDate: Date;
   paymentMode: 'bank_transfer' | 'upi' | 'cheque' | 'cash';
   transactionReference: string;
-  recordedBy: mongoose.Types.ObjectId;
+  recordedBy?: mongoose.Types.ObjectId;
+  verificationStatus: 'verification_pending' | 'verified' | 'rejected' | 'reconciled' | 'reversed';
+  verifiedBy?: mongoose.Types.ObjectId;
+  verifiedAt?: Date;
+  reconciliationDate?: Date;
+  reversalReference?: string;
+  proofFileUrl?: string;
   notes?: string;
   receiptUrl?: string;
   createdAt: Date;
@@ -31,7 +37,18 @@ const PaymentSchema = new Schema<IPaymentDocument>(
       default: 'bank_transfer',
     },
     transactionReference: { type: String, required: true },
-    recordedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    recordedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    verificationStatus: {
+      type: String,
+      enum: ['verification_pending', 'verified', 'rejected', 'reconciled', 'reversed'],
+      default: 'verified',
+      index: true,
+    },
+    verifiedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    verifiedAt: { type: Date },
+    reconciliationDate: { type: Date },
+    reversalReference: { type: String },
+    proofFileUrl: { type: String },
     notes: { type: String },
     receiptUrl: { type: String },
   },

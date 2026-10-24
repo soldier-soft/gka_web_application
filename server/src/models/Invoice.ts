@@ -20,6 +20,15 @@ export interface IInvoiceDocument extends Document {
   issueDate: Date;
   dueDate: Date;
   status: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled';
+  gstFiled?: boolean;
+  gstFilingDate?: Date;
+  gstFilingArn?: string;
+  gstTaxPeriod?: string;
+  subject?: string;
+  clientContactPerson?: string;
+  clientCompany?: string;
+  senderName?: string;
+  senderCompany?: string;
   notes?: string;
   bankDetails: {
     accountName: string;
@@ -68,6 +77,15 @@ const InvoiceSchema = new Schema<IInvoiceDocument>(
       default: 'draft',
       index: true,
     },
+    gstFiled: { type: Boolean, default: false, index: true },
+    gstFilingDate: { type: Date },
+    gstFilingArn: { type: String },
+    gstTaxPeriod: { type: String, default: '2026-10' },
+    subject: { type: String, default: 'Tax Invoice for Construction Works & Allied Services' },
+    clientContactPerson: { type: String },
+    clientCompany: { type: String },
+    senderName: { type: String, default: 'HARI A' },
+    senderCompany: { type: String, default: 'GKA CONSTRUCTION' },
     notes: { type: String },
     bankDetails: {
       accountName: { type: String, default: GKA_COMPANY.bankDetails.accountName },

@@ -1,8 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
+import fs from 'fs';
 import { Quotation } from '../../models/Quotation';
 import { Project } from '../../models/Project';
+import { Invoice } from '../../models/Invoice';
 import { STANDARD_RATE_LIBRARY } from '../../shared/constants';
 import { PDFService } from '../../services/pdfService';
+import { DOCXService } from '../../services/docxService';
 import { toPaise } from '../../shared/types';
 
 export const getRateLibrary = async (req: Request, res: Response): Promise<void> => {
@@ -189,6 +192,116 @@ export const downloadQuotationPDF = async (req: Request, res: Response, next: Ne
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${quotation.quotationNumber}.pdf"`);
     docStream.pipe(res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const downloadQuotationDOCX = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const quotation = await Quotation.findById(id);
+
+    if (!quotation) {
+      res.status(404).json({ success: false, message: 'Quotation not found' });
+      return;
+    }
+
+    const docxPath = await DOCXService.generateQuotationDocx(quotation);
+    res.download(docxPath, `GKA_Quotation_${quotation.quotationNumber}.docx`, (err) => {
+      try {
+        if (fs.existsSync(docxPath)) fs.unlinkSync(docxPath);
+      } catch (_) {}
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const convertToInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { partialItemIndices, dueDate } = req.body;
+    const quotation = await Quotation.findById(id);
+
+    if (!quotation) {
+      res.status(404).json({ success: false, message: 'Quotation not found' });
+      return;
+    }
+
+    if (quotation.status !== 'approved') {
+      res.status(400).json({ success: false, message: 'Only approved quotations can be converted to an invoice.' });
+      return;
+    }
+
+    if (!quotation.projectId) {
+      res.status(400).json({ success: false, message: 'Quotation must be linked to an active project before converting to invoice.' });
+      return;
+    }
+
+    const project = await Project.findById(quotation.projectId);
+    if (!project) {
+      res.status(404).json({ success: false, message: 'Linked project not found.' });
+      return;
+    }
+
+    const itemsToConvert =
+      partialItemIndices && Array.isArray(partialItemIndices) && partialItemIndices.length > 0
+        ? quotation.items.filter((_, idx) => partialItemIndices.includes(idx))
+        : quotation.items;
+
+    let subtotalPaise = 0;
+    const invoiceItems = itemsToConvert.map((item) => {
+      subtotalPaise += item.amountPaise;
+      return {
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPricePaise: item.unitRatePaise,
+        totalPaise: item.amountPaise,
+      };
+    });
+
+    const taxRate = quotation.taxRatePercent || 18;
+    const taxPaise = Math.round((subtotalPaise * taxRate) / 100);
+    const cgstPaise = Math.round(taxPaise / 2);
+    const sgstPaise = taxPaise - cgstPaise;
+    const totalAmountPaise = subtotalPaise + taxPaise;
+
+    const count = await Invoice.countDocuments();
+    const currentYear = new Date().getFullYear();
+    const invoiceNumber = `GKA-INV-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+
+    const invoice = await Invoice.create({
+      invoiceNumber,
+      projectId: project._id,
+      projectTitle: project.title,
+      clientId: quotation.clientId || project.clientId,
+      clientName: quotation.clientName,
+      billingAddress: quotation.clientAddress || project.siteAddress.street,
+      items: invoiceItems,
+      subtotalPaise,
+      cgstPaise,
+      sgstPaise,
+      igstPaise: 0,
+      totalAmountPaise,
+      paidAmountPaise: 0,
+      dueAmountPaise: totalAmountPaise,
+      issueDate: new Date(),
+      dueDate: new Date(dueDate || Date.now() + 14 * 86400000),
+      status: 'issued',
+      notes: `Converted from Approved Quotation ${quotation.quotationNumber}.`,
+    });
+
+    // Update project invoiced amount
+    project.invoicedAmountPaise += totalAmountPaise;
+    await project.save();
+
+    res.status(201).json({
+      success: true,
+      message: `Quotation ${quotation.quotationNumber} successfully converted to Tax Invoice ${invoice.invoiceNumber}.`,
+      invoice,
+    });
   } catch (error) {
     next(error);
   }

@@ -1,11 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { Project } from '../../models/Project';
 import { Milestone } from '../../models/Milestone';
 import { Expense } from '../../models/Expense';
 import { Invoice } from '../../models/Invoice';
 import { Payment } from '../../models/Payment';
 import { SiteReport } from '../../models/SiteReport';
+import { Client } from '../../models/Client';
+import { User } from '../../models/User';
+import { Quotation } from '../../models/Quotation';
+import { ClientFeedback } from '../../models/ClientFeedback';
+import { PDFService } from '../../services/pdfService';
 import { STANDARD_MILESTONES } from '../../shared/constants';
 
 export const getProjects = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -51,17 +58,50 @@ export const getProjectById = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    const milestones = await Milestone.find({ projectId: project._id }).sort({ orderIndex: 1 });
+    const isClientRole = req.user?.role === 'client';
+
+    const milestones = await Milestone.find({
+      projectId: project._id,
+      ...(isClientRole ? { isPublishedToClient: true } : {}),
+    }).sort({ orderIndex: 1 });
+
     const siteReports = await SiteReport.find({
       projectId: project._id,
-      ...(req.user?.role === 'client' ? { isPublishedToClient: true } : {}),
-    }).sort({ reportDate: -1 }).limit(10);
+      ...(isClientRole ? { isPublishedToClient: true } : {}),
+    }).sort({ reportDate: -1 });
+
+    const invoices = await Invoice.find({
+      projectId: project._id,
+      ...(isClientRole ? { status: { $ne: 'draft' } } : {}),
+    }).sort({ issueDate: -1 });
+
+    const payments = await Payment.find({
+      projectId: project._id,
+      ...(isClientRole ? { verificationStatus: { $in: ['verified', 'reconciled'] } } : {}),
+    }).sort({ paymentDate: -1 });
+
+    const quotations = await Quotation.find({
+      projectId: project._id,
+      ...(isClientRole ? { status: { $in: ['sent', 'approved'] } } : {}),
+    }).sort({ createdAt: -1 });
+
+    const clientFeedbacks = await ClientFeedback.find({ projectId: project._id }).sort({ createdAt: -1 });
+
+    // Internal costs (only for internal staff, NEVER exposed to client)
+    const expenses = isClientRole
+      ? []
+      : await Expense.find({ projectId: project._id }).sort({ expenseDate: -1 });
 
     res.json({
       success: true,
       project,
       milestones,
       recentSiteReports: siteReports,
+      invoices,
+      payments,
+      quotations,
+      clientFeedbacks,
+      expenses,
     });
   } catch (error) {
     next(error);
@@ -117,11 +157,146 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
       weightagePercent: m.weightagePercent,
       progressPercent: 0,
       status: m.orderIndex === 1 ? 'in_progress' : 'pending',
+      isPublishedToClient: true,
       orderIndex: m.orderIndex,
     }));
     await Milestone.insertMany(milestoneDocs);
 
-    res.status(201).json({ success: true, project });
+    // Client Account Automation: Link or securely invite client
+    let clientAccess: any = null;
+    const clientDoc = await Client.findById(clientId);
+    if (clientDoc) {
+      const existingUser = await User.findOne({ email: clientDoc.email.toLowerCase() });
+      if (!existingUser) {
+        const rawTempPassword = `GKA@${Math.floor(100000 + Math.random() * 900000)}`;
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(rawTempPassword, salt);
+        const activationToken = crypto.randomBytes(24).toString('hex');
+
+        const newUser = await User.create({
+          name: clientDoc.name,
+          email: clientDoc.email.toLowerCase(),
+          phone: clientDoc.phone,
+          passwordHash,
+          role: 'client',
+          clientId: clientDoc._id,
+          assignedProjects: [project._id],
+          mustChangePasswordOnLogin: true,
+          activationToken,
+          activationTokenExpires: new Date(Date.now() + 7 * 86400000),
+          isActive: true,
+        });
+
+        await Client.findByIdAndUpdate(clientDoc._id, { userId: newUser._id });
+
+        clientAccess = {
+          username: clientDoc.email,
+          tempPassword: rawTempPassword,
+          isNewAccount: true,
+          activationToken,
+          message: 'Client portal account automatically created. Must change password on first login.',
+        };
+      } else {
+        // Link project to existing client user
+        if (!existingUser.assignedProjects.includes(project._id as any)) {
+          existingUser.assignedProjects.push(project._id as any);
+        }
+        if (!existingUser.clientId) {
+          existingUser.clientId = clientDoc._id as any;
+        }
+        await existingUser.save();
+        await Client.findByIdAndUpdate(clientDoc._id, { userId: existingUser._id });
+
+        clientAccess = {
+          username: existingUser.email,
+          isNewAccount: false,
+          message: 'Existing client account linked to this new project workspace.',
+        };
+      }
+    }
+
+    res.status(201).json({ success: true, project, clientAccess });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const downloadProjectWelcomePDF = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const project = await Project.findById(id);
+    if (!project) {
+      res.status(404).json({ success: false, message: 'Project not found' });
+      return;
+    }
+    const client = await Client.findById(project.clientId);
+    if (!client) {
+      res.status(404).json({ success: false, message: 'Client record not found' });
+      return;
+    }
+
+    // Find or automatically create user account for this client with default password
+    let user = await User.findOne({ email: client.email.toLowerCase() });
+    let defaultPassword = user?.defaultPassword;
+
+    if (!user) {
+      const cleanPhoneDigits = (client.phone || '').replace(/\D/g, '').slice(-4);
+      defaultPassword = `GKA@${cleanPhoneDigits || '2026'}`;
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(defaultPassword, salt);
+      user = await User.create({
+        name: client.name,
+        email: client.email.toLowerCase(),
+        phone: client.phone || '8838030917',
+        passwordHash,
+        defaultPassword,
+        role: 'client',
+        clientId: client._id,
+        assignedProjects: [project._id],
+        mustChangePasswordOnLogin: false,
+        isActive: true,
+      });
+      await Client.findByIdAndUpdate(client._id, { userId: user._id });
+    } else if (!defaultPassword) {
+      defaultPassword = 'GKAclient2026!';
+      user.defaultPassword = defaultPassword;
+      const salt = await bcrypt.genSalt(10);
+      user.passwordHash = await bcrypt.hash(defaultPassword, salt);
+      await user.save();
+    }
+
+    // Ensure project is linked to client user
+    if (!user.assignedProjects.includes(project._id as any)) {
+      user.assignedProjects.push(project._id as any);
+      await user.save();
+    }
+
+    // Retrieve attached quotations and invoices for this project
+    const quotations = await Quotation.find({ projectId: project._id }).sort({ createdAt: -1 });
+    const invoices = await Invoice.find({ projectId: project._id }).sort({ issueDate: -1 });
+
+    const host = req.get('host') || 'localhost:3000';
+    const clientHost = host.replace(':5000', ':3000');
+    const protocol = req.protocol || 'http';
+    const portalUrl = `${protocol}://${clientHost}/login`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=GKA_Project_Welcome_${project.projectId}.pdf`);
+
+    const pdfStream = PDFService.generateProjectWelcomePDF(
+      project,
+      client,
+      {
+        portalUrl,
+        username: user.email,
+        temporaryPassword: defaultPassword,
+        defaultPassword,
+      },
+      quotations,
+      invoices
+    );
+
+    pdfStream.pipe(res);
   } catch (error) {
     next(error);
   }
