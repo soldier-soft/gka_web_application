@@ -38,6 +38,13 @@ import {
   ArrowLeft,
   CheckSquare,
   Activity,
+  Share2,
+  Download,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  MessageCircle,
+  Instagram,
 } from 'lucide-react';
 import { GKA_COMPANY } from '@shared/constants';
 import { api } from '../../services/api';
@@ -48,6 +55,10 @@ import {
   CONSTRUCTION_PROCEDURES,
   IProcedureStep,
 } from '../../data/proceduresData';
+import {
+  CLIENT_FAQS,
+  IClientFaq,
+} from '../../data/faqsData';
 
 // ==========================================
 // 1. Verified Client Projects Data (Published under "Client Projects")
@@ -470,6 +481,11 @@ export const HomePage: React.FC = () => {
   // Construction Procedures State
   const [activeProcedureStep, setActiveProcedureStep] = useState(0);
 
+  // Share & FAQ States
+  const [shareFeedback, setShareFeedback] = useState<string>('');
+  const [activeFaqIndex, setActiveFaqIndex] = useState<number | null>(0);
+  const [faqCategory, setFaqCategory] = useState<string>('all');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -519,6 +535,39 @@ export const HomePage: React.FC = () => {
       defaultLocation: 'Chennai / Tiruvannamalai',
     });
     setIsEnquiryModalOpen(true);
+  };
+
+  const handleShareCompanyProfile = async () => {
+    const shareUrl = window.location.origin + GKA_COMPANY.companyProfilePdfUrl;
+    const shareData = {
+      title: 'GKA Construction — Official Company Profile (PDF)',
+      text: 'Download the official company profile, project credentials, and engineering standards of GKA Construction (Chennai & Tiruvannamalai):',
+      url: shareUrl,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        setShareFeedback('Shared!');
+        setTimeout(() => setShareFeedback(''), 2500);
+        return;
+      } catch (err) {
+        // User cancelled or unsupported
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareFeedback('Link Copied!');
+      setTimeout(() => setShareFeedback(''), 2500);
+    } catch (e) {
+      window.open(
+        `https://api.whatsapp.com/send?text=${encodeURIComponent(
+          shareData.text + ' ' + shareUrl
+        )}`,
+        '_blank'
+      );
+    }
   };
 
   return (
@@ -573,6 +622,49 @@ export const HomePage: React.FC = () => {
                   <Phone className="w-4 h-4 text-brand-gold-400" />
                   <span>+91 {GKA_COMPANY.phoneDisplay}</span>
                 </a>
+              </div>
+
+              {/* Company Profile PDF Download & Share Banner */}
+              <div className="p-4 rounded-xl bg-white/5 border border-brand-gold-400/30 backdrop-blur-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-brand-gold-500/20 text-brand-gold-400 flex items-center justify-center shrink-0 border border-brand-gold-500/30">
+                    <FileText className="w-5 h-5 text-brand-gold-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-bold font-heading text-white tracking-wide uppercase">
+                        Official Company Profile
+                      </h4>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-gold-500/20 text-brand-gold-300 font-mono font-semibold">
+                        PDF • Verified
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      Civil capabilities, commercial references, and quality standards dossier.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <a
+                    href={GKA_COMPANY.companyProfilePdfUrl}
+                    download="GKA_Construction_Premium_Company_Profile.pdf"
+                    className="flex-1 sm:flex-initial px-3.5 py-2 rounded-lg text-xs font-bold bg-brand-gold-500 hover:bg-brand-gold-600 text-brand-navy-950 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    title="Download Official Company Profile PDF"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download PDF</span>
+                  </a>
+
+                  <button
+                    onClick={handleShareCompanyProfile}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center justify-center gap-1.5"
+                    title="Share Company Profile PDF with Family or Partners"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-brand-gold-300" />
+                    <span>{shareFeedback || 'Share'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Micro proof bar */}
@@ -1930,7 +2022,185 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 6. Ready to Build Banner */}
+      {/* 6. Comprehensive Client Questionnaires & Engineering Knowledge Base (SEO FAQ) */}
+      <section id="faq-guide" className="py-20 lg:py-28 bg-[#F8FAFC] border-b border-slate-200 relative overflow-hidden">
+        {/* Decorative subtle ambient backdrop */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-brand-gold-400/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-brand-navy-900/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          {/* Section Header */}
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-navy-950 text-brand-gold-400 text-xs font-bold border border-brand-gold-400/30 shadow-xs">
+              <HelpCircle className="w-4 h-4 text-brand-gold-400" />
+              <span>CLIENT QUESTIONNAIRES &amp; FAQ GUIDE</span>
+            </div>
+
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-extrabold text-brand-navy-950 mt-4 leading-tight">
+              Frequently Asked Questions &amp; <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-brand-gold-500 to-amber-700">
+                Homeowner Project Guide
+              </span>
+            </h2>
+
+            <p className="text-slate-600 text-sm sm:text-base mt-4 leading-relaxed">
+              Transparent, realistic, and engineering-backed answers to the most critical questions homeowners, investors, and commercial clients ask before choosing a general building contractor in Chennai and Tiruvannamalai.
+            </p>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-8">
+              {[
+                { id: 'all', label: 'All Questions' },
+                { id: 'cost', label: 'Pricing & Packages' },
+                { id: 'boq', label: 'Contracts & Brand Locks' },
+                { id: 'approvals', label: 'Approvals & Permits' },
+                { id: 'tracking', label: 'NRI & Digital Tracking' },
+                { id: 'warranty', label: 'Warranty & Handover' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setFaqCategory(cat.id);
+                    setActiveFaqIndex(null);
+                  }}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    faqCategory === cat.id
+                      ? 'bg-brand-navy-950 text-white shadow-xs ring-1 ring-brand-gold-400'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Accordion Questions List */}
+          <div className="space-y-3.5 max-w-4xl mx-auto">
+            {CLIENT_FAQS.filter((item) => faqCategory === 'all' || item.category === faqCategory).map(
+              (faq, idx) => {
+                const isOpen = activeFaqIndex === idx;
+                return (
+                  <div
+                    key={faq.id}
+                    className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                      isOpen
+                        ? 'bg-white border-brand-gold-500/60 shadow-premium ring-1 ring-brand-gold-400/20'
+                        : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
+                    }`}
+                  >
+                    <button
+                      onClick={() => setActiveFaqIndex(isOpen ? null : idx)}
+                      className="w-full text-left p-5 sm:p-6 flex items-start justify-between gap-4 transition-colors"
+                      aria-expanded={isOpen}
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <span
+                          className={`w-7 h-7 rounded-lg text-xs font-bold font-mono flex items-center justify-center shrink-0 mt-0.5 ${
+                            isOpen
+                              ? 'bg-brand-gold-500 text-brand-navy-950'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {String(idx + 1).padStart(2, '0')}
+                        </span>
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 mb-1.5 inline-block">
+                            {faq.categoryLabel}
+                          </span>
+                          <h3
+                            className={`text-sm sm:text-base font-heading font-bold leading-snug transition-colors ${
+                              isOpen ? 'text-brand-navy-950' : 'text-slate-800'
+                            }`}
+                          >
+                            {faq.question}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                          isOpen
+                            ? 'bg-brand-navy-950 text-brand-gold-400'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {isOpen ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="px-5 pb-6 sm:px-6 sm:pb-6 pt-0 border-t border-slate-100 text-xs sm:text-sm text-slate-600 leading-relaxed space-y-4 animate-in fade-in duration-200">
+                        <p className="mt-4">{faq.answer}</p>
+
+                        {/* Highlights Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                          {faq.highlights.map((item, hIdx) => (
+                            <div
+                              key={hIdx}
+                              className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200/70 text-xs text-slate-700 font-medium"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+            )}
+          </div>
+
+          {/* Need More Assistance Banner */}
+          <div className="mt-14 p-6 sm:p-8 rounded-2xl bg-brand-navy-950 text-white border border-brand-gold-500/30 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+            <div className="space-y-1 text-center md:text-left">
+              <h4 className="text-lg font-heading font-bold text-white flex items-center justify-center md:justify-start gap-2">
+                <span>Still have specific questions about your plot or floor plan?</span>
+              </h4>
+              <p className="text-xs text-slate-300 max-w-xl">
+                Our Chief Civil Engineer is available for free plot assessment consultations across Chennai, OMR, and Tiruvannamalai.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+              <a
+                href={GKA_COMPANY.social.whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>WhatsApp Engineer</span>
+              </a>
+
+              <a
+                href={`tel:${GKA_COMPANY.phoneDisplay}`}
+                className="px-4 py-2.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-colors flex items-center gap-2"
+              >
+                <Phone className="w-3.5 h-3.5 text-brand-gold-400" />
+                <span>+91 {GKA_COMPANY.phoneDisplay}</span>
+              </a>
+
+              <a
+                href={GKA_COMPANY.companyProfilePdfUrl}
+                download="GKA_Construction_Premium_Company_Profile.pdf"
+                className="px-4 py-2.5 rounded-lg text-xs font-bold bg-brand-gold-500 hover:bg-brand-gold-600 text-brand-navy-950 transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Company Profile</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 7. Ready to Build Banner */}
       <section className="py-16 bg-brand-gold-500 text-brand-navy-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
           <h2 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight">

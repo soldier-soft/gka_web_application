@@ -17,6 +17,9 @@ import { CostEstimatorPage } from './pages/website/CostEstimatorPage';
 import { ContactPage } from './pages/website/ContactPage';
 import { PrivacyPage, TermsPage } from './pages/website/LegalPages';
 
+// Common Components
+import { CookieConsent } from './components/common/CookieConsent';
+
 // Auth
 import { LoginPage } from './pages/auth/LoginPage';
 
@@ -128,6 +131,7 @@ export const App: React.FC = () => {
             {/* Fallback to Home */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <CookieConsent />
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>

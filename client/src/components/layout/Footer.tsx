@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Phone, Mail, Globe, ShieldCheck, HardHat, FileText } from 'lucide-react';
+import { MapPin, Phone, Mail, Globe, ShieldCheck, HardHat, FileText, ExternalLink, Instagram, Download, MessageCircle } from 'lucide-react';
 import { GKA_COMPANY } from '@shared/constants';
 
 export const Footer: React.FC = () => {
@@ -25,6 +25,31 @@ export const Footer: React.FC = () => {
             <div className="pt-2 flex flex-col space-y-1 text-xs text-slate-400">
               <span className="font-semibold text-slate-200">GSTIN: {GKA_COMPANY.gstin}</span>
               <span className="font-semibold text-slate-200">PAN: {GKA_COMPANY.pan}</span>
+            </div>
+
+            {/* Social & Downloads */}
+            <div className="pt-2 flex flex-wrap items-center gap-3 text-xs">
+              <a
+                href={GKA_COMPANY.social.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pink-500/10 text-pink-300 border border-pink-500/30 hover:bg-pink-500/20 transition-colors"
+                title="Follow GKA Construction on Instagram"
+              >
+                <Instagram className="w-3.5 h-3.5 text-pink-400" />
+                <span>Instagram</span>
+              </a>
+
+              <a
+                href={GKA_COMPANY.social.whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors"
+                title="Chat with Engineer on WhatsApp"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                <span>WhatsApp</span>
+              </a>
             </div>
           </div>
 
@@ -52,25 +77,47 @@ export const Footer: React.FC = () => {
               <li><Link to="/cost-estimator" className="hover:text-brand-gold-400 transition-colors">Interactive Cost Estimator</Link></li>
               <li><Link to="/contact" className="hover:text-brand-gold-400 transition-colors">Book a Free Site Assessment</Link></li>
               <li><Link to="/projects" className="hover:text-brand-gold-400 transition-colors">Representative Projects Portfolio</Link></li>
+              <li>
+                <a
+                  href={GKA_COMPANY.companyProfilePdfUrl}
+                  download="GKA_Construction_Premium_Company_Profile.pdf"
+                  className="hover:text-brand-gold-400 transition-colors flex items-center gap-1.5 text-brand-gold-400 font-semibold"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Company Profile (PDF)</span>
+                </a>
+              </li>
               <li><Link to="/login" className="hover:text-brand-gold-400 font-semibold text-brand-gold-400 transition-colors">ERP & Client Portal Login →</Link></li>
               <li><Link to="/privacy" className="hover:text-brand-gold-400 transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms" className="hover:text-brand-gold-400 transition-colors">Terms & Conditions</Link></li>
             </ul>
           </div>
 
-          {/* Col 4: Official Addresses */}
+          {/* Col 4: Official Addresses & Maps */}
           <div className="space-y-4 text-xs">
             <h4 className="text-sm font-heading font-bold text-white uppercase tracking-wider mb-4 border-l-2 border-brand-gold-400 pl-2">
               Contact & Locations
             </h4>
             <div className="space-y-3 text-slate-400">
-              <div className="flex items-start gap-2">
+              {/* Chennai Branch */}
+              <div className="flex items-start gap-2 bg-brand-navy-900/50 p-2.5 rounded-lg border border-white/5">
                 <MapPin className="w-4 h-4 text-brand-gold-400 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-semibold text-white block">Chennai Branch:</span>
-                  <span>{GKA_COMPANY.chennaiBranch.full}</span>
+                  <span className="leading-relaxed block">{GKA_COMPANY.chennaiBranch.full}</span>
+                  <a
+                    href={GKA_COMPANY.chennaiBranch.mapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-gold-400 hover:text-brand-gold-300 mt-1.5 transition-colors"
+                  >
+                    <span>Open in Map</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
               </div>
+
+              {/* Registered Office */}
               <div className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-brand-gold-400 shrink-0 mt-0.5" />
                 <div>
@@ -78,6 +125,7 @@ export const Footer: React.FC = () => {
                   <span>{GKA_COMPANY.registeredOffice.full}</span>
                 </div>
               </div>
+
               <div className="flex items-center gap-2 pt-1">
                 <Phone className="w-4 h-4 text-brand-gold-400 shrink-0" />
                 <a href={`tel:${GKA_COMPANY.phoneDisplay}`} className="hover:text-white font-medium">

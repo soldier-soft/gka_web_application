@@ -29,8 +29,20 @@ export const GKA_COMPANY = {
     landmark: 'Kelambakkam – Vandalur Junction',
     city: 'Chennai',
     state: 'Tamil Nadu',
-    full: 'Rajan Nagar, Kelambakkam – Vandalur Junction, Chennai, Tamil Nadu'
+    full: 'Rajan Nagar, Kelambakkam – Vandalur Junction, Chennai, Tamil Nadu',
+    coordinates: {
+      lat: 12.789535522460938,
+      lng: 80.22100067138672,
+    },
+    mapUrl: 'https://www.bing.com/maps?&mepi=0~Directions~Embedded~Direction_Button&ty=0&rtp=pos.12.789535522460938_80.22100067138672__GKA%20CONSTRUCTION__e_~&mode=m&v=2&sV=1',
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=12.789535522460938,80.22100067138672',
   },
+  social: {
+    instagram: 'https://www.instagram.com/gka.construction?xtok=b3gzOGVpMndsdXZu',
+    instagramHandle: '@gka.construction',
+    whatsapp: 'https://wa.me/918838030917?text=Hello%20GKA%20Construction,%20I%20would%20like%20to%20enquire%20about%20a%20construction%20project.',
+  },
+  companyProfilePdfUrl: '/docs/GKA_Construction_Premium_Company_Profile.pdf',
   bankDetails: {
     beneficiary: 'GKA CONSTRUCTION',
     accountName: 'GKA CONSTRUCTION',
