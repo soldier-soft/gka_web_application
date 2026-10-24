@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // GKA Construction ERP - Production Entrypoint for Hostinger / Node.js
 const path = require('path');
 const fs = require('fs');

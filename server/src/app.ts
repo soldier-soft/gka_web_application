@@ -68,6 +68,8 @@ export const createApp = (): express.Application => {
     console.log(`[Frontend] Serving static assets from: ${resolvedDist}`);
 
     const assetsDir = path.join(resolvedDist, 'assets');
+    const rootAssetsDir = path.resolve(process.cwd(), 'assets');
+
     if (fs.existsSync(assetsDir)) {
       // Dedicated route for built Vite bundles (/assets/index-*.js, /assets/index-*.css)
       app.use(
@@ -75,7 +77,15 @@ export const createApp = (): express.Application => {
         express.static(assetsDir, {
           maxAge: '1y',
           immutable: true,
-          fallthrough: false, // Never send missing JS/CSS to HTML fallback
+        })
+      );
+    }
+    if (fs.existsSync(rootAssetsDir) && rootAssetsDir !== assetsDir) {
+      app.use(
+        '/assets',
+        express.static(rootAssetsDir, {
+          maxAge: '1y',
+          immutable: true,
         })
       );
     }

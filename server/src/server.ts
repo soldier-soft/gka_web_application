@@ -1,13 +1,24 @@
+#!/usr/bin/env node
 import { createApp } from './app';
 import { connectDB } from './config/db';
 import { ENV } from './config/env';
+
+// Prevent process crashes on unhandled errors in production
+process.on('uncaughtException', (err: any) => {
+  console.error('[GKA Server] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason: any, promise: any) => {
+  console.error('[GKA Server] Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 const startServer = async () => {
   try {
     const app = createApp();
     const port = ENV.PORT;
 
-    const server = app.listen(port, '0.0.0.0', () => {
+    // Listen on assigned port across all network interfaces
+    const server = app.listen(port, () => {
       console.log(`====================================================`);
       console.log(`  GKA CONSTRUCTION ERP PRODUCTION SERVER`);
       console.log(`  Domain: ${ENV.CLIENT_URL}`);
@@ -38,3 +49,4 @@ const startServer = async () => {
 };
 
 startServer();
+

@@ -60,12 +60,18 @@ const createApp = () => {
     if (resolvedDist) {
         console.log(`[Frontend] Serving static assets from: ${resolvedDist}`);
         const assetsDir = path_1.default.join(resolvedDist, 'assets');
+        const rootAssetsDir = path_1.default.resolve(process.cwd(), 'assets');
         if (fs_1.default.existsSync(assetsDir)) {
             // Dedicated route for built Vite bundles (/assets/index-*.js, /assets/index-*.css)
             app.use('/assets', express_1.default.static(assetsDir, {
                 maxAge: '1y',
                 immutable: true,
-                fallthrough: false, // Never send missing JS/CSS to HTML fallback
+            }));
+        }
+        if (fs_1.default.existsSync(rootAssetsDir) && rootAssetsDir !== assetsDir) {
+            app.use('/assets', express_1.default.static(rootAssetsDir, {
+                maxAge: '1y',
+                immutable: true,
             }));
         }
         // Serve other root static files (favicon, logo.png, robots.txt, sitemap.xml)
