@@ -18,6 +18,8 @@ build/
 
 # Logs and runtime caches
 *.log
+*.zip
+.deploy-staging/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

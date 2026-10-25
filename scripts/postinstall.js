@@ -43,6 +43,16 @@ try {
   console.warn('[Deploy Postinstall] Server dependencies note:', err.message);
 }
 
+// Ensure execute permissions on Unix/Linux for all .bin shims
+if (process.platform !== 'win32') {
+  try {
+    console.log('[Deploy Postinstall] Ensuring executable permissions on node_modules/.bin...');
+    execSync('chmod -R +x node_modules/.bin server/node_modules/.bin client/node_modules/.bin 2>/dev/null || true', { cwd: root });
+  } catch (chmodErr) {
+    // Non-critical, continue
+  }
+}
+
 console.log('----------------------------------------------------');
 console.log('[Deploy Postinstall] Dependencies installation finished.');
 console.log('----------------------------------------------------');

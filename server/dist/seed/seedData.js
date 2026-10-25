@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runSeed = void 0;
+const mongoose_1 = __importDefault(require("mongoose"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const User_1 = require("../models/User");
 const Client_1 = require("../models/Client");
@@ -29,7 +30,11 @@ const constants_1 = require("../shared/constants");
 const runSeed = async () => {
     try {
         await (0, db_1.connectDB)();
-        console.log('[Seed] Connected to database. Clearing existing records for clean live setup...');
+        if (!mongoose_1.default.connection.readyState || mongoose_1.default.connection.readyState !== 1) {
+            throw new Error('Database is not connected. Aborting seed operation.');
+        }
+        console.log(`[Seed] Connected to active database host: ${mongoose_1.default.connection.host} (DB: ${mongoose_1.default.connection.name})`);
+        console.log('[Seed] Clearing existing records for clean live setup...');
         await Promise.all([
             User_1.User.deleteMany({}),
             Client_1.Client.deleteMany({}),

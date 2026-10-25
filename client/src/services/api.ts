@@ -1,8 +1,34 @@
 // GKA Construction ERP API Client
 
-const BASE_URL = (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.includes('localhost'))
-  ? import.meta.env.VITE_API_URL
-  : '/api/v1';
+const getBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return '/api/v1';
+
+  // If running in browser and envUrl is absolute, check if it points to current domain
+  if (typeof window !== 'undefined' && envUrl.startsWith('http')) {
+    try {
+      const parsed = new URL(envUrl);
+      const currentHost = window.location.hostname.replace(/^www\./, '');
+      const apiHost = parsed.hostname.replace(/^www\./, '');
+      // If same domain (with or without www), prefer relative path to avoid cross-origin preflights
+      if (currentHost === apiHost) {
+        return parsed.pathname || '/api/v1';
+      }
+    } catch {
+      // Ignore URL parsing errors
+    }
+  }
+
+  // If localhost was hardcoded but we are in production, fallback to /api/v1
+  if (envUrl.includes('localhost') && typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+    return '/api/v1';
+  }
+
+  return envUrl;
+};
+
+const BASE_URL = getBaseUrl();
+
 
 export const getAuthToken = (): string | null => {
   return localStorage.getItem('gka_token');

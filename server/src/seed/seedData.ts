@@ -26,7 +26,11 @@ import { toPaise } from '../shared/types';
 export const runSeed = async () => {
   try {
     await connectDB();
-    console.log('[Seed] Connected to database. Clearing existing records for clean live setup...');
+    if (!mongoose.connection.readyState || mongoose.connection.readyState !== 1) {
+      throw new Error('Database is not connected. Aborting seed operation.');
+    }
+    console.log(`[Seed] Connected to active database host: ${mongoose.connection.host} (DB: ${mongoose.connection.name})`);
+    console.log('[Seed] Clearing existing records for clean live setup...');
 
     await Promise.all([
       User.deleteMany({}),

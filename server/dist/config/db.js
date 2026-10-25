@@ -11,12 +11,15 @@ const connectDB = async () => {
     const connectOptions = {
         autoIndex: true,
         maxPoolSize: 20,
-        serverSelectionTimeoutMS: 4000,
+        serverSelectionTimeoutMS: 30000,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
         dbName: 'gka_construction_erp',
     };
     // 1. Attempt primary MongoDB connection (e.g. MongoDB Atlas)
     try {
-        console.log('[MongoDB] Connecting to primary database...');
+        const maskedUri = env_1.ENV.MONGODB_URI.replace(/:[^:]*@/, ':***@');
+        console.log(`[MongoDB] Connecting to primary database: ${maskedUri}...`);
         await mongoose_1.default.connect(env_1.ENV.MONGODB_URI, connectOptions);
         console.log(`[MongoDB] Connected successfully to ${mongoose_1.default.connection.host}/${mongoose_1.default.connection.name}`);
         return;

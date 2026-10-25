@@ -2,24 +2,39 @@
   RewriteEngine On
   RewriteBase /
 
-  # 1. Directly serve existing physical files and directories (assets, images, scripts, stylesheets)
+  # 1. Directly serve existing physical files and directories
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # 2. Check in dist folder if root match was not found
-  RewriteCond %{DOCUMENT_ROOT}/dist/$1 -f
-  RewriteRule ^(.*)$ dist/$1 [L]
-
+  # 2. Directly serve assets from dist/assets or client/dist/assets if not in root /assets
   RewriteCond %{DOCUMENT_ROOT}/dist/assets/$1 -f
-  RewriteRule ^assets/(.*)$ dist/assets/$1 [L]
+  RewriteRule ^assets/(.*)$ /dist/assets/$1 [L]
 
-  # 3. Route API endpoints to the Node.js backend
-  RewriteCond %{REQUEST_URI} ^/api/ [NC]
-  RewriteRule ^(.*)$ http://127.0.0.1:5000/$1 [P,L]
+  RewriteCond %{DOCUMENT_ROOT}/client/dist/assets/$1 -f
+  RewriteRule ^assets/(.*)$ /client/dist/assets/$1 [L]
 
-  # 4. SPA Fallback: Route all frontend client navigation to index.html
+  # 3. Directly serve files from dist or client/dist if not in root
+  RewriteCond %{DOCUMENT_ROOT}/dist/$1 -f
+  RewriteRule ^(.*)$ /dist/$1 [L]
+
+  RewriteCond %{DOCUMENT_ROOT}/client/dist/$1 -f
+  RewriteRule ^(.*)$ /client/dist/$1 [L]
+
+  # 4. Route API requests to Node.js backend (if proxy module available)
+  <IfModule mod_proxy.c>
+    RewriteCond %{REQUEST_URI} ^/api/ [NC]
+    RewriteRule ^(.*)$ http://127.0.0.1:5000/$1 [P,L]
+  </IfModule>
+
+  # 5. SPA Fallback: Serve index.html for client route navigation
   RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} !^/api/ [NC]
+  RewriteCond %{DOCUMENT_ROOT}/dist/index.html -f
+  RewriteRule . /dist/index.html [L]
+
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_URI} !^/api/ [NC]

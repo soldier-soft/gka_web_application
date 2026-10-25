@@ -5,9 +5,10 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "build": "node node_modules/typescript/bin/tsc",
     "start": "node dist/server.js",
-    "seed": "ts-node-dev --transpile-only src/seed/seedData.ts",
+    "seed": "node dist/seed/seedData.js",
+    "seed:dev": "ts-node-dev --transpile-only src/seed/seedData.ts",
     "test": "vitest run"
   },
   "dependencies": {

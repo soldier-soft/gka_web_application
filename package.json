@@ -6,13 +6,14 @@
   "scripts": {
     "install:all": "node scripts/postinstall.js",
     "postinstall": "node scripts/postinstall.js",
-    "seed": "npm run seed --prefix server",
+    "seed": "node server/dist/seed/seedData.js",
     "test": "npm run test --prefix server",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
     "build:client": "node scripts/build-all.js",
     "build:server": "npm run build --prefix server",
     "build": "node scripts/build-all.js",
+    "package": "node scripts/create-deploy-zip.js",
     "start": "node server.js"
   },
   "dependencies": {

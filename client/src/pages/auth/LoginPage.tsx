@@ -14,15 +14,37 @@ export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const QUICK_ACCOUNTS = [
+    { label: '👑 Owner', email: 'owner@gkaconstruction.com', pass: 'GKAadmin2026!' },
+    { label: '📋 PM', email: 'pm@gkaconstruction.com', pass: 'GKApm2026!' },
+    { label: '🏗️ Supervisor', email: 'supervisor@gkaconstruction.com', pass: 'GKAsuper2026!' },
+    { label: '💼 Accounts', email: 'accounts@gkaconstruction.com', pass: 'GKAaccounts2026!' },
+    { label: '🏨 Client', email: 'client@gingerhotel.com', pass: 'GKAclient2026!' },
+  ];
+
+  const handleQuickFill = (accEmail: string, accPass: string) => {
+    setEmail(accEmail);
+    setPassword(accPass);
+    setError('');
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
     try {
-      await login(email, password);
-      // If client, navigate to client portal, otherwise admin dashboard
-      if (email.includes('gingerhotel') || email.includes('client')) {
+      const loggedUser = await login(email.trim(), password);
+      const role = loggedUser?.role;
+
+      // Route each role to its designated workspace
+      if (role === 'client' || email.includes('gingerhotel') || email.includes('client')) {
         navigate('/client-portal');
+      } else if (role === 'site_supervisor') {
+        navigate('/admin/site-ops');
+      } else if (role === 'accounts') {
+        navigate('/admin/finance');
+      } else if (role === 'project_manager') {
+        navigate('/admin/projects');
       } else {
         navigate('/admin/dashboard');
       }
@@ -32,6 +54,7 @@ export const LoginPage: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="min-h-screen gradient-navy flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
@@ -62,6 +85,29 @@ export const LoginPage: React.FC = () => {
               {error}
             </div>
           )}
+
+          {/* Quick-Fill Role Selector for Instant One-Click Access */}
+          <div className="space-y-1.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+              1-Click Role Login Selector
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_ACCOUNTS.map((acc) => (
+                <button
+                  key={acc.email}
+                  type="button"
+                  onClick={() => handleQuickFill(acc.email, acc.pass)}
+                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all ${
+                    email === acc.email
+                      ? 'bg-brand-navy-900 text-white border-brand-navy-900 shadow-sm'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                  }`}
+                >
+                  {acc.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>

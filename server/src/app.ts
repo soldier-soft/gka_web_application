@@ -51,10 +51,10 @@ export const createApp = (): express.Application => {
 
   // Discover frontend distribution directory
   const clientDistCandidates = [
-    path.resolve(__dirname, '../../client/dist'),
-    path.resolve(__dirname, '../../dist'),
     path.resolve(process.cwd(), 'client/dist'),
     path.resolve(process.cwd(), 'dist'),
+    path.resolve(__dirname, '../../client/dist'),
+    path.resolve(__dirname, '../../dist'),
     path.resolve(__dirname, '../client/dist'),
     path.resolve(process.cwd(), '../client/dist'),
     process.cwd(),
@@ -63,43 +63,47 @@ export const createApp = (): express.Application => {
     (cand) => fs.existsSync(cand) && fs.existsSync(path.join(cand, 'index.html'))
   );
 
-  // Serve static assets BEFORE API & SPA fallback
-  if (resolvedDist) {
-    console.log(`[Frontend] Serving static assets from: ${resolvedDist}`);
+  // Discover and serve all existing static asset directories
+  const candidateAssetDirs = [
+    resolvedDist ? path.join(resolvedDist, 'assets') : null,
+    path.resolve(process.cwd(), 'assets'),
+    path.resolve(process.cwd(), 'dist/assets'),
+    path.resolve(process.cwd(), 'client/dist/assets'),
+    path.resolve(__dirname, '../../assets'),
+    path.resolve(__dirname, '../../dist/assets'),
+    path.resolve(__dirname, '../../client/dist/assets'),
+  ].filter((dir): dir is string => !!dir && fs.existsSync(dir));
 
-    const assetsDir = path.join(resolvedDist, 'assets');
-    const rootAssetsDir = path.resolve(process.cwd(), 'assets');
+  const uniqueAssetDirs = Array.from(new Set(candidateAssetDirs));
 
-    if (fs.existsSync(assetsDir)) {
-      // Dedicated route for built Vite bundles (/assets/index-*.js, /assets/index-*.css)
-      app.use(
-        '/assets',
-        express.static(assetsDir, {
-          maxAge: '1y',
-          immutable: true,
-        })
-      );
-    }
-    if (fs.existsSync(rootAssetsDir) && rootAssetsDir !== assetsDir) {
-      app.use(
-        '/assets',
-        express.static(rootAssetsDir, {
-          maxAge: '1y',
-          immutable: true,
-        })
-      );
-    }
-
-    // Serve other root static files (favicon, logo.png, robots.txt, sitemap.xml)
+  uniqueAssetDirs.forEach((dir) => {
+    console.log(`[Frontend] Serving static bundle assets from: ${dir}`);
     app.use(
-      express.static(resolvedDist, {
+      '/assets',
+      express.static(dir, {
+        maxAge: '1y',
+        immutable: true,
+      })
+    );
+  });
+
+  // Discover and serve root static files (favicon, logo.png, robots.txt, sitemap.xml)
+  const candidateStaticRoots = [
+    resolvedDist,
+    path.resolve(process.cwd(), 'dist'),
+    path.resolve(process.cwd(), 'client/dist'),
+    process.cwd(),
+    path.resolve(__dirname, '../..'),
+  ].filter((dir): dir is string => !!dir && fs.existsSync(dir));
+
+  Array.from(new Set(candidateStaticRoots)).forEach((dir) => {
+    app.use(
+      express.static(dir, {
         maxAge: '1h',
         index: false,
       })
     );
-  } else {
-    console.warn('[Frontend] Notice: No pre-compiled index.html found in candidate directories.');
-  }
+  });
 
   // REST API v1 Routing
   const apiRouter = express.Router();
@@ -124,25 +128,37 @@ export const createApp = (): express.Application => {
   });
 
   // SPA Fallback: Serve index.html strictly for HTML page navigation
-  if (resolvedDist) {
-    app.get('*', (req, res, next) => {
-      // 1. Never intercept API or upload routes
-      if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-        return next();
-      }
+  app.get('*', (req, res, next) => {
+    // 1. Never intercept API or upload routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+      return next();
+    }
 
-      // 2. Never send HTML fallback for asset extensions
-      if (
-        req.path.startsWith('/assets/') ||
-        /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|json|txt|xml|pdf)$/i.test(req.path)
-      ) {
-        return res.status(404).type('text/plain').send('Resource not found');
-      }
+    // 2. Never send HTML fallback for asset extensions
+    if (
+      req.path.startsWith('/assets/') ||
+      /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|json|txt|xml|pdf)$/i.test(req.path)
+    ) {
+      return res.status(404).type('text/plain').send('Resource not found');
+    }
 
-      // 3. Send index.html for React client-side route navigation
-      res.sendFile(path.join(resolvedDist, 'index.html'));
-    });
-  }
+    // 3. Find and serve index.html
+    const indexCandidates = [
+      resolvedDist ? path.join(resolvedDist, 'index.html') : null,
+      path.resolve(process.cwd(), 'index.html'),
+      path.resolve(process.cwd(), 'dist/index.html'),
+      path.resolve(process.cwd(), 'client/dist/index.html'),
+      path.resolve(__dirname, '../../index.html'),
+      path.resolve(__dirname, '../../dist/index.html'),
+      path.resolve(__dirname, '../../client/dist/index.html'),
+    ].filter((f): f is string => !!f && fs.existsSync(f));
+
+    if (indexCandidates.length > 0) {
+      return res.sendFile(indexCandidates[0]);
+    }
+
+    res.status(404).type('text/plain').send('Application index.html not found');
+  });
 
   // Centralized Error Handler
   app.use(errorHandler);
