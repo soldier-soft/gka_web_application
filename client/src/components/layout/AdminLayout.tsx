@@ -19,15 +19,77 @@ import {
   Sparkles,
   Receipt,
   FileSpreadsheet,
+  User as UserIcon,
+  KeyRound,
+  Lock,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 import { GKA_COMPANY } from '@shared/constants';
 
 export const AdminLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, login } = useAuth();
+  const { user, logout } = useAuth();
+
+  // Quick Change Password Modal state across all admin pages
+  const [showChangePassModal, setShowChangePassModal] = useState(false);
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [showCurPass, setShowCurPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfPass, setShowConfPass] = useState(false);
+  const [isSubmittingPass, setIsSubmittingPass] = useState(false);
+  const [passSuccess, setPassSuccess] = useState('');
+  const [passError, setPassError] = useState('');
+
+  const handleQuickPasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassError('');
+    setPassSuccess('');
+
+    if (!currentPass) {
+      setPassError('Please enter your current password.');
+      return;
+    }
+    if (newPass.length < 6) {
+      setPassError('New password must be at least 6 characters.');
+      return;
+    }
+    if (newPass !== confirmPass) {
+      setPassError('New password and confirm password do not match.');
+      return;
+    }
+
+    setIsSubmittingPass(true);
+    try {
+      const res = await api.changePassword({
+        currentPassword: currentPass,
+        newPassword: newPass,
+      });
+
+      if (res.success) {
+        setPassSuccess('Password updated successfully!');
+        setCurrentPass('');
+        setNewPass('');
+        setConfirmPass('');
+        setTimeout(() => {
+          setShowChangePassModal(false);
+          setPassSuccess('');
+        }, 2500);
+      }
+    } catch (err: any) {
+      setPassError(err.message || 'Failed to update password.');
+    } finally {
+      setIsSubmittingPass(false);
+    }
+  };
 
   const navItems = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
@@ -40,28 +102,8 @@ export const AdminLayout: React.FC = () => {
     { name: 'Inventory & Materials', path: '/admin/inventory', icon: Boxes },
     { name: 'Finance & Profitability', path: '/admin/finance', icon: IndianRupee },
     { name: 'GST & Tax Settlement', path: '/admin/finance?tab=gst', icon: Receipt },
+    { name: 'My Profile', path: '/admin/profile', icon: UserIcon },
   ];
-
-  const handleRoleSwitch = async (roleEmail: string) => {
-    // Quick role switch for testing and demos
-    const passwords: Record<string, string> = {
-      'owner@gkaconstruction.com': 'GKAadmin2026!',
-      'pm@gkaconstruction.com': 'GKApm2026!',
-      'supervisor@gkaconstruction.com': 'GKAsuper2026!',
-      'accounts@gkaconstruction.com': 'GKAaccounts2026!',
-      'client@gingerhotel.com': 'GKAclient2026!',
-    };
-
-    const pass = passwords[roleEmail];
-    if (pass) {
-      await login(roleEmail, pass);
-      if (roleEmail === 'client@gingerhotel.com') {
-        navigate('/client-portal');
-      } else {
-        navigate('/admin/dashboard');
-      }
-    }
-  };
 
   const getRoleBadge = (role?: string) => {
     switch (role) {
@@ -143,13 +185,21 @@ export const AdminLayout: React.FC = () => {
         {/* User profile card */}
         <div className="p-4 border-t border-white/10 bg-brand-navy-950/80">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-brand-gold-500/20 border border-brand-gold-400/40 flex items-center justify-center font-bold text-brand-gold-300 text-sm">
-              {user?.name?.charAt(0) || 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{user?.name}</p>
-              <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
-            </div>
+            <Link
+              to="/admin/profile"
+              title="View & Edit Profile"
+              className="flex items-center gap-3 flex-1 min-w-0 group hover:opacity-90 transition-opacity"
+            >
+              <div className="w-9 h-9 rounded-full bg-brand-gold-500/20 border border-brand-gold-400/40 flex items-center justify-center font-bold text-brand-gold-300 text-sm group-hover:border-brand-gold-400 transition-colors">
+                {user?.name?.charAt(0) || 'U'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-white truncate group-hover:text-brand-gold-300 transition-colors">
+                  {user?.name}
+                </p>
+                <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
+              </div>
+            </Link>
             <button
               onClick={logout}
               title="Logout"
@@ -179,43 +229,35 @@ export const AdminLayout: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Role Switcher for seamless testing */}
-          <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded-lg p-1">
-              <span className="text-slate-500 px-2 font-medium">Switch Role:</span>
-              <button
-                onClick={() => handleRoleSwitch('owner@gkaconstruction.com')}
-                className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-                  user?.role === 'super_admin' ? 'bg-amber-600 text-white' : 'hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                Owner
-              </button>
-              <button
-                onClick={() => handleRoleSwitch('pm@gkaconstruction.com')}
-                className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-                  user?.role === 'project_manager' ? 'bg-blue-600 text-white' : 'hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                PM
-              </button>
-              <button
-                onClick={() => handleRoleSwitch('supervisor@gkaconstruction.com')}
-                className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-                  user?.role === 'site_supervisor' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                Supervisor
-              </button>
-              <button
-                onClick={() => handleRoleSwitch('accounts@gkaconstruction.com')}
-                className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-                  user?.role === 'accounts' ? 'bg-purple-600 text-white' : 'hover:bg-slate-200 text-slate-700'
-                }`}
-              >
-                Accounts
-              </button>
-            </div>
+          {/* User Profile & Actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Quick Change Password across all admin pages */}
+            <button
+              onClick={() => {
+                setShowChangePassModal(true);
+                setPassSuccess('');
+                setPassError('');
+              }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-brand-navy-950 bg-brand-gold-100 hover:bg-brand-gold-200 border border-brand-gold-300 rounded-lg transition-colors shadow-xs"
+              title="Change your account password"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-brand-gold-700" />
+              <span className="hidden md:inline">Change Password</span>
+            </button>
+
+            <Link
+              to="/admin/profile"
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all text-left"
+              title="View Profile"
+            >
+              <div className="w-8 h-8 rounded-full bg-brand-navy-900 text-brand-gold-400 font-bold text-xs flex items-center justify-center shadow-xs">
+                {user?.name?.charAt(0) || 'U'}
+              </div>
+              <div className="hidden sm:block">
+                <p className="text-xs font-bold text-slate-800 leading-tight">{user?.name}</p>
+                <p className="text-[10px] text-slate-500 capitalize">{user?.role?.replace('_', ' ') || 'User'}</p>
+              </div>
+            </Link>
 
             <div className="flex items-center gap-2">
               {getRoleBadge(user?.role)}
@@ -268,6 +310,143 @@ export const AdminLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+
+      {/* Global Change Password Modal across all Admin ERP Pages */}
+      {showChangePassModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-brand-gold-100 text-brand-gold-700 flex items-center justify-center">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-base text-slate-900">Change Account Password</h3>
+                  <p className="text-[11px] text-slate-500">Update login password for {user?.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowChangePassModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {passSuccess && (
+              <div className="p-3.5 bg-emerald-50 text-emerald-800 rounded-xl text-xs flex items-center gap-2 border border-emerald-200">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{passSuccess}</span>
+              </div>
+            )}
+
+            {passError && (
+              <div className="p-3.5 bg-rose-50 text-rose-800 rounded-xl text-xs flex items-center gap-2 border border-rose-200">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{passError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleQuickPasswordChange} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Current Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={showCurPass ? 'text' : 'password'}
+                    required
+                    value={currentPass}
+                    onChange={(e) => setCurrentPass(e.target.value)}
+                    placeholder="Enter current password"
+                    className="w-full pl-9 pr-10 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-gold-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurPass(!showCurPass)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showCurPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">New Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <KeyRound className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    required
+                    value={newPass}
+                    onChange={(e) => setNewPass(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                    className="w-full pl-9 pr-10 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-gold-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Confirm New Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <KeyRound className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={showConfPass ? 'text' : 'password'}
+                    required
+                    value={confirmPass}
+                    onChange={(e) => setConfirmPass(e.target.value)}
+                    placeholder="Re-enter new password"
+                    className="w-full pl-9 pr-10 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-gold-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfPass(!showConfPass)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showConfPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePassModal(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPass}
+                  className="px-5 py-2 rounded-lg bg-brand-navy-900 text-white font-bold hover:bg-brand-navy-800 transition-colors flex items-center gap-1.5"
+                >
+                  {isSubmittingPass ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Update Password</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

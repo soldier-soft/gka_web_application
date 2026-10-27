@@ -34,6 +34,7 @@ import { InventoryPage } from './pages/admin/InventoryPage';
 import { FinancePage } from './pages/admin/FinancePage';
 import { PortfolioAdminPage } from './pages/admin/PortfolioAdminPage';
 import { InvoicesPage } from './pages/admin/InvoicesPage';
+import { ProfilePage } from './pages/admin/ProfilePage';
 
 // Client Portal
 import { ClientPortalPage } from './pages/client/ClientPortalPage';
@@ -123,6 +124,7 @@ export const App: React.FC = () => {
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="finance" element={<FinancePage />} />
               <Route path="portfolio" element={<PortfolioAdminPage />} />
+              <Route path="profile" element={<ProfilePage />} />
             </Route>
 
             {/* Client Portal */}

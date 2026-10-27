@@ -21,6 +21,14 @@ import {
   HelpCircle,
   AlertCircle,
   Eye,
+  User as UserIcon,
+  Lock,
+  KeyRound,
+  Save,
+  RefreshCw,
+  EyeOff,
+  Building2,
+  BadgeCheck,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -28,7 +36,7 @@ import { formatINR } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
 
 export const ClientPortalPage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, setUser } = useAuth();
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [projectData, setProjectData] = useState<any>(null);
@@ -36,7 +44,7 @@ export const ClientPortalPage: React.FC = () => {
 
   // Active view tab in Client Portal
   const [activePortalTab, setActivePortalTab] = useState<
-    'overview' | 'milestones' | 'photos' | 'billing' | 'feedback'
+    'overview' | 'milestones' | 'photos' | 'billing' | 'feedback' | 'profile'
   >('overview');
 
   // Copy bank details state
@@ -59,6 +67,31 @@ export const ClientPortalPage: React.FC = () => {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [feedbackSuccessMsg, setFeedbackSuccessMsg] = useState('');
+
+  // Client Profile state
+  const [clientProfile, setClientProfile] = useState<any>(null);
+  const [profileSubTab, setProfileSubTab] = useState<'info' | 'edit' | 'password'>('info');
+  const [profileEditName, setProfileEditName] = useState(user?.name || '');
+  const [profileEditPhone, setProfileEditPhone] = useState(user?.phone || '');
+  const [profileEditCompany, setProfileEditCompany] = useState('');
+  const [profileEditAltPhone, setProfileEditAltPhone] = useState('');
+  const [profileEditStreet, setProfileEditStreet] = useState('');
+  const [profileEditCity, setProfileEditCity] = useState('');
+  const [profileEditPincode, setProfileEditPincode] = useState('');
+  const [isSavingClientProfile, setIsSavingClientProfile] = useState(false);
+  const [clientProfileSuccess, setClientProfileSuccess] = useState('');
+  const [clientProfileError, setClientProfileError] = useState('');
+
+  // Client Change Password state
+  const [clientCurrentPass, setClientCurrentPass] = useState('');
+  const [clientNewPass, setClientNewPass] = useState('');
+  const [clientConfirmPass, setClientConfirmPass] = useState('');
+  const [showClientCurPass, setShowClientCurPass] = useState(false);
+  const [showClientNewPass, setShowClientNewPass] = useState(false);
+  const [showClientConfPass, setShowClientConfPass] = useState(false);
+  const [isChangingClientPass, setIsChangingClientPass] = useState(false);
+  const [clientPassSuccess, setClientPassSuccess] = useState('');
+  const [clientPassError, setClientPassError] = useState('');
 
   useEffect(() => {
     const fetchClientProjects = async () => {
@@ -83,6 +116,7 @@ export const ClientPortalPage: React.FC = () => {
       }
     };
     fetchClientProjects();
+    fetchClientProfile();
   }, [user]);
 
   const fetchProjectDetails = async (projId: string) => {
@@ -184,6 +218,112 @@ Mobile: ${GKA_COMPANY.bankDetails.contactMobile}`;
     }
   };
 
+  const fetchClientProfile = async () => {
+    try {
+      const res = await api.getProfile();
+      if (res.success && res.user) {
+        setClientProfile(res.user);
+        setProfileEditName(res.user.name || '');
+        setProfileEditPhone(res.user.phone || '');
+        if (res.user.clientDetails) {
+          setProfileEditCompany(res.user.clientDetails.companyName || '');
+          setProfileEditAltPhone(res.user.clientDetails.alternatePhone || '');
+          setProfileEditStreet(res.user.clientDetails.billingAddress?.street || '');
+          setProfileEditCity(res.user.clientDetails.billingAddress?.city || '');
+          setProfileEditPincode(res.user.clientDetails.billingAddress?.pincode || '');
+        }
+      }
+    } catch (e: any) {
+      console.warn('Could not fetch client profile:', e.message);
+    }
+  };
+
+  const handleSaveClientProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setClientProfileError('');
+    setClientProfileSuccess('');
+
+    if (!profileEditName.trim()) {
+      setClientProfileError('Contact person name is required.');
+      return;
+    }
+    if (!profileEditPhone.trim()) {
+      setClientProfileError('Primary phone number is required.');
+      return;
+    }
+
+    setIsSavingClientProfile(true);
+    try {
+      const res = await api.updateProfile({
+        name: profileEditName.trim(),
+        phone: profileEditPhone.trim(),
+        companyName: profileEditCompany.trim(),
+        alternatePhone: profileEditAltPhone.trim(),
+        billingAddress: {
+          street: profileEditStreet.trim(),
+          city: profileEditCity.trim(),
+          pincode: profileEditPincode.trim(),
+        },
+      });
+
+      if (res.success) {
+        setClientProfileSuccess('Profile and billing details updated successfully!');
+        if (user) {
+          setUser({
+            ...user,
+            name: profileEditName.trim(),
+            phone: profileEditPhone.trim(),
+          });
+        }
+        fetchClientProfile();
+        setTimeout(() => setClientProfileSuccess(''), 3500);
+      }
+    } catch (err: any) {
+      setClientProfileError(err.message || 'Failed to update profile.');
+    } finally {
+      setIsSavingClientProfile(false);
+    }
+  };
+
+  const handleChangeClientPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setClientPassError('');
+    setClientPassSuccess('');
+
+    if (!clientCurrentPass) {
+      setClientPassError('Please enter current password.');
+      return;
+    }
+    if (clientNewPass.length < 6) {
+      setClientPassError('New password must be at least 6 characters.');
+      return;
+    }
+    if (clientNewPass !== clientConfirmPass) {
+      setClientPassError('New password and confirm password do not match.');
+      return;
+    }
+
+    setIsChangingClientPass(true);
+    try {
+      const res = await api.changePassword({
+        currentPassword: clientCurrentPass,
+        newPassword: clientNewPass,
+      });
+
+      if (res.success) {
+        setClientPassSuccess('Password updated successfully!');
+        setClientCurrentPass('');
+        setClientNewPass('');
+        setClientConfirmPass('');
+        setTimeout(() => setClientPassSuccess(''), 4000);
+      }
+    } catch (err: any) {
+      setClientPassError(err.message || 'Failed to change password.');
+    } finally {
+      setIsChangingClientPass(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Header */}
@@ -203,11 +343,24 @@ Mobile: ${GKA_COMPANY.bankDetails.contactMobile}`;
             </div>
           </Link>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex flex-col text-right">
-              <span className="text-xs font-bold text-white">{user?.name || 'Authorized Client'}</span>
-              <span className="text-[10px] text-brand-teal-300">Verified Client Access</span>
-            </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setActivePortalTab('profile')}
+              className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all text-left ${
+                activePortalTab === 'profile'
+                  ? 'bg-brand-navy-800 text-brand-gold-400 border-brand-gold-400 shadow-sm'
+                  : 'bg-white/5 hover:bg-white/10 text-white border-white/10'
+              }`}
+              title="View Client Profile"
+            >
+              <div className="w-8 h-8 rounded-full bg-brand-gold-500 text-brand-navy-950 font-bold text-xs flex items-center justify-center">
+                {user?.name?.charAt(0) || 'C'}
+              </div>
+              <div className="hidden sm:flex flex-col">
+                <span className="text-xs font-bold leading-tight">{user?.name || 'Authorized Client'}</span>
+                <span className="text-[10px] text-brand-teal-300">My Profile & Account</span>
+              </div>
+            </button>
 
             {user?.role !== 'client' && (
               <Link
@@ -241,9 +394,17 @@ Mobile: ${GKA_COMPANY.bankDetails.contactMobile}`;
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 space-y-6 w-full">
         {loading ? (
           <div className="p-12 text-center text-xs text-slate-400">Loading your project portal...</div>
-        ) : !projectData?.project ? (
-          <div className="p-12 text-center text-xs text-slate-500 bg-white rounded-2xl border border-slate-200">
-            No authorized project active on this account yet. Please contact GKA Construction at {GKA_COMPANY.phoneDisplay}.
+        ) : !projectData?.project && activePortalTab !== 'profile' ? (
+          <div className="p-12 text-center text-xs text-slate-500 bg-white rounded-2xl border border-slate-200 space-y-4">
+            <p>No authorized project active on this account yet. Please contact GKA Construction at {GKA_COMPANY.phoneDisplay}.</p>
+            <div>
+              <button
+                onClick={() => setActivePortalTab('profile')}
+                className="px-4 py-2 bg-brand-navy-900 text-white rounded-lg text-xs font-bold hover:bg-brand-navy-800"
+              >
+                Go to My Profile & Password
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -267,8 +428,10 @@ Mobile: ${GKA_COMPANY.bankDetails.contactMobile}`;
               </div>
             )}
 
-            {/* Project Hero Banner */}
-            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-subtle space-y-6">
+            {/* Project Hero Banner & Quick Actions */}
+            {projectData?.project && activePortalTab !== 'profile' && (
+              <>
+                <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-subtle space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <div className="flex items-center gap-2">
@@ -367,14 +530,17 @@ Mobile: ${GKA_COMPANY.bankDetails.contactMobile}`;
                 </div>
               </button>
             </div>
+          </>
+        )}
 
-            {/* Portal Tab Navigation */}
+        {/* Portal Tab Navigation */}
             <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
               {[
                 { id: 'overview', label: 'Stages & Milestones' },
                 { id: 'photos', label: `Verified Photos (${projectData.publishedReports?.length || 0})` },
                 { id: 'billing', label: 'Invoices & Bank Transfer' },
                 { id: 'feedback', label: `Queries & Requests (${projectData.feedbackTickets?.length || 0})` },
+                { id: 'profile', label: '👤 My Client Profile & Password' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -701,6 +867,404 @@ Mobile: ${GKA_COMPANY.bankDetails.contactMobile}`;
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: CLIENT PROFILE & ACCOUNT DETAILS */}
+            {activePortalTab === 'profile' && (
+              <div className="space-y-6">
+                {/* Profile Hero Summary */}
+                <div className="bg-gradient-to-r from-brand-navy-950 via-brand-navy-900 to-brand-navy-800 text-white rounded-2xl p-6 sm:p-8 shadow-xl border border-brand-navy-700/50">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#D6A21D] to-amber-300 text-brand-navy-950 font-extrabold text-2xl flex items-center justify-center font-heading shadow-md">
+                        {user?.name?.charAt(0) || 'C'}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-xl font-bold font-heading text-white">{user?.name}</h2>
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+                            Verified Client Account
+                          </span>
+                        </div>
+                        <p className="text-xs text-brand-gold-300">
+                          {clientProfile?.clientDetails?.companyName || 'Roots Corporation Ltd / Ginger Hotel'}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 pt-0.5">
+                          <span>{user?.email}</span>
+                          <span>•</span>
+                          <span>+91 {user?.phone}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setProfileSubTab('info')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          profileSubTab === 'info'
+                            ? 'bg-[#D6A21D] text-brand-navy-950 shadow-sm'
+                            : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                        }`}
+                      >
+                        Basic Info
+                      </button>
+                      <button
+                        onClick={() => setProfileSubTab('edit')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          profileSubTab === 'edit'
+                            ? 'bg-[#D6A21D] text-brand-navy-950 shadow-sm'
+                            : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                        }`}
+                      >
+                        Edit Details
+                      </button>
+                      <button
+                        onClick={() => setProfileSubTab('password')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          profileSubTab === 'password'
+                            ? 'bg-[#D6A21D] text-brand-navy-950 shadow-sm'
+                            : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                        }`}
+                      >
+                        Change Password
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SubTab 1: Basic Information Overview */}
+                {profileSubTab === 'info' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex justify-between items-center border-b pb-3">
+                        <h3 className="font-heading font-bold text-base text-brand-navy-950">Primary Contact Information</h3>
+                        <button
+                          onClick={() => setProfileSubTab('edit')}
+                          className="text-xs font-semibold text-brand-gold-700 bg-brand-gold-50 px-2.5 py-1 rounded-lg border border-brand-gold-200"
+                        >
+                          Edit Info
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 text-xs">
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Contact Person</span>
+                          <span className="font-bold text-slate-800">{user?.name}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Organization / Entity</span>
+                          <span className="font-bold text-slate-800">
+                            {clientProfile?.clientDetails?.companyName || 'Roots Corporation Ltd / Ginger Hotel'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Registered Email (Login ID)</span>
+                          <span className="font-semibold text-slate-800">{user?.email}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Primary Phone Number</span>
+                          <span className="font-semibold text-slate-800">+91 {user?.phone}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Alternate Phone / Landline</span>
+                          <span className="font-semibold text-slate-800">
+                            {clientProfile?.clientDetails?.alternatePhone || '044-67200000'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1.5">
+                          <span className="text-slate-500">Portal Security</span>
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            256-Bit SSL Encrypted
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex justify-between items-center border-b pb-3">
+                        <h3 className="font-heading font-bold text-base text-brand-navy-950">Official Billing & Tax Details</h3>
+                        <span className="text-[11px] text-slate-400 font-mono">GST Registered</span>
+                      </div>
+
+                      <div className="space-y-3 text-xs">
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">GSTIN</span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {clientProfile?.clientDetails?.gstin || '33AABCR1234F1ZX'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">PAN Number</span>
+                          <span className="font-mono font-bold text-slate-800">
+                            {clientProfile?.clientDetails?.pan || 'AABCR1234F'}
+                          </span>
+                        </div>
+                        <div className="py-1.5 border-b border-slate-100 space-y-1">
+                          <span className="text-slate-500 block">Registered Billing Address</span>
+                          <p className="font-medium text-slate-800 leading-relaxed">
+                            {clientProfile?.clientDetails?.billingAddress?.street || 'Ginger Hotel, Rajiv Gandhi Salai (OMR), Navalur'},{' '}
+                            {clientProfile?.clientDetails?.billingAddress?.city || 'Chennai'},{' '}
+                            {clientProfile?.clientDetails?.billingAddress?.state || 'Tamil Nadu'} -{' '}
+                            {clientProfile?.clientDetails?.billingAddress?.pincode || '600130'}
+                          </p>
+                        </div>
+                        <div className="flex justify-between py-1.5">
+                          <span className="text-slate-500">Associated GKA Projects</span>
+                          <span className="font-bold text-slate-800">{projects.length || 1} Property</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SubTab 2: Edit Contact Details Form */}
+                {profileSubTab === 'edit' && (
+                  <div className="max-w-2xl bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+                    <div className="border-b pb-3">
+                      <h3 className="font-heading font-bold text-base text-brand-navy-950">Update Contact & Billing Information</h3>
+                      <p className="text-xs text-slate-500">Update your primary contact person, phone numbers, and billing address.</p>
+                    </div>
+
+                    {clientProfileSuccess && (
+                      <div className="p-3.5 bg-emerald-50 text-emerald-800 rounded-xl text-xs flex items-center gap-2 border border-emerald-200">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{clientProfileSuccess}</span>
+                      </div>
+                    )}
+
+                    {clientProfileError && (
+                      <div className="p-3.5 bg-rose-50 text-rose-800 rounded-xl text-xs flex items-center gap-2 border border-rose-200">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{clientProfileError}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleSaveClientProfile} className="space-y-4 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block font-semibold text-slate-700 mb-1">Contact Person Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={profileEditName}
+                            onChange={(e) => setProfileEditName(e.target.value)}
+                            className="w-full p-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-semibold text-slate-700 mb-1">Primary Phone Number</label>
+                          <input
+                            type="tel"
+                            required
+                            value={profileEditPhone}
+                            onChange={(e) => setProfileEditPhone(e.target.value)}
+                            className="w-full p-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block font-semibold text-slate-700 mb-1">Company / Organization</label>
+                          <input
+                            type="text"
+                            value={profileEditCompany}
+                            onChange={(e) => setProfileEditCompany(e.target.value)}
+                            className="w-full p-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-semibold text-slate-700 mb-1">Alternate Phone / Landline</label>
+                          <input
+                            type="tel"
+                            value={profileEditAltPhone}
+                            onChange={(e) => setProfileEditAltPhone(e.target.value)}
+                            className="w-full p-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Billing Street Address</label>
+                        <input
+                          type="text"
+                          value={profileEditStreet}
+                          onChange={(e) => setProfileEditStreet(e.target.value)}
+                          className="w-full p-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block font-semibold text-slate-700 mb-1">City</label>
+                          <input
+                            type="text"
+                            value={profileEditCity}
+                            onChange={(e) => setProfileEditCity(e.target.value)}
+                            className="w-full p-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-semibold text-slate-700 mb-1">PIN Code</label>
+                          <input
+                            type="text"
+                            value={profileEditPincode}
+                            onChange={(e) => setProfileEditPincode(e.target.value)}
+                            className="w-full p-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setProfileSubTab('info')}
+                          className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSavingClientProfile}
+                          className="px-5 py-2 rounded-lg bg-brand-navy-900 text-white font-bold hover:bg-brand-navy-800 transition-colors flex items-center gap-1.5"
+                        >
+                          {isSavingClientProfile ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Saving Details...</span>
+                            </>
+                          ) : (
+                            <span>Save Contact Details</span>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* SubTab 3: Change Password Form */}
+                {profileSubTab === 'password' && (
+                  <div className="max-w-md bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+                    <div className="border-b pb-3">
+                      <h3 className="font-heading font-bold text-base text-brand-navy-950">Change Account Password</h3>
+                      <p className="text-xs text-slate-500">Secure your client portal account with a new confidential password.</p>
+                    </div>
+
+                    {clientPassSuccess && (
+                      <div className="p-3.5 bg-emerald-50 text-emerald-800 rounded-xl text-xs flex items-center gap-2 border border-emerald-200">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{clientPassSuccess}</span>
+                      </div>
+                    )}
+
+                    {clientPassError && (
+                      <div className="p-3.5 bg-rose-50 text-rose-800 rounded-xl text-xs flex items-center gap-2 border border-rose-200">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{clientPassError}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleChangeClientPassword} className="space-y-4 text-xs">
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Current Password</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <Lock className="w-4 h-4" />
+                          </div>
+                          <input
+                            type={showClientCurPass ? 'text' : 'password'}
+                            required
+                            value={clientCurrentPass}
+                            onChange={(e) => setClientCurrentPass(e.target.value)}
+                            placeholder="Enter existing password"
+                            className="w-full pl-9 pr-10 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowClientCurPass(!showClientCurPass)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                          >
+                            {showClientCurPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">New Password</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <KeyRound className="w-4 h-4" />
+                          </div>
+                          <input
+                            type={showClientNewPass ? 'text' : 'password'}
+                            required
+                            value={clientNewPass}
+                            onChange={(e) => setClientNewPass(e.target.value)}
+                            placeholder="At least 6 characters"
+                            className="w-full pl-9 pr-10 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowClientNewPass(!showClientNewPass)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                          >
+                            {showClientNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">Confirm New Password</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <KeyRound className="w-4 h-4" />
+                          </div>
+                          <input
+                            type={showClientConfPass ? 'text' : 'password'}
+                            required
+                            value={clientConfirmPass}
+                            onChange={(e) => setClientConfirmPass(e.target.value)}
+                            placeholder="Re-enter new password"
+                            className="w-full pl-9 pr-10 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-[#D6A21D] focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowClientConfPass(!showClientConfPass)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                          >
+                            {showClientConfPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setProfileSubTab('info')}
+                          className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isChangingClientPass}
+                          className="px-5 py-2 rounded-lg bg-brand-navy-900 text-white font-bold hover:bg-brand-navy-800 transition-colors flex items-center gap-1.5"
+                        >
+                          {isChangingClientPass ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Updating...</span>
+                            </>
+                          ) : (
+                            <span>Change Password</span>
+                          )}
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 )}
               </div>

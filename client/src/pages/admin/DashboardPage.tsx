@@ -14,6 +14,7 @@ import {
   Receipt,
   ShieldCheck,
   Calculator,
+  KeyRound,
 } from 'lucide-react';
 import {
   BarChart,
@@ -125,6 +126,14 @@ export const DashboardPage: React.FC = () => {
           >
             <span>Review CRM Leads</span>
             <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+          <Link
+            to="/admin/profile"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-gold-50 border border-brand-gold-300 text-brand-navy-950 hover:bg-brand-gold-100 transition-colors shadow-sm flex items-center gap-1.5"
+            title="View user profile and change password"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-brand-gold-700" />
+            <span>Profile & Password</span>
           </Link>
         </div>
       </div>

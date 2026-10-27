@@ -134,6 +134,23 @@ export const api = {
       body: JSON.stringify(credentials),
     }),
   getMe: () => request<{ success: boolean; user: any }>('/auth/me'),
+  getProfile: () => request<{ success: boolean; user: any }>('/auth/profile'),
+  updateProfile: (data: any) =>
+    request<{ success: boolean; message: string; user: any }>('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    request<{ success: boolean; message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getAllUsers: () => request<{ success: boolean; users: any[] }>('/auth/users'),
+  adminResetPassword: (data: { userId: string; newPassword: string }) =>
+    request<{ success: boolean; message: string }>('/auth/admin/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   // CRM & Enquiries
   createEnquiry: (data: any) =>
