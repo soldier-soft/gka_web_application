@@ -7,6 +7,7 @@ import {
   Home,
   Hammer,
   PenTool,
+  Factory,
   CheckCircle2,
   ArrowRight,
   Phone,
@@ -582,18 +583,18 @@ export const HomePage: React.FC = () => {
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-brand-gold-400/30 text-brand-gold-300 text-xs font-semibold backdrop-blur-sm">
                 <ShieldCheck className="w-4 h-4 text-brand-gold-400" />
-                <span>15+ Years Practical Field Experience • Chennai & Tiruvannamalai</span>
+                <span>15+ Years Field Experience • Chennai &amp; Tiruvannamalai • Kelur • Polur • Arani • Vellore</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] font-heading">
-                Building Trust. <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-gold-300 via-brand-gold-400 to-amber-200">
-                  Delivering Quality.
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.12] font-heading">
+                Best Building Contractors in Chennai &amp; Tiruvannamalai <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-gold-300 via-brand-gold-400 to-amber-200 text-2xl sm:text-4xl lg:text-5xl block mt-2">
+                  Turnkey House Construction &amp; Industrial Civil Works
                 </span>
               </h1>
 
               <p className="text-base sm:text-lg text-slate-300 max-w-2xl leading-relaxed">
-                Complete building construction, renovation, design, interiors, civil & allied works under one accountable roof. From foundation to final keys handover, we make construction predictable, transparent and stress-free.
+                Top-rated general civil contractors across Tamil Nadu. Custom residential house construction, industrial equipment RCC foundation bases, cooling tower base civil works, building renovation, and transparent BOQ contracts from ₹1,850/sq.ft with 5-year structural warranty and digital ERP portal tracking.
               </p>
 
               {/* Action Buttons */}
@@ -811,18 +812,60 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* 1B. Geographic Coverage & High-Priority SEO Locations Strip */}
+      <section className="bg-brand-navy-950 text-white border-b border-brand-navy-800 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-brand-gold-500/20 text-brand-gold-400 flex items-center justify-center border border-brand-gold-500/30">
+                <MapPin className="w-5 h-5 text-brand-gold-400" />
+              </div>
+              <div>
+                <h3 className="text-xs font-extrabold uppercase tracking-widest text-brand-gold-400">
+                  Active Construction Sites &amp; Service Locations
+                </h3>
+                <p className="text-xs text-slate-300 font-medium">
+                  Tamil Nadu Coverage: Chennai Hub &amp; Tiruvannamalai Head Office
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center lg:justify-end gap-2 text-xs">
+              {[
+                { name: 'Chennai (OMR / Navalur / Kelambakkam)', tag: 'Active Hub' },
+                { name: 'Tiruvannamalai (Kelur / Polur / Arani)', tag: 'Head Office' },
+                { name: 'Vellore & Guduvanchery', tag: 'Turnkey Sites' },
+                { name: 'Industrial Equipment RCC Bases', tag: 'Specialized' },
+                { name: 'Cooling Tower Base Civil Works', tag: 'Engineering' },
+              ].map((loc, idx) => (
+                <div
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-200 text-xs backdrop-blur-sm"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-brand-gold-400 shrink-0" />
+                  <span className="font-semibold">{loc.name}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-gold-500/20 text-brand-gold-300 font-mono font-semibold">
+                    {loc.tag}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 2. Core Construction Capabilities */}
       <section className="py-20 bg-slate-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <span className="text-xs font-bold uppercase tracking-widest text-brand-gold-600 bg-brand-gold-50 px-3 py-1 rounded-full border border-brand-gold-200">
-              End-To-End Contracting
+              Contracting &amp; Civil Engineering
             </span>
             <h2 className="text-3xl sm:text-4xl font-heading font-extrabold text-brand-navy-950 mt-3">
-              Comprehensive Construction Services
+              Residential, Commercial &amp; Industrial Civil Services
             </h2>
-            <p className="text-slate-600 text-sm sm:text-base mt-3">
-              From foundation and structural framing to interior finishes and turnkey handover — executed with professional supervision.
+            <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed">
+              Specialized civil engineering in Chennai and Tiruvannamalai: From turnkey residential villas and industrial cooling tower bases to commercial fit-outs and structural waterproofing.
             </p>
           </div>
 
@@ -849,17 +892,37 @@ export const HomePage: React.FC = () => {
 
             <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-subtle hover:shadow-premium transition-all group">
               <div className="w-12 h-12 rounded-lg bg-brand-navy-50 text-brand-navy-900 flex items-center justify-center mb-6 group-hover:bg-brand-navy-900 group-hover:text-brand-gold-400 transition-colors">
+                <Factory className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-heading font-bold text-brand-navy-950 mb-2">
+                Industrial Foundations &amp; Cooling Towers
+              </h3>
+              <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                Heavy-duty equipment foundations, vibrating machine bases, cooling tower base RCC structures, transformer plinths, and PEB shed pedestals.
+              </p>
+              <ul className="space-y-1.5 text-xs text-slate-600 mb-6">
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-brand-teal-500" /> Cooling tower RCC base casting</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-brand-teal-500" /> Heavy vibrating machinery beds</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-brand-teal-500" /> High-grade M30/M35 concrete</li>
+              </ul>
+              <Link to="/services" className="text-xs font-bold text-brand-navy-900 hover:text-brand-gold-600 inline-flex items-center gap-1">
+                Learn more <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-subtle hover:shadow-premium transition-all group">
+              <div className="w-12 h-12 rounded-lg bg-brand-navy-50 text-brand-navy-900 flex items-center justify-center mb-6 group-hover:bg-brand-navy-900 group-hover:text-brand-gold-400 transition-colors">
                 <Building2 className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-heading font-bold text-brand-navy-950 mb-2">
-                Commercial & Institutional
+                Commercial &amp; Institutional
               </h3>
               <p className="text-xs text-slate-500 mb-4 leading-relaxed">
                 Commercial office spaces, retail showrooms, hospitality properties, institutional buildings, and utility warehouses built for high durability.
               </p>
               <ul className="space-y-1.5 text-xs text-slate-600 mb-6">
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-brand-teal-500" /> Heavy-duty structural RCC</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-brand-teal-500" /> Commercial MEP & safety</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-brand-teal-500" /> Commercial MEP &amp; safety</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-brand-teal-500" /> Strict timeline delivery</li>
               </ul>
               <Link to="/services" className="text-xs font-bold text-brand-navy-900 hover:text-brand-gold-600 inline-flex items-center gap-1">

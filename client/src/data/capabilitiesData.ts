@@ -1,4 +1,4 @@
-import { Home, Layers, Hammer, HardHat } from 'lucide-react';
+import { Home, Layers, Hammer, HardHat, Building2, Factory } from 'lucide-react';
 import { IPortfolioProject } from '@shared/types';
 
 export interface ICapabilityProject {
@@ -362,73 +362,99 @@ export interface ICorePillar {
 export const CORE_CAPABILITY_PILLARS: ICorePillar[] = [
   {
     id: 'pillar-residential',
-    title: 'Residential Building Construction',
+    title: 'Turnkey Residential House & Villa Construction',
     description:
-      'From individual homes to villas, GKA Construction provides building services based on the client’s requirements, agreed specifications, budget and site conditions.',
+      'Custom independent homes, luxury duplex villas, and multi-floor residences across Chennai, Tiruvannamalai, Kelur, Polur, Arani & Vellore. Executed with premium brand locks, soil testing, and zero cost escalations.',
     seoPhrases: [
-      'house construction contractor in Chennai',
-      'residential construction company in Chennai',
-      'villa construction in Tamil Nadu',
+      'best building contractors in Chennai',
+      'turnkey house construction Tiruvannamalai',
+      'civil contractors Kelur',
+      'home builders in Polur and Arani',
+      'villa builders Navalur Kelambakkam',
+      'construction cost per sq ft Chennai 2026',
     ],
     features: [
-      'Substructure to key handover turnkey delivery',
-      'M25 design mix RCC framing with Fe550D TMT',
-      'Vaastu-compliant architectural space planning',
-      'Transparent milestone billing with zero hidden costs',
+      'Foundation to key handover turnkey delivery',
+      'M25 design mix RCC framing with Fe 550D TMT rebar',
+      'Vaastu-compliant architectural 2D & 3D space planning',
+      'Transparent itemized BOQ with 5-year structural warranty',
     ],
     icon: Home,
   },
   {
-    id: 'pillar-tiling',
-    title: 'Tiling, Plastering & Finishing',
+    id: 'pillar-industrial',
+    title: 'Industrial RCC Foundations & Cooling Tower Base Works',
     description:
-      'Our civil-work capabilities include tile installation, plastering and related finishing activities. Showcase real close-up photographs to demonstrate workmanship and completed results.',
+      'Heavy-duty industrial civil engineering, machine foundation pedestals, cooling tower base RCC structures, transformer plinths, and pre-engineered building (PEB) foundation works across Tamil Nadu.',
     seoPhrases: [
-      'tiling contractor in Chennai',
-      'plastering contractor',
-      'civil finishing works Chennai',
+      'cooling tower base civil contractors',
+      'industrial equipment foundation contractor Tamil Nadu',
+      'heavy machinery RCC base builders Chennai',
+      'PEB industrial shed civil foundation pedestals',
+      'anchor bolt embedment civil works',
     ],
     features: [
-      'Large-format vitrified floor and wall tiling',
-      'Non-shrink adhesive and 100% full bedding',
+      'Cooling tower base RCC casting & water retention basins',
+      'Vibration-isolated dynamic heavy machinery foundations',
+      'High-grade M30/M35 concrete with cube compressive testing',
+      'Sub-millimeter anchor bolt embedment alignment',
+    ],
+    icon: Factory,
+  },
+  {
+    id: 'pillar-commercial',
+    title: 'Commercial & Hospitality Civil Refurbishment',
+    description:
+      'Commercial multi-storey office spaces, retail showrooms, boutique hotels, and industrial warehouse civil execution with strict adherence to safety standards and operational timelines.',
+    seoPhrases: [
+      'commercial building contractors Chennai',
+      'hotel renovation civil works OMR',
+      'commercial civil contractors Tamil Nadu',
+      'water tank polymer waterproofing contractors',
+    ],
+    features: [
+      'Specialized polymer waterproofing for large water tanks',
+      'Commercial wet area and service corridor restoration',
+      'Heavy-duty industrial concrete floor screeds & IPS flooring',
+      'Controlled execution adhering to operational facility hours',
+    ],
+    icon: Building2,
+  },
+  {
+    id: 'pillar-tiling',
+    title: 'Precision Tiling, Plastering & Waterproofing',
+    description:
+      'High-precision civil finishes including laser-leveled vitrified tile laying, chemical epoxy grouting, double-coat sand face exterior plastering, and multi-layer terrace waterproofing.',
+    seoPhrases: [
+      'tiling contractor Chennai',
+      'exterior plastering contractor Tamil Nadu',
+      'terrace waterproofing contractor Chennai',
+      'civil finishing works',
+    ],
+    features: [
+      'Large-format vitrified floor and wall tiling with spacers',
+      'Non-shrink polymer adhesive with 100% full bedding',
       'Chemical epoxy grouting for zero stain absorption',
-      'Double-coat sand face exterior plastering',
+      'Double-coat sand face exterior plastering with laser plumb check',
     ],
     icon: Layers,
   },
   {
-    id: 'pillar-renovation',
-    title: 'Commercial Renovation & Maintenance',
-    description:
-      'Present renovation, repair and maintenance services for commercial and hospitality environments. State the exact scope of each project and use before-and-after photographs wherever possible.',
-    seoPhrases: [
-      'commercial renovation contractor Chennai',
-      'hotel maintenance civil works',
-      'building repair services Chennai',
-    ],
-    features: [
-      'Specialized polymer waterproofing for water tanks',
-      'Commercial wet area and service corridor restoration',
-      'Structural crack injection grouting and rebar treatment',
-      'Organized execution adhering to operational facility hours',
-    ],
-    icon: Hammer,
-  },
-  {
     id: 'pillar-supervision',
-    title: 'Site Supervision & Construction Coordination',
+    title: 'Site Supervision & Digital ERP Client Portal',
     description:
-      'Highlight practical site coordination, progress monitoring, material planning, quality checks and communication with clients as applicable to the work undertaken.',
+      'On-site engineering supervision, material batch testing, DTCP/CMDA liaisoning, and real-time photographic progress logs accessible worldwide via our GKA ERP Client Portal.',
     seoPhrases: [
       'construction project management Chennai',
-      'civil works contractor',
-      'construction site supervision',
+      'transparent BOQ construction contracts',
+      'CMDA DTCP approved builders',
+      'NRI construction progress tracking portal',
     ],
     features: [
       'Daily on-site engineering supervision & slump testing',
       'Digital client portal with real-time photographic updates',
-      'Procurement scheduling & batch-tested materials',
-      'Disciplined safety protocols and joint snag inspections',
+      'Certified batch materials (UltraTech, Tata Tiscon, Kajaria)',
+      'Disciplined safety protocols and 150-point snag inspections',
     ],
     icon: HardHat,
   },

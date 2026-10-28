@@ -1,6 +1,6 @@
 export interface IClientFaq {
   id: string;
-  category: 'all' | 'cost' | 'boq' | 'approvals' | 'tracking' | 'warranty';
+  category: 'all' | 'cost' | 'boq' | 'approvals' | 'tracking' | 'warranty' | 'industrial' | 'locations';
   categoryLabel: string;
   question: string;
   answer: string;
@@ -104,6 +104,34 @@ export const CLIENT_FAQS: IClientFaq[] = [
       '150-point snag inspection audit',
       'Complete As-Built MEP schematic dossier',
       'Ceremonial key handover packet',
+    ],
+  },
+  {
+    id: 'faq-industrial-cooling-tower',
+    category: 'industrial',
+    categoryLabel: 'Industrial Foundations',
+    question: 'Does GKA Construction undertake industrial foundation and cooling tower base civil works?',
+    answer:
+      'Yes. GKA Construction has specialized engineering capabilities in heavy-duty industrial civil works, including industrial equipment foundations, vibrating machine beds, cooling tower base RCC foundation structures, underground sumps, transformer yard plinths, and pre-engineered building (PEB) pedestals. We calculate dynamic loads, grade of concrete (M25 to M40 design mix), rebar spacing, and embedment anchor bolt placement for industrial-grade stability.',
+    highlights: [
+      'Cooling tower base RCC foundation design & casting',
+      'Heavy industrial machinery vibrating base beds',
+      'Precision anchor bolt embedment alignment',
+      'High-grade M30/M35 concrete with cube compressive testing',
+    ],
+  },
+  {
+    id: 'faq-service-locations',
+    category: 'locations',
+    categoryLabel: 'Service Locations',
+    question: 'Which areas and towns across Tamil Nadu does GKA Construction serve?',
+    answer:
+      'We operate active construction sites across Chennai (Kelambakkam, Navalur, OMR, Vandalur, Guduvanchery, Sholinganallur, Tambaram, Medavakkam, Chengalpattu), Tiruvannamalai (Kelur Head Office, Polur, Arani, Chetpet, Chengam, Tiruvannamalai Town), and Vellore district. We provide dedicated on-site engineering supervisors and local labor logistics for seamless execution.',
+    highlights: [
+      'Chennai & OMR Navalur-Kelambakkam Hub',
+      'Tiruvannamalai (Kelur, Polur, Arani, Chetpet)',
+      'Vellore & surrounding Tamil Nadu districts',
+      'Dedicated local site engineer deployment',
     ],
   },
 ];

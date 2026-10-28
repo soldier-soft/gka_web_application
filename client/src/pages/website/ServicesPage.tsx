@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ArrowRight,
   ShieldAlert,
+  Factory,
 } from 'lucide-react';
 
 export const ServicesPage: React.FC = () => {
@@ -18,7 +19,7 @@ export const ServicesPage: React.FC = () => {
       id: 'home',
       title: 'Complete Home Construction',
       tagline: 'Independent Homes • Villas • Multi-Floor Residences',
-      desc: 'End-to-end residential construction starting from architectural drawings and soil investigation to foundation, structural frame casting, masonry, civil finishing, and final keys handover.',
+      desc: 'End-to-end residential construction starting from architectural drawings and soil investigation to foundation, structural frame casting, masonry, civil finishing, and final keys handover across Chennai and Tiruvannamalai.',
       items: [
         'Custom independent homes & duplex villas',
         'Multi-floor residential apartments & extensions',
@@ -28,6 +29,21 @@ export const ServicesPage: React.FC = () => {
         'Digital client progress portal with daily site images',
       ],
       icon: Home,
+    },
+    {
+      id: 'industrial',
+      title: 'Industrial RCC Foundations & Cooling Tower Bases',
+      tagline: 'Heavy Machine Beds • Cooling Tower Basins • PEB Pedestals • Sumps',
+      desc: 'Heavy-duty industrial civil engineering, machine foundation pedestals, cooling tower base RCC structures, transformer plinths, and pre-engineered building (PEB) foundation works across Tamil Nadu.',
+      items: [
+        'Cooling tower base RCC foundation casting & water retention basins',
+        'Vibration-isolated dynamic heavy machinery base foundations',
+        'High-grade M30 / M35 / M40 design mix concrete with cube strength certification',
+        'Pre-engineered building (PEB) shed pedestals, tie beams & plinth walls',
+        'Sub-millimeter anchor bolt embedment with optical laser leveling',
+        'Heavy-duty industrial IPS flooring, trench drains & underground sumps',
+      ],
+      icon: Factory,
     },
     {
       id: 'commercial',
@@ -112,13 +128,13 @@ export const ServicesPage: React.FC = () => {
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto">
           <span className="text-xs font-bold uppercase tracking-widest text-brand-gold-600 bg-brand-gold-50 px-3 py-1 rounded-full border border-brand-gold-200">
-            Field Capabilities
+            Civil Engineering &amp; Contracting Capabilities
           </span>
           <h1 className="text-3xl sm:text-5xl font-extrabold font-heading text-brand-navy-950 mt-3">
-            Our Construction Services
+            Building Construction &amp; Industrial Civil Services in Tamil Nadu
           </h1>
           <p className="text-slate-600 text-sm sm:text-base mt-4 leading-relaxed">
-            Delivering complete residential homes, commercial projects, renovation packages, and specialized civil engineering works under one roof.
+            Delivering turnkey residential house construction, industrial equipment RCC foundation bases, cooling tower civil works, commercial building fit-outs, and structural renovation across Chennai, Tiruvannamalai, Kelur, Polur, Arani &amp; Vellore.
           </p>
         </div>
 

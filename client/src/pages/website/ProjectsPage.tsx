@@ -293,18 +293,18 @@ export const ProjectsPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-8">
           <div className="max-w-3xl space-y-4">
             <span className="inline-block text-xs font-bold uppercase tracking-widest text-[#D6A21D] bg-white/10 px-3.5 py-1.5 rounded-full border border-brand-gold-400/30 backdrop-blur-sm">
-              OUR WORK & PROJECT IDEAS
+              TAMIL NADU PORTFOLIO &amp; 50+ HOUSE DESIGNS
             </span>
 
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-heading leading-tight text-white">
-              Featured Construction Projects & <br className="hidden sm:inline" />
+              Residential House Projects &amp; <br className="hidden sm:inline" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#D6A21D] via-amber-300 to-amber-100">
-                Building Ideas
+                50+ Architectural Building Ideas
               </span>
             </h1>
 
             <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-2xl">
-              Explore GKA Construction's civil works, residential construction, hospitality-related work, renovation and building solutions across Chennai and Tiruvannamalai, Tamil Nadu. Browse project references and explore more than 50 construction ideas organized by built-up area, property type and requirements. Visit the site and speak with our team to discuss suitable designs, specifications and estimates.
+              Explore GKA Construction's turnkey residential villas, commercial civil works, and industrial projects across Chennai, Tiruvannamalai, Kelur, Polur, Arani &amp; Vellore. Browse real project photographs and filter 50+ architectural house elevation ideas by built-up area (800 – 4,500+ sq ft), bedroom configuration, and construction cost estimates.
             </p>
 
             {/* Prominent Action Buttons */}

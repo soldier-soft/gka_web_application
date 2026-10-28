@@ -1,53 +1,102 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
-        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd
+        http://www.google.com/schemas/sitemap-image/1.1
+        http://www.google.com/schemas/sitemap-image/1.1/sitemap-image.xsd">
+
+  <!-- 1. Home Page -->
   <url>
     <loc>https://www.gkaconstruction.com/</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>weekly</changefreq>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://www.gkaconstruction.com/logo.png</image:loc>
+      <image:title>GKA Construction - Best Building Contractors in Chennai &amp; Tiruvannamalai</image:title>
+      <image:caption>GKA Construction logo - turnkey house construction and civil works in Tamil Nadu</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
+      <image:title>Modern Contemporary Duplex Villa Construction Chennai</image:title>
+      <image:caption>Turnkey luxury villa built with M25 concrete framing, Tata Tiscon steel, and designer elevation</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
+      <image:title>Industrial Equipment RCC Foundation &amp; Cooling Tower Base Civil Works</image:title>
+      <image:caption>Heavy equipment civil foundations with sub-millimeter anchor bolt alignment in Tamil Nadu</image:caption>
+    </image:image>
   </url>
+
+  <!-- 2. Services Page -->
   <url>
     <loc>https://www.gkaconstruction.com/services</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
+      <image:title>Turnkey House Construction &amp; Civil Engineering Services Tamil Nadu</image:title>
+      <image:caption>Architectural planning, RCC framed superstructure, block masonry, and turnkey handover</image:caption>
+    </image:image>
   </url>
+
+  <!-- 3. Projects Portfolio & 50+ House Ideas -->
   <url>
     <loc>https://www.gkaconstruction.com/projects</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
+      <image:title>GKA Construction 50+ House Ideas and Portfolio Tamil Nadu</image:title>
+      <image:caption>Explore 2BHK, 3BHK, 4BHK architectural elevation ideas and actual site progress</image:caption>
+    </image:image>
   </url>
+
+  <!-- 4. Construction Cost Estimator Engine -->
   <url>
     <loc>https://www.gkaconstruction.com/cost-estimator</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>monthly</changefreq>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.95</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=1200&amp;auto=format&amp;fit=crop&amp;q=80</image:loc>
+      <image:title>Construction Cost per Sq Ft Calculator Chennai 2026</image:title>
+      <image:caption>Instant cost calculator for residential homes, villas, commercial buildings, and renovations</image:caption>
+    </image:image>
   </url>
+
+  <!-- 5. About GKA Construction -->
   <url>
     <loc>https://www.gkaconstruction.com/about</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://www.gkaconstruction.com/contact</loc>
-    <lastmod>2026-10-24</lastmod>
+    <lastmod>2026-10-28</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.85</priority>
   </url>
+
+  <!-- 6. Contact & Site Assessment Booking -->
+  <url>
+    <loc>https://www.gkaconstruction.com/contact</loc>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+  </url>
+
+  <!-- 7. Legal - Privacy Policy -->
   <url>
     <loc>https://www.gkaconstruction.com/privacy</loc>
-    <lastmod>2026-10-24</lastmod>
+    <lastmod>2026-10-28</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
+
+  <!-- 8. Legal - Terms & Conditions -->
   <url>
     <loc>https://www.gkaconstruction.com/terms</loc>
-    <lastmod>2026-10-24</lastmod>
+    <lastmod>2026-10-28</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

@@ -46,13 +46,13 @@ export const ContactPage: React.FC = () => {
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto">
           <span className="text-xs font-bold uppercase tracking-widest text-brand-gold-600 bg-brand-gold-50 px-3 py-1 rounded-full border border-brand-gold-200">
-            Get In Touch
+            Civil Engineers &amp; Building Contractors
           </span>
           <h1 className="text-3xl sm:text-5xl font-extrabold font-heading text-brand-navy-950 mt-3">
-            Contact & Book a Site Assessment
+            Contact Building Contractors in Chennai &amp; Tiruvannamalai
           </h1>
           <p className="text-slate-600 text-sm sm:text-base mt-4 leading-relaxed">
-            Have a project in mind? Our site engineers are available for physical site visits, measurement verification, and technical consultations across Chennai and Tamil Nadu.
+            Have a residential, commercial, or industrial foundation project in mind? Our site engineers are available for physical site visits, plot measurement verification, and technical consultations across Chennai (OMR, Navalur, Kelambakkam, Vandalur) and Tiruvannamalai (Kelur, Polur, Arani, Vellore).
           </p>
         </div>
 

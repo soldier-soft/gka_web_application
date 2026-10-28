@@ -12,10 +12,10 @@ export const AboutPage: React.FC = () => {
             About GKA Construction
           </span>
           <h1 className="text-3xl sm:text-5xl font-extrabold font-heading text-brand-navy-950 mt-3">
-            Building Trust. Delivering Quality.
+            Best Building Contractors in Chennai &amp; Tiruvannamalai
           </h1>
           <p className="text-slate-600 text-sm sm:text-base mt-4 leading-relaxed">
-            A dependable construction partner for new builds, renovations and allied civil works across Tamil Nadu. Built on 15+ years of practical field experience.
+            A trusted civil construction and turnkey building company serving Chennai (Kelambakkam, Navalur, OMR) and Tiruvannamalai (Kelur, Polur, Arani, Vellore). Backed by 15+ years of practical field engineering experience, transparent itemized BOQ contracts, and 5-year structural stability warranty.
           </p>
         </div>
 

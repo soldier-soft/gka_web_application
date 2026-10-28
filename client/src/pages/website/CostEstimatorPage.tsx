@@ -81,13 +81,13 @@ export const CostEstimatorPage: React.FC = () => {
         <div className="text-center max-w-3xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-gold-100 text-brand-gold-800 text-xs font-bold border border-brand-gold-300 mb-3">
             <Calculator className="w-3.5 h-3.5" />
-            <span>Interactive Construction Engine</span>
+            <span>Interactive 2026 Construction Cost Engine</span>
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold font-heading text-brand-navy-950">
-            Estimate Your Construction Cost
+            House Construction Cost per Sq Ft Calculator 2026
           </h1>
-          <p className="text-slate-600 text-sm sm:text-base mt-3">
-            Get an instant budget forecast for your new home, villa, renovation or commercial project in Tamil Nadu based on authentic field specifications.
+          <p className="text-slate-600 text-sm sm:text-base mt-3 leading-relaxed">
+            Get an instant budget forecast for your new home, duplex villa, commercial building, or renovation in Chennai (Kelambakkam, Navalur, OMR) and Tiruvannamalai (Kelur, Polur, Arani, Vellore) based on authentic field specifications from ₹1,850/sq.ft.
           </p>
         </div>
 

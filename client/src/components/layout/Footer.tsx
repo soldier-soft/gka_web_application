@@ -60,10 +60,11 @@ export const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-2 text-xs text-slate-400">
               <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Complete Home Construction</Link></li>
-              <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Commercial & Office Buildings</Link></li>
-              <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Building Renovation & Remodeling</Link></li>
-              <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Civil & Structural Works</Link></li>
-              <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Water Tank & Waterproofing Works</Link></li>
+              <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Industrial Foundations &amp; Cooling Towers</Link></li>
+              <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Commercial &amp; Office Buildings</Link></li>
+              <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Building Renovation &amp; Remodeling</Link></li>
+              <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Civil &amp; Structural Works</Link></li>
+              <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Water Tank &amp; Waterproofing Works</Link></li>
               <li><Link to="/services" className="hover:text-brand-gold-400 transition-colors">Turnkey Project Delivery</Link></li>
             </ul>
           </div>
@@ -156,6 +157,26 @@ export const Footer: React.FC = () => {
             <span>Transparent Documentation</span>
             <span>•</span>
             <span>Digital Client Tracking</span>
+          </div>
+        </div>
+
+        {/* Sitewide SEO Regional Coverage & Primary Search Terms */}
+        <div className="border-t border-brand-navy-900 pt-6 pb-6 text-xs text-slate-400 space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <span className="font-bold text-white uppercase tracking-wider text-[11px] text-brand-gold-400">
+              Tamil Nadu Civil Construction Service Coverage:
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Chennai Branch (Kelambakkam - Vandalur) • Tiruvannamalai Head Office (Kelur)
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1 text-[11px] text-slate-400 leading-relaxed">
+            <strong className="text-slate-200">Active Service Locations:</strong>{' '}
+            <span>Chennai OMR</span>, <span>Navalur</span>, <span>Kelambakkam</span>, <span>Siruseri</span>, <span>Vandalur</span>, <span>Guduvanchery</span>, <span>Tambaram</span>, <span>Sholinganallur</span>, <span>Chengalpattu</span>, <span>Kanchipuram</span>, <span>Tiruvannamalai</span>, <span>Kelur</span>, <span>Polur</span>, <span>Arani</span>, <span>Chetpet</span>, <span>Chengam</span>, <span>Vellore</span>.
+          </div>
+          <div className="flex flex-wrap gap-1 text-[11px] text-slate-400 leading-relaxed">
+            <strong className="text-slate-200">Specialized Engineering:</strong>{' '}
+            <span>Turnkey House Construction</span>, <span>Industrial Equipment RCC Foundations</span>, <span>Cooling Tower Base Civil Works</span>, <span>Heavy Machinery Vibrating Bases</span>, <span>Commercial Building Renovations</span>, <span>Water Tank Polymer Waterproofing</span>, <span>CMDA &amp; DTCP Plan Sanctions</span>, <span>Transparent Line-Item BOQ</span>, <span>5-Year Structural Stability Warranty</span>.
           </div>
         </div>
 

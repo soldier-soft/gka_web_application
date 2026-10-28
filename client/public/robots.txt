@@ -1,8 +1,38 @@
 # ==============================================================================
-# GKA Construction - Robots.txt for Search Engines
+# GKA Construction - Optimized Robots.txt for Search Engines
 # ==============================================================================
+User-agent: Googlebot
+Allow: /
+Allow: /assets/
+Allow: /images/
+Allow: /logo.png
+Allow: /sitemap.xml
+Disallow: /admin/
+Disallow: /admin
+Disallow: /client-portal/
+Disallow: /client-portal
+Disallow: /login
+Disallow: /api/
+
+User-agent: Bingbot
+Allow: /
+Allow: /assets/
+Allow: /images/
+Allow: /logo.png
+Allow: /sitemap.xml
+Disallow: /admin/
+Disallow: /admin
+Disallow: /client-portal/
+Disallow: /client-portal
+Disallow: /login
+Disallow: /api/
+
 User-agent: *
 Allow: /
+Allow: /assets/
+Allow: /images/
+Allow: /logo.png
+Allow: /sitemap.xml
 Disallow: /admin/
 Disallow: /admin
 Disallow: /client-portal/
