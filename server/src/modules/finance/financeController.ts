@@ -11,7 +11,7 @@ import { User } from '../../models/User';
 import { PDFService } from '../../services/pdfService';
 import { DOCXService } from '../../services/docxService';
 import { toPaise } from '../../shared/types';
-import { DEFAULT_INVOICE_TERMS } from '../../shared/constants';
+import { DEFAULT_INVOICE_TERMS, formatClientPortalUsername } from '../../shared/constants';
 
 export const getInvoices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -167,15 +167,27 @@ export const downloadInvoicePDF = async (req: Request, res: Response, next: Next
       return;
     }
 
-    let clientPortalUsername = 'client@gingerhotel.com';
+    let clientPortalUsername = formatClientPortalUsername(invoice.clientName);
     let clientPortalPassword = 'GKAclient2026!';
     if (invoice.clientId) {
       const client = await Client.findById(invoice.clientId);
-      if (client?.email) {
-        clientPortalUsername = client.email.toLowerCase();
-        const clientUser = await User.findOne({ email: client.email.toLowerCase() });
-        if (clientUser?.defaultPassword) {
-          clientPortalPassword = clientUser.defaultPassword;
+      if (client) {
+        const clientUser = await User.findOne({
+          $or: [
+            { clientId: client._id },
+            { _id: client.userId },
+            { email: client.email.toLowerCase() },
+          ],
+        });
+        if (clientUser) {
+          clientPortalUsername = clientUser.email;
+          if (clientUser.defaultPassword) {
+            clientPortalPassword = clientUser.defaultPassword;
+          }
+        } else if (client.email) {
+          clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+            ? client.email.toLowerCase()
+            : formatClientPortalUsername(client.name);
         }
       }
     }
@@ -206,6 +218,33 @@ export const downloadInvoiceDOCX = async (req: Request, res: Response, next: Nex
       res.status(403).json({ success: false, message: 'Forbidden. Access not permitted.' });
       return;
     }
+
+    let clientPortalUsername = formatClientPortalUsername(invoice.clientName);
+    let clientPortalPassword = 'GKAclient2026!';
+    if (invoice.clientId) {
+      const client = await Client.findById(invoice.clientId);
+      if (client) {
+        const clientUser = await User.findOne({
+          $or: [
+            { clientId: client._id },
+            { _id: client.userId },
+            { email: client.email.toLowerCase() },
+          ],
+        });
+        if (clientUser) {
+          clientPortalUsername = clientUser.email;
+          if (clientUser.defaultPassword) {
+            clientPortalPassword = clientUser.defaultPassword;
+          }
+        } else if (client.email) {
+          clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+            ? client.email.toLowerCase()
+            : formatClientPortalUsername(client.name);
+        }
+      }
+    }
+    (invoice as any).clientPortalUsername = clientPortalUsername;
+    (invoice as any).clientPortalPassword = clientPortalPassword;
 
     const docxPath = await DOCXService.generateInvoiceDocx(invoice);
     res.download(docxPath, `GKA_Invoice_${invoice.invoiceNumber}.docx`, (err) => {

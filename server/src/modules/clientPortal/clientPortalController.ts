@@ -8,16 +8,35 @@ import { ProjectDocument } from '../../models/Document';
 import { Payment } from '../../models/Payment';
 import { ClientFeedback } from '../../models/ClientFeedback';
 import { GKA_COMPANY } from '../../shared/constants';
+import { User } from '../../models/User';
 
 export const getMyProjects = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const clientId = req.user?.clientId;
-    if (!clientId) {
-      res.status(403).json({ success: false, message: 'No client profile associated with this account.' });
+    let clientId = req.user?.clientId;
+    let assignedProjects: any[] = [];
+
+    if (req.user?.id) {
+      const dbUser = await User.findById(req.user.id);
+      if (dbUser) {
+        if (!clientId && dbUser.clientId) {
+          clientId = dbUser.clientId.toString();
+        }
+        if (dbUser.assignedProjects && dbUser.assignedProjects.length > 0) {
+          assignedProjects = dbUser.assignedProjects;
+        }
+      }
+    }
+
+    const conditions: any[] = [];
+    if (clientId) conditions.push({ clientId });
+    if (assignedProjects.length > 0) conditions.push({ _id: { $in: assignedProjects } });
+
+    if (conditions.length === 0) {
+      res.json({ success: true, count: 0, projects: [] });
       return;
     }
 
-    const projects = await Project.find({ clientId }).select(
+    const projects = await Project.find({ $or: conditions }).select(
       'projectId title category siteAddress startDate targetEndDate status progressPercent'
     );
 
@@ -30,12 +49,30 @@ export const getMyProjects = async (req: Request, res: Response, next: NextFunct
 export const getClientProjectDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const clientId = req.user?.clientId;
+    let clientId = req.user?.clientId;
+    let assignedProjects: any[] = [];
 
-    const project = await Project.findOne({
-      _id: id,
-      ...(req.user?.role === 'client' ? { clientId } : {}),
-    }).select(
+    if (req.user?.id) {
+      const dbUser = await User.findById(req.user.id);
+      if (dbUser) {
+        if (!clientId && dbUser.clientId) clientId = dbUser.clientId.toString();
+        if (dbUser.assignedProjects) assignedProjects = dbUser.assignedProjects;
+      }
+    }
+
+    const isClient = req.user?.role === 'client';
+    const authConditions: any[] = [];
+    if (isClient) {
+      if (clientId) authConditions.push({ clientId });
+      if (assignedProjects.length > 0) authConditions.push({ _id: { $in: assignedProjects } });
+    }
+
+    const query: any = { _id: id };
+    if (isClient && authConditions.length > 0) {
+      query.$or = authConditions;
+    }
+
+    const project = await Project.findOne(query).select(
       'projectId title category siteAddress scopeOfWork startDate targetEndDate status progressPercent'
     );
 

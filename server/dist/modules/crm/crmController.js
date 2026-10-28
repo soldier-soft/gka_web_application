@@ -1,8 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.convertLeadToProject = exports.updateLeadStatus = exports.getLeads = exports.createEnquiry = void 0;
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const crypto_1 = __importDefault(require("crypto"));
 const Lead_1 = require("../../models/Lead");
 const Client_1 = require("../../models/Client");
+const User_1 = require("../../models/User");
 const Project_1 = require("../../models/Project");
 const Milestone_1 = require("../../models/Milestone");
 const constants_1 = require("../../shared/constants");
@@ -96,10 +102,11 @@ const convertLeadToProject = async (req, res, next) => {
         }
         // 1. Find or create Client
         let client = await Client_1.Client.findOne({ phone: lead.phone });
+        const portalUsername = (0, constants_1.formatClientPortalUsername)(lead.name);
         if (!client) {
             client = await Client_1.Client.create({
                 name: lead.name,
-                email: lead.email || `${lead.phone.replace(/[^0-9]/g, '')}@client.gkaconstruction.com`,
+                email: portalUsername,
                 phone: lead.phone,
                 billingAddress: {
                     street: lead.siteLocation,
@@ -108,6 +115,10 @@ const convertLeadToProject = async (req, res, next) => {
                     pincode: '',
                 },
             });
+        }
+        else if (!client.email || !client.email.endsWith('@gkaconstruction.com')) {
+            client.email = portalUsername;
+            await client.save();
         }
         // 2. Generate unique Project ID: GKA-YYYY-XXX
         const currentYear = new Date().getFullYear();
@@ -141,7 +152,57 @@ const convertLeadToProject = async (req, res, next) => {
             totalBudgetPaise: contractValuePaise,
             assignedManagerId: req.user?.id,
         });
-        // 4. Initialize standard milestones for this project
+        // 4. Client Account Automation: Create or Link Client Portal User
+        let clientAccess = null;
+        let existingUser = await User_1.User.findOne({
+            $or: [
+                { clientId: client._id },
+                { email: portalUsername.toLowerCase() },
+                { phone: client.phone },
+            ],
+        });
+        if (!existingUser) {
+            const rawTempPassword = `GKA@${(client.phone || '').replace(/\D/g, '').slice(-4) || '2026'}`;
+            const salt = await bcryptjs_1.default.genSalt(10);
+            const passwordHash = await bcryptjs_1.default.hash(rawTempPassword, salt);
+            const activationToken = crypto_1.default.randomBytes(24).toString('hex');
+            const newUser = await User_1.User.create({
+                name: client.name,
+                email: portalUsername,
+                phone: client.phone || '8838030917',
+                passwordHash,
+                defaultPassword: rawTempPassword,
+                role: 'client',
+                clientId: client._id,
+                assignedProjects: [project._id],
+                mustChangePasswordOnLogin: false,
+                activationToken,
+                activationTokenExpires: new Date(Date.now() + 7 * 86400000),
+                isActive: true,
+            });
+            await Client_1.Client.findByIdAndUpdate(client._id, { userId: newUser._id, email: portalUsername });
+            clientAccess = {
+                username: portalUsername,
+                password: rawTempPassword,
+                isNewAccount: true,
+            };
+        }
+        else {
+            if (!existingUser.assignedProjects.includes(project._id)) {
+                existingUser.assignedProjects.push(project._id);
+            }
+            if (!existingUser.clientId) {
+                existingUser.clientId = client._id;
+            }
+            await existingUser.save();
+            await Client_1.Client.findByIdAndUpdate(client._id, { userId: existingUser._id });
+            clientAccess = {
+                username: existingUser.email,
+                password: existingUser.defaultPassword || 'GKAclient2026!',
+                isNewAccount: false,
+            };
+        }
+        // 5. Initialize standard milestones for this project
         const milestoneDocs = constants_1.STANDARD_MILESTONES.map((m) => {
             const pStart = new Date(startDate);
             pStart.setDate(pStart.getDate() + (m.orderIndex - 1) * 30);
@@ -161,7 +222,7 @@ const convertLeadToProject = async (req, res, next) => {
             };
         });
         await Milestone_1.Milestone.insertMany(milestoneDocs);
-        // 5. Update lead record with converted IDs
+        // 6. Update lead record with converted IDs
         lead.status = 'won';
         lead.convertedToClientId = client._id;
         lead.convertedToProjectId = project._id;
@@ -171,6 +232,7 @@ const convertLeadToProject = async (req, res, next) => {
             message: `Enquiry successfully converted to Project ${project.projectId}`,
             client,
             project,
+            clientAccess,
         });
     }
     catch (error) {

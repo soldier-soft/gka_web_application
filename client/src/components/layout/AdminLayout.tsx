@@ -94,6 +94,7 @@ export const AdminLayout: React.FC = () => {
   const navItems = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'CRM & Leads', path: '/admin/crm', icon: Users },
+    { name: 'Client Profiles', path: '/admin/clients', icon: UserCheck },
     { name: 'Projects', path: '/admin/projects', icon: Briefcase },
     { name: 'Portfolio & Ideas', path: '/admin/portfolio', icon: Sparkles },
     { name: 'Quotations & Estimator', path: '/admin/quotations', icon: Calculator },

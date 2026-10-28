@@ -50,7 +50,7 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
   if (!isOpen || !data) return null;
 
   const docType = data.documentType;
-  const username = data.username || data.clientEmail || 'client@gingerhotel.com';
+  const username = data.username || data.clientEmail || 'gingerhotel@gkaconstruction.com';
   const password = data.password || 'GKAclient2026!';
   const portalUrl = 'https://www.gkaconstruction.com/login';
   const docNumber = data.number || 'DOC-001';
@@ -410,7 +410,7 @@ GKA Construction — Building Trust. Delivering Quality.`;
                 <Mail className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                 <input
                   type="email"
-                  placeholder="client@gingerhotel.com"
+                  placeholder="client@gkaconstruction.com"
                   value={recipientEmail}
                   onChange={(e) => setRecipientEmail(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-brand-gold-500 focus:outline-none font-medium"

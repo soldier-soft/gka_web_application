@@ -47,6 +47,15 @@ export const OFFICIAL_CREDENTIALS: OfficialCredential[] = [
   },
   {
     name: 'Roots Corporation Limited (Ginger Hotel)',
+    email: 'gingerhotel@gkaconstruction.com',
+    password: 'GKAclient2026!',
+    role: 'client',
+    phone: '98840 55677',
+    portal: '/client-portal',
+    companyName: 'Roots Corporation Ltd / Ginger Hotel',
+  },
+  {
+    name: 'Roots Corporation Limited (Ginger Hotel Alias)',
     email: 'client@gingerhotel.com',
     password: 'GKAclient2026!',
     role: 'client',

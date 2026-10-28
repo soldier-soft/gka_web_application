@@ -98,7 +98,7 @@ const runSeed = async () => {
         });
         const clientUser = await User_1.User.create({
             name: 'Roots Corporation Limited (Ginger Hotel)',
-            email: 'client@gingerhotel.com',
+            email: 'gingerhotel@gkaconstruction.com',
             phone: '98840 55677',
             passwordHash: clientPasswordHash,
             role: 'client',
@@ -110,7 +110,7 @@ const runSeed = async () => {
             userId: clientUser._id,
             name: 'Roots Corporation Limited (Ginger Hotel)',
             companyName: 'Roots Corporation Ltd / Ginger Hotel',
-            email: 'client@gingerhotel.com',
+            email: 'gingerhotel@gkaconstruction.com',
             phone: '98840 55677',
             billingAddress: {
                 street: 'Ginger Hotel, Rajiv Gandhi Salai (OMR), Navalur',
@@ -313,7 +313,7 @@ const runSeed = async () => {
         console.log('  Project Manager:     pm@gkaconstruction.com         / GKApm2026!');
         console.log('  Site Supervisor:     supervisor@gkaconstruction.com / GKAsuper2026!');
         console.log('  Accounts:            accounts@gkaconstruction.com   / GKAaccounts2026!');
-        console.log('  Client (Ginger):     client@gingerhotel.com         / GKAclient2026!');
+        console.log('  Client (Ginger):     gingerhotel@gkaconstruction.com         / GKAclient2026!');
         console.log('===========================================================');
         process.exit(0);
     }

@@ -5,7 +5,7 @@ import { Project } from '../../models/Project';
 import { Invoice } from '../../models/Invoice';
 import { Client } from '../../models/Client';
 import { User } from '../../models/User';
-import { STANDARD_RATE_LIBRARY, DEFAULT_INVOICE_TERMS } from '../../shared/constants';
+import { STANDARD_RATE_LIBRARY, DEFAULT_INVOICE_TERMS, formatClientPortalUsername } from '../../shared/constants';
 import { PDFService } from '../../services/pdfService';
 import { DOCXService } from '../../services/docxService';
 import { toPaise } from '../../shared/types';
@@ -196,15 +196,27 @@ export const downloadQuotationPDF = async (req: Request, res: Response, next: Ne
       return;
     }
 
-    let clientPortalUsername = 'client@gingerhotel.com';
+    let clientPortalUsername = formatClientPortalUsername(quotation.clientName);
     let clientPortalPassword = 'GKAclient2026!';
     if (quotation.clientId) {
       const client = await Client.findById(quotation.clientId);
-      if (client?.email) {
-        clientPortalUsername = client.email.toLowerCase();
-        const clientUser = await User.findOne({ email: client.email.toLowerCase() });
-        if (clientUser?.defaultPassword) {
-          clientPortalPassword = clientUser.defaultPassword;
+      if (client) {
+        const clientUser = await User.findOne({
+          $or: [
+            { clientId: client._id },
+            { _id: client.userId },
+            { email: client.email.toLowerCase() },
+          ],
+        });
+        if (clientUser) {
+          clientPortalUsername = clientUser.email;
+          if (clientUser.defaultPassword) {
+            clientPortalPassword = clientUser.defaultPassword;
+          }
+        } else if (client.email) {
+          clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+            ? client.email.toLowerCase()
+            : formatClientPortalUsername(client.name);
         }
       }
     }
@@ -230,6 +242,33 @@ export const downloadQuotationDOCX = async (req: Request, res: Response, next: N
       res.status(404).json({ success: false, message: 'Quotation not found' });
       return;
     }
+
+    let clientPortalUsername = formatClientPortalUsername(quotation.clientName);
+    let clientPortalPassword = 'GKAclient2026!';
+    if (quotation.clientId) {
+      const client = await Client.findById(quotation.clientId);
+      if (client) {
+        const clientUser = await User.findOne({
+          $or: [
+            { clientId: client._id },
+            { _id: client.userId },
+            { email: client.email.toLowerCase() },
+          ],
+        });
+        if (clientUser) {
+          clientPortalUsername = clientUser.email;
+          if (clientUser.defaultPassword) {
+            clientPortalPassword = clientUser.defaultPassword;
+          }
+        } else if (client.email) {
+          clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+            ? client.email.toLowerCase()
+            : formatClientPortalUsername(client.name);
+        }
+      }
+    }
+    (quotation as any).clientPortalUsername = clientPortalUsername;
+    (quotation as any).clientPortalPassword = clientPortalPassword;
 
     const docxPath = await DOCXService.generateQuotationDocx(quotation);
     res.download(docxPath, `GKA_Quotation_${quotation.quotationNumber}.docx`, (err) => {

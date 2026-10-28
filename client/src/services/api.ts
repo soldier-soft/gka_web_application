@@ -236,6 +236,26 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Client Profiles & Portal Accounts Management
+  getClients: () =>
+    request<{ success: boolean; count: number; clients: any[] }>('/clients'),
+  getClient: (id: string) =>
+    request<{ success: boolean; client: any; portalUser: any; projects: any[]; invoices: any[]; quotations: any[] }>(`/clients/${id}`),
+  createClient: (data: any) =>
+    request<{ success: boolean; message: string; client: any; portalCredentials: any }>('/clients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateClient: (id: string, data: any) =>
+    request<{ success: boolean; message: string; client: any; portalCredentials: any }>(`/clients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteClient: (id: string) =>
+    request<{ success: boolean; message: string }>(`/clients/${id}`, {
+      method: 'DELETE',
+    }),
+
   // Projects (Internal ERP)
   getProjects: (params?: Record<string, string>) => {
     const q = params ? '?' + new URLSearchParams(params).toString() : '';

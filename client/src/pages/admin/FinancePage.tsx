@@ -1305,7 +1305,7 @@ export const FinancePage: React.FC = () => {
             dueDate: shareInvoice.dueDate ? new Date(shareInvoice.dueDate).toLocaleDateString('en-IN') : undefined,
             pdfUrl: `/api/v1/finance/invoices/${shareInvoice._id}/pdf`,
             docxUrl: `/api/v1/finance/invoices/${shareInvoice._id}/docx`,
-            username: shareInvoice.clientId?.email || 'client@gingerhotel.com',
+            username: shareInvoice.clientId?.email || 'gingerhotel@gkaconstruction.com',
             password: 'GKAclient2026!',
           }}
         />

@@ -247,3 +247,22 @@ export const CONCEPT_TYPE_OPTIONS = [
 export const ESTIMATION_DISCLAIMER_TEXT =
   'Every project depends on plot dimensions, soil and site conditions, design requirements, material selection, structural specifications and finishing preferences. The ideas shown are references only. For a project-specific recommendation, detailed specifications and an estimate, please request a site visit or contact our team by phone or email.';
 
+/**
+ * Standardizes client portal usernames to [clean_name]@gkaconstruction.com or [clean_name].[project_id]@gkaconstruction.com
+ */
+export const formatClientPortalUsername = (clientName: string, projectIdentifier?: string): string => {
+  if (!clientName) return 'client@gkaconstruction.com';
+  const cleanName = clientName
+    .toLowerCase()
+    .replace(/^(dr|mr|mrs|ms|er|shri|smt)\.?\s+/i, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+
+  const base = cleanName || 'client';
+  if (projectIdentifier) {
+    const cleanProj = projectIdentifier.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `${base}.${cleanProj}@gkaconstruction.com`;
+  }
+  return `${base}@gkaconstruction.com`;
+};
+

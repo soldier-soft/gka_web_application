@@ -1,7 +1,7 @@
 "use strict";
 // GKA Construction Authentic Company Constants & Defaults
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_QUOTATION_TERMS = exports.DEFAULT_INVOICE_TERMS = exports.ESTIMATION_DISCLAIMER_TEXT = exports.CONCEPT_TYPE_OPTIONS = exports.ARCHITECTURAL_STYLE_OPTIONS = exports.PROPERTY_TYPE_OPTIONS = exports.BEDROOM_OPTIONS = exports.SQUARE_FOOTAGE_RANGES = exports.PORTFOLIO_PROJECT_FILTERS = exports.STANDARD_RATE_LIBRARY = exports.STANDARD_MILESTONES = exports.GKA_COMPANY = exports.toPaise = exports.toRupees = void 0;
+exports.formatClientPortalUsername = exports.DEFAULT_QUOTATION_TERMS = exports.DEFAULT_INVOICE_TERMS = exports.ESTIMATION_DISCLAIMER_TEXT = exports.CONCEPT_TYPE_OPTIONS = exports.ARCHITECTURAL_STYLE_OPTIONS = exports.PROPERTY_TYPE_OPTIONS = exports.BEDROOM_OPTIONS = exports.SQUARE_FOOTAGE_RANGES = exports.PORTFOLIO_PROJECT_FILTERS = exports.STANDARD_RATE_LIBRARY = exports.STANDARD_MILESTONES = exports.GKA_COMPANY = exports.toPaise = exports.toRupees = void 0;
 const toRupees = (paise) => (paise || 0) / 100;
 exports.toRupees = toRupees;
 const toPaise = (rupees) => Math.round((rupees || 0) * 100);
@@ -259,3 +259,24 @@ exports.DEFAULT_QUOTATION_TERMS = [
     'GST applicable as per statutory government norms.',
     'Work will be executed as per agreed specifications and site conditions.',
 ];
+/**
+ * Generates an official GKA Client Portal username format: [clean_name]@gkaconstruction.com
+ */
+const formatClientPortalUsername = (clientName, projectIdentifier) => {
+    if (!clientName)
+        return 'client@gkaconstruction.com';
+    let clean = clientName
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]/g, '');
+    if (!clean)
+        clean = 'client';
+    if (clean.length > 25)
+        clean = clean.slice(0, 25);
+    if (projectIdentifier) {
+        const pCode = projectIdentifier.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return `${clean}.${pCode}@gkaconstruction.com`;
+    }
+    return `${clean}@gkaconstruction.com`;
+};
+exports.formatClientPortalUsername = formatClientPortalUsername;

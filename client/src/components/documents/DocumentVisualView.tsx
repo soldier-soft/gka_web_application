@@ -14,7 +14,7 @@ import {
   Check,
 } from 'lucide-react';
 import { formatINR, toRupees } from '@shared/types';
-import { GKA_COMPANY } from '@shared/constants';
+import { GKA_COMPANY, formatClientPortalUsername } from '@shared/constants';
 import { getFileUrl } from '../../services/api';
 import { ShareDocumentModal, ShareDocumentData } from '../common/ShareDocumentModal';
 
@@ -84,10 +84,8 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
 
   const clientPortalUsername =
     data.clientPortalUsername ||
-    data.clientEmail ||
-    (data.clientContactPerson
-      ? `${data.clientContactPerson.toLowerCase().replace(/[^a-z0-9]/g, '')}@client.com`
-      : 'client@gingerhotel.com');
+    (data.clientEmail?.endsWith('@gkaconstruction.com') ? data.clientEmail : null) ||
+    formatClientPortalUsername(data.clientName || data.clientCompany || data.clientContactPerson || 'client');
   const clientPortalPassword = data.clientPortalPassword || data.defaultPassword || 'GKAclient2026!';
 
   const subtotalPaise = data.subtotalPaise || 0;
@@ -460,123 +458,147 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
           </div>
         </div>
 
-        {/* 9. BOTTOM DUAL SECTION: Bank Details (Left) & Terms + Signature + Seal (Right) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Left: Bank Details */}
-          <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] overflow-hidden text-xs">
-            <div className="bg-[#0F254B] text-white px-3.5 py-1.5 font-heading font-bold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
-              <span>🏦</span> BANK DETAILS
+        {/* 8.8 DEDICATED OFFICIAL BILL NOTES & AGREED SETTLEMENT AGREEMENT */}
+        {(data.notes || (data.isNegotiated && data.negotiatedNotes)) && (
+          <div className="bg-gradient-to-r from-amber-50/90 to-orange-50/50 border border-amber-200/90 rounded-xl p-3.5 mb-5 shadow-xs">
+            <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-amber-200/70">
+              <FileText className="w-3.5 h-3.5 text-amber-700" />
+              <span className="font-heading font-bold text-[11px] uppercase tracking-wider text-amber-950">
+                Official Bill Notes & Agreed Settlement Agreement
+              </span>
             </div>
-            <div className="p-3.5 space-y-1 font-mono text-[10px]">
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">BENEFICIARY NAME:</span>
-                <strong className="text-slate-900">{GKA_COMPANY.bankDetails.beneficiary}</strong>
+            <div className="space-y-1.5 text-[11px] leading-relaxed">
+              {data.notes && (
+                <div className="text-slate-800">
+                  <strong className="text-slate-900 font-semibold">Bill Notes / Instructions:</strong> {data.notes}
+                </div>
+              )}
+              {data.isNegotiated && data.negotiatedNotes && (
+                <div className="text-amber-950 font-medium">
+                  <strong className="text-amber-900 font-bold">🤝 Special Commercial Settlement:</strong> {data.negotiatedNotes}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 9. BOTTOM DUAL SECTION: Bank Details (Left) & Terms & Conditions (Right) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+          {/* Left: Bank Details Card */}
+          <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] overflow-hidden text-xs flex flex-col justify-between shadow-xs">
+            <div>
+              <div className="bg-[#0F254B] text-white px-3.5 py-2 font-heading font-bold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
+                <span>🏦</span> BANK DETAILS
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">ACCOUNT NUMBER:</span>
-                <strong className="text-slate-900 font-bold text-[11px] tracking-wider">
-                  {GKA_COMPANY.bankDetails.accountNumber}
-                </strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">BANK NAME:</span>
-                <strong className="text-slate-900">{GKA_COMPANY.bankDetails.bankName}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">IFSC CODE:</span>
-                <strong className="text-slate-900">{GKA_COMPANY.bankDetails.ifscCode}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">MICR CODE:</span>
-                <strong className="text-slate-900">{GKA_COMPANY.bankDetails.micr}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">MOBILE NUMBER:</span>
-                <strong className="text-slate-900">{GKA_COMPANY.bankDetails.contactMobile}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">ALTERNATE NUMBER:</span>
-                <strong className="text-slate-900">8940455917</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">MAIL ID:</span>
-                <strong className="text-slate-900 uppercase">{GKA_COMPANY.email}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-semibold">WEBSITE:</span>
-                <strong className="text-slate-900 uppercase">{GKA_COMPANY.website}</strong>
+              <div className="p-3.5 space-y-1.5 font-mono text-[10px]">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">BENEFICIARY NAME:</span>
+                  <strong className="text-slate-900">{GKA_COMPANY.bankDetails.beneficiary}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">ACCOUNT NUMBER:</span>
+                  <strong className="text-slate-900 font-bold text-[11px] tracking-wider">
+                    {GKA_COMPANY.bankDetails.accountNumber}
+                  </strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">BANK NAME:</span>
+                  <strong className="text-slate-900">{GKA_COMPANY.bankDetails.bankName}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">IFSC CODE:</span>
+                  <strong className="text-slate-900">{GKA_COMPANY.bankDetails.ifscCode}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">MICR CODE:</span>
+                  <strong className="text-slate-900">{GKA_COMPANY.bankDetails.micr}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">MOBILE NUMBER:</span>
+                  <strong className="text-slate-900">{GKA_COMPANY.bankDetails.contactMobile}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">ALTERNATE NUMBER:</span>
+                  <strong className="text-slate-900">8940455917</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">MAIL ID:</span>
+                  <strong className="text-slate-900 uppercase">{GKA_COMPANY.email}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-semibold">WEBSITE:</span>
+                  <strong className="text-slate-900 uppercase">{GKA_COMPANY.website}</strong>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Right: Terms & Conditions + Proprietor Signature & Seal */}
-          <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3.5 text-xs flex flex-col justify-between">
-            <div className="space-y-1.5">
-              <span className="font-heading font-bold text-[#0F254B] text-[11px] tracking-wider uppercase block">
-                📋 TERMS & CONDITIONS:
-              </span>
-              <ul className="text-[10px] text-slate-600 space-y-1 leading-relaxed list-disc list-inside">
-                {Array.isArray(data.termsAndConditions) && data.termsAndConditions.length > 0 ? (
-                  data.termsAndConditions.map((term: string, idx: number) => (
-                    <li key={idx}>{term.replace(/^[•\-\*]\s*/, '')}</li>
-                  ))
-                ) : isQuotation ? (
-                  <>
-                    <li>This quotation is valid for 15 days from the date of issue.</li>
-                    <li>Payment terms will be mutually agreed as per milestone schedule.</li>
-                    <li>GST applicable as per statutory government norms.</li>
-                    <li>Work will be executed as per agreed specifications and site conditions.</li>
-                  </>
-                ) : (
-                  <>
-                    <li>Payment is due within 14 calendar days from the date of invoice issuance.</li>
-                    <li>Please quote this Invoice Number when executing bank transfers.</li>
-                    <li>Statutory GST (18%) charged as per GSTIN compliance rules.</li>
-                    <li>Late payment charges @ 18% per annum apply on balances overdue past the due date.</li>
-                    <li>All billing disputes and claims subject to Chennai legal jurisdiction only.</li>
-                  </>
-                )}
-                {data.notes && !data.termsAndConditions?.some((t: string) => t.includes(data.notes)) && (
-                  <li className="text-slate-800 font-medium list-none mt-1 p-1.5 bg-slate-100 rounded border border-slate-200">
-                    📝 <strong>Bill Notes:</strong> {data.notes}
-                  </li>
-                )}
-                {data.isNegotiated && data.negotiatedNotes && !data.termsAndConditions?.some((t: string) => t.includes(data.negotiatedNotes)) && (
-                  <li className="text-amber-800 font-semibold list-none mt-1 p-1.5 bg-amber-50 rounded border border-amber-200">
-                    🤝 <strong>Special Negotiated Terms:</strong> {data.negotiatedNotes}
-                  </li>
-                )}
-              </ul>
+          {/* Right: Terms & Conditions Card */}
+          <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] overflow-hidden text-xs flex flex-col justify-between shadow-xs">
+            <div>
+              <div className="bg-[#0F254B] text-white px-3.5 py-2 font-heading font-bold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
+                <span>📋</span> TERMS & CONDITIONS
+              </div>
+              <div className="p-3.5 space-y-2">
+                <ul className="text-[10px] text-slate-600 space-y-1.5 leading-relaxed list-disc list-inside">
+                  {Array.isArray(data.termsAndConditions) && data.termsAndConditions.length > 0 ? (
+                    data.termsAndConditions.map((term: string, idx: number) => (
+                      <li key={idx} className="text-slate-700">
+                        {term.replace(/^[•\-\*]\s*/, '')}
+                      </li>
+                    ))
+                  ) : isQuotation ? (
+                    <>
+                      <li>This quotation is valid for 15 days from the date of issue.</li>
+                      <li>Payment terms will be mutually agreed as per milestone schedule.</li>
+                      <li>GST applicable as per statutory government norms.</li>
+                      <li>Work will be executed as per agreed specifications and site conditions.</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>Payment is due within 14 calendar days from the date of invoice issuance.</li>
+                      <li>Please quote this Invoice Number when executing bank transfers.</li>
+                      <li>Statutory GST (18%) charged as per GSTIN compliance rules.</li>
+                      <li>Late payment charges @ 18% per annum apply on balances overdue past the due date.</li>
+                      <li>All billing disputes and claims subject to Chennai legal jurisdiction only.</li>
+                    </>
+                  )}
+                </ul>
+              </div>
             </div>
+          </div>
+        </div>
 
-            {/* Signature & Seal Graphic - Corrected Authentic Order */}
-            <div className="pt-3 flex items-end justify-between border-t border-slate-200 mt-3">
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-bold text-[#0F254B] tracking-wide uppercase">
-                  For GKA CONSTRUCTION
-                </p>
-                <div className="py-1">
-                  <img
-                    src="/signature.png"
-                    alt="Authorized Signatory Signature"
-                    className="h-10 w-auto object-contain"
-                  />
-                </div>
-                <p className="text-[10px] font-bold text-[#0F254B]">Hari A</p>
-                <p className="text-[9px] text-slate-500 font-medium">Proprietor / Authorized Signatory</p>
-              </div>
+        {/* 9.5 DEDICATED OFFICIAL AUTHORIZATION & SEAL BLOCK */}
+        <div className="rounded-xl border border-slate-200 bg-white p-4 mb-6 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="space-y-1 text-left sm:text-left">
+            <p className="text-[10px] font-bold text-[#0F254B] tracking-wider uppercase">
+              For GKA CONSTRUCTION
+            </p>
+            <div className="py-1">
+              <img
+                src="/signature.png"
+                alt="Authorized Signatory Signature"
+                className="h-10 w-auto object-contain"
+              />
+            </div>
+            <p className="text-[11px] font-bold text-[#0F254B]">Hari A</p>
+            <p className="text-[9px] text-slate-500 font-medium">Proprietor / Authorized Signatory</p>
+          </div>
 
-              {/* Circular Company Seal Stamp */}
-              <div className="flex flex-col items-center select-none pl-2">
-                <img
-                  src="/seal.png"
-                  alt="GKA Construction Company Seal"
-                  className="w-20 h-20 object-contain drop-shadow-sm"
-                />
-                <span className="text-[8px] font-bold text-slate-400 mt-0.5 tracking-wider uppercase">
-                  (Company Seal)
-                </span>
-              </div>
+          <div className="text-center sm:text-right flex items-center gap-3">
+            <div className="text-[9px] text-slate-400 font-medium hidden sm:block max-w-[200px] leading-tight">
+              Certified authentic tax billing instrument with statutory company seal affixed.
+            </div>
+            <div className="flex flex-col items-center select-none">
+              <img
+                src="/seal.png"
+                alt="GKA Construction Company Seal"
+                className="w-20 h-20 object-contain drop-shadow-sm"
+              />
+              <span className="text-[8px] font-bold text-slate-400 mt-0.5 tracking-wider uppercase">
+                (Company Seal)
+              </span>
             </div>
           </div>
         </div>

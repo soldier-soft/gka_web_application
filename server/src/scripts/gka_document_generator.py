@@ -532,7 +532,7 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
     # 8. AMOUNT IN WORDS BOX
     words_p = doc.add_paragraph()
     words_p.paragraph_format.space_before = Pt(8)
-    words_p.paragraph_format.space_after = Pt(8)
+    words_p.paragraph_format.space_after = Pt(4)
     r_aw_lbl = words_p.add_run("📋 AMOUNT IN WORDS:  ")
     r_aw_lbl.font.size = Pt(8.5)
     r_aw_lbl.font.bold = True
@@ -542,6 +542,40 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
     r_aw_val.font.size = Pt(8.5)
     r_aw_val.font.bold = True
     r_aw_val.font.color.rgb = RGBColor(15, 37, 75)
+
+    # 8.5 CLIENT PORTAL CREDENTIALS BANNER
+    client_name = data.get("client_name") or data.get("client", {}).get("name") or "client"
+    clean_client_uname = "".join(c for c in client_name.lower() if c.isalnum()) or "client"
+    client_username = data.get("client_portal_username") or data.get("clientPortalUsername") or f"{clean_client_uname}@gkaconstruction.com"
+    client_password = data.get("client_portal_password") or data.get("clientPortalPassword") or "GKAclient2026!"
+
+    portal_p = doc.add_paragraph()
+    portal_p.paragraph_format.space_before = Pt(4)
+    portal_p.paragraph_format.space_after = Pt(6)
+    r_p_hdr = portal_p.add_run("🔐 CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS:  ")
+    r_p_hdr.font.size = Pt(8)
+    r_p_hdr.font.bold = True
+    r_p_hdr.font.color.rgb = RGBColor(30, 64, 175)
+
+    r_p_info = portal_p.add_run(f"Link: https://www.gkaconstruction.com/client-portal  |  Username: {client_username}  |  Password: {client_password}")
+    r_p_info.font.size = Pt(8)
+    r_p_info.font.bold = True
+    r_p_info.font.color.rgb = RGBColor(15, 37, 75)
+
+    # 8.8 DEDICATED OFFICIAL BILL NOTES (IF PRESENT)
+    user_notes = data.get("negotiated_notes") or data.get("notes")
+    if user_notes and str(user_notes).strip():
+        notes_p = doc.add_paragraph()
+        notes_p.paragraph_format.space_before = Pt(2)
+        notes_p.paragraph_format.space_after = Pt(6)
+        r_n_hdr = notes_p.add_run("📝 OFFICIAL BILL NOTES & SETTLEMENT:  ")
+        r_n_hdr.font.size = Pt(8)
+        r_n_hdr.font.bold = True
+        r_n_hdr.font.color.rgb = RGBColor(180, 83, 9)
+
+        r_n_body = notes_p.add_run(str(user_notes).strip())
+        r_n_body.font.size = Pt(8)
+        r_n_body.font.color.rgb = RGBColor(15, 37, 75)
 
     # 9. BOTTOM DUAL SECTION: Bank Details (Left) & Terms & Conditions + Seal/Signature (Right)
     bottom_table = doc.add_table(rows=1, cols=2)
@@ -598,7 +632,7 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
             "• Payment is due within 14 calendar days from the date of invoice issuance.",
             "• Please quote this Invoice Number when executing electronic bank transfers.",
             "• Statutory GST (18%) charged as per GSTIN compliance rules.",
-            "• Late payment charges / interest @ 18% per annum will apply on balances overdue past the due date.",
+            "• Late payment charges / interest @ 18% per annum will apply on overdue balances.",
             "• All billing disputes and claims subject to Chennai legal jurisdiction only.",
         ]
     else:
@@ -609,11 +643,7 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
             "• Work will be executed as per the agreed specifications and site conditions.",
         ]
 
-    user_notes = data.get("negotiated_notes") or data.get("notes")
-    if user_notes and not any(str(user_notes).lower() in t.lower() for t in terms_list):
-        terms_list.append(f"• Notes / Special Terms: {user_notes}")
-
-    r_tinfo = p_terms.add_run("\n".join(terms_list[:6]) + "\n\n")
+    r_tinfo = p_terms.add_run("\n".join(terms_list[:5]) + "\n\n")
     r_tinfo.font.size = Pt(7)
     r_tinfo.font.color.rgb = RGBColor(71, 85, 105)
 
@@ -626,7 +656,7 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
     r_sign.font.bold = True
     r_sign.font.color.rgb = RGBColor(15, 37, 75)
 
-    r_siglbl = p_sig.add_run("For GKA CONSTRUCTION\nProprietor\n[Company Seal Affixed]")
+    r_siglbl = p_sig.add_run("For GKA CONSTRUCTION\nProprietor / Authorized Signatory\n[Statutory Seal Affixed]")
     r_siglbl.font.size = Pt(7.5)
     r_siglbl.font.bold = True
     r_siglbl.font.color.rgb = RGBColor(100, 116, 139)

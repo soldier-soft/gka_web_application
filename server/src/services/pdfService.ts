@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
-import { GKA_COMPANY, toRupees } from '../shared/constants';
+import { GKA_COMPANY, toRupees, formatClientPortalUsername } from '../shared/constants';
 import { IQuotationDocument } from '../models/Quotation';
 import { IInvoiceDocument } from '../models/Invoice';
 import { IPurchaseOrderDocument } from '../models/PurchaseOrder';
@@ -205,6 +205,9 @@ export class PDFService {
   /**
    * Draw Bank Details, Terms & Conditions, Proprietor Signature & Seal, and Footer
    */
+  /**
+   * Draw Bank Details, Terms & Conditions, Dedicated Proprietor Signature & Seal, and Footer
+   */
   private static drawBottomAndFooter(
     doc: InstanceType<typeof PDFDocument>,
     startY: number,
@@ -212,13 +215,24 @@ export class PDFService {
     isInvoice: boolean = false,
     customTerms?: string[]
   ): void {
-    const bottomY = Math.max(startY + 8, 565);
+    let curY = startY + 4;
 
-    // Left Card: BANK DETAILS (Light Blue border, Deep Navy Header)
-    doc.rect(40, bottomY, 255, 124).fill('#F8FAFC').stroke('#B8D5E5').lineWidth(1).stroke();
-    doc.rect(40, bottomY, 255, 18).fill('#0F254B');
-    doc.circle(48, bottomY + 9, 2.5).fill('#D6A21D');
-    doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold').text('BANK DETAILS', 56, bottomY + 5);
+    // 1. DEDICATED OFFICIAL BILL NOTES & AGREED SETTLEMENT BANNER
+    if (notes && notes.trim().length > 0) {
+      doc.rect(40, curY, 515, 20).fill('#FFFBEB').stroke('#FDE68A').lineWidth(0.8).stroke();
+      doc.rect(46, curY + 5, 8, 8).fill('#D6A21D');
+      doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#B45309').text('OFFICIAL BILL NOTES & SETTLEMENT:', 58, curY + 5, { width: 160 });
+      doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#0F254B').text(notes.trim(), 222, curY + 5, { width: 325, lineBreak: false, ellipsis: true });
+      curY += 24;
+    }
+
+    const bottomY = Math.max(curY + 2, 545);
+
+    // 2. Left Card: BANK DETAILS (Light Blue border, Deep Navy Header)
+    doc.rect(40, bottomY, 252, 98).fill('#F8FAFC').stroke('#B8D5E5').lineWidth(0.8).stroke();
+    doc.rect(40, bottomY, 252, 16).fill('#0F254B');
+    doc.circle(48, bottomY + 8, 2.5).fill('#D6A21D');
+    doc.fillColor('#FFFFFF').fontSize(7.2).font('Helvetica-Bold').text('BANK DETAILS', 56, bottomY + 4.5);
 
     const bankDetailsList = [
       ['BENEFICIARY NAME', `:  ${GKA_COMPANY.bankDetails.beneficiary}`],
@@ -229,100 +243,100 @@ export class PDFService {
       ['MOBILE NUMBER', `:  ${GKA_COMPANY.bankDetails.contactMobile}`],
       ['ALTERNATE NUMBER', ':  8940455917'],
       ['MAIL ID', `:  ${GKA_COMPANY.email.toUpperCase()}`],
-      ['WEBSITE', `:  ${GKA_COMPANY.website.toUpperCase()}`],
     ];
 
-    let bY = bottomY + 23;
+    let bY = bottomY + 20;
     bankDetailsList.forEach(([lbl, val]) => {
-      doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#475569').text(lbl, 46, bY, { width: 92 });
-      doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#0F254B').text(val, 138, bY, { width: 152 });
-      bY += 10.5;
+      doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#475569').text(lbl, 46, bY, { width: 88 });
+      doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#0F254B').text(val, 134, bY, { width: 154 });
+      bY += 9.5;
     });
 
-    // Right Card: TERMS & CONDITIONS + SIGNATURE & SEAL (Gold Accent Border)
-    doc.rect(305, bottomY, 250, 124).fill('#FFFFFF').stroke('#D6A21D').lineWidth(1).stroke();
-    doc.rect(314, bottomY + 6, 7, 7).fill('#0F254B');
-    doc.fillColor('#0F254B').fontSize(7.5).font('Helvetica-Bold').text('TERMS & CONDITIONS:', 326, bottomY + 6);
+    // 3. Right Card: TERMS & CONDITIONS (Clean, dedicated container with ZERO overlap)
+    doc.rect(302, bottomY, 253, 98).fill('#FFFFFF').stroke('#CBD5E1').lineWidth(0.8).stroke();
+    doc.rect(302, bottomY, 253, 16).fill('#0F254B');
+    doc.circle(310, bottomY + 8, 2.5).fill('#D6A21D');
+    doc.fillColor('#FFFFFF').fontSize(7.2).font('Helvetica-Bold').text('TERMS & CONDITIONS', 318, bottomY + 4.5);
 
     let terms: string[] = [];
     if (customTerms && Array.isArray(customTerms) && customTerms.length > 0) {
       terms = customTerms.map((t) => (t.startsWith('•') ? t : `• ${t}`));
     } else if (isInvoice) {
       terms = [
-        '• Payment is due within 14 calendar days from date of invoice.',
-        '• Please quote Invoice Number when executing bank transfer.',
+        '• Payment is due within 14 calendar days from date of invoice issuance.',
+        '• Please quote Invoice Number when executing electronic bank transfer.',
         '• Statutory GST (18%) charged as per GSTIN compliance rules.',
-        '• Overdue payments subject to 18% p.a. interest.',
-        '• All billing disputes subject to Chennai jurisdiction only.',
+        '• Late payment charges @ 18% per annum apply on overdue balances.',
+        '• All billing disputes and claims subject to Chennai jurisdiction only.',
       ];
     } else {
       terms = [
         '• This quotation is valid for 15 days from the date of issue.',
-        '• Payment terms will be mutually agreed.',
-        '• GST applicable as per government norms.',
+        '• Payment terms will be mutually agreed as per milestone schedule.',
+        '• GST applicable as per statutory government norms.',
         '• Work executed as per agreed specifications and site conditions.',
       ];
     }
 
-    if (notes && !terms.some((t) => t.toLowerCase().includes(notes.toLowerCase()))) {
-      terms.push(`• Notes / Special Terms: ${notes}`);
-    }
-
-    let tY = bottomY + 16;
-    const maxTerms = 6;
-    const itemsToDisplay = terms.slice(0, maxTerms);
-    const lineGap = itemsToDisplay.length > 5 ? 5.8 : 7.0;
-    const fontSize = itemsToDisplay.length > 5 ? 5.5 : 6.2;
-    doc.font('Helvetica').fontSize(fontSize).fillColor('#475569');
+    let tY = bottomY + 20;
+    const itemsToDisplay = terms.slice(0, 5);
+    doc.font('Helvetica').fontSize(5.8).fillColor('#475569');
     itemsToDisplay.forEach((t) => {
-      doc.text(t, 314, tY, { width: 236 });
-      tY += lineGap;
+      doc.text(t, 310, tY, { width: 238, lineGap: 1.5 });
+      tY += 14.5;
     });
 
-    // Signature and Seal Images (Company on top, signature below, proprietor, seal beside)
+    // 4. DEDICATED OFFICIAL AUTHORIZATION & COMPANY SEAL CONTAINER
+    const authY = bottomY + 104;
+    doc.rect(40, authY, 515, 52).fill('#FFFFFF').stroke('#E2E8F0').lineWidth(0.8).stroke();
+
+    // Left Column: Authorized Signatory Block
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#0F254B').text('For GKA CONSTRUCTION', 52, authY + 6);
+
     const sigImgPath = this.resolveAssetPath('signature.png');
     const sealImgPath = this.resolveAssetPath('seal.png');
 
-    // Left Column: Authorized Signatory Block
-    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text('For GKA CONSTRUCTION', 314, bottomY + 52);
-
     if (sigImgPath) {
-      doc.image(sigImgPath, 314, bottomY + 62, { width: 58 });
+      doc.image(sigImgPath, 52, authY + 16, { width: 55, height: 20 });
     } else {
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#0F254B').text('Hari A', 314, bottomY + 66);
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#0F254B').text('Hari A', 52, authY + 18);
     }
 
-    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text('Hari A', 314, bottomY + 95);
-    doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text('Proprietor / Authorized Signatory', 314, bottomY + 105);
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('#0F254B').text('Hari A', 52, authY + 36);
+    doc.font('Helvetica').fontSize(5.8).fillColor('#64748B').text('Proprietor / Authorized Signatory', 52, authY + 44);
 
-    // Right Column: Circular Company Seal Stamp
+    // Center Column: Statutory Certification Note
+    doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text('OFFICIAL VERIFICATION & SEAL', 205, authY + 14, { width: 220, align: 'center' });
+    doc.font('Helvetica').fontSize(5.8).fillColor('#64748B').text('Certified authentic tax billing instrument with statutory company seal affixed.', 205, authY + 25, { width: 220, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(5.8).fillColor('#D6A21D').text('QUALITY CONSTRUCTION FOR A BETTER TOMORROW', 205, authY + 36, { width: 220, align: 'center' });
+
+    // Right Column: Company Seal Stamp
     if (sealImgPath) {
-      doc.image(sealImgPath, 452, bottomY + 50, { width: 62 });
-      doc.font('Helvetica-Bold').fontSize(5.5).fillColor('#64748B').text('(Company Seal)', 445, bottomY + 114, { width: 76, align: 'center' });
+      doc.image(sealImgPath, 470, authY + 4, { width: 44, height: 44 });
     } else {
-      const sealCenterX = 482;
-      const sealCenterY = bottomY + 80;
-      doc.circle(sealCenterX, sealCenterY, 23).lineWidth(1.2).strokeColor('#0F254B').stroke();
-      doc.circle(sealCenterX, sealCenterY, 20).lineWidth(0.6).strokeColor('#0F254B').stroke();
-      doc.font('Helvetica-Bold').fontSize(5).fillColor('#0F254B');
-      doc.text('GKA CONSTRUCTION', sealCenterX - 20, sealCenterY - 12, { width: 40, align: 'center' });
-      doc.text('★ CHENNAI ★', sealCenterX - 20, sealCenterY - 3, { width: 40, align: 'center' });
-      doc.text('(Company Seal)', sealCenterX - 20, sealCenterY + 6, { width: 40, align: 'center' });
+      const sealCenterX = 492;
+      const sealCenterY = authY + 26;
+      doc.circle(sealCenterX, sealCenterY, 20).lineWidth(1).strokeColor('#0F254B').stroke();
+      doc.circle(sealCenterX, sealCenterY, 17).lineWidth(0.5).strokeColor('#0F254B').stroke();
+      doc.font('Helvetica-Bold').fontSize(4.5).fillColor('#0F254B');
+      doc.text('GKA CONSTRUCTION', sealCenterX - 18, sealCenterY - 10, { width: 36, align: 'center' });
+      doc.text('★ CHENNAI ★', sealCenterX - 18, sealCenterY - 2, { width: 36, align: 'center' });
+      doc.text('(Company Seal)', sealCenterX - 18, sealCenterY + 6, { width: 36, align: 'center' });
     }
 
-    // Bottom Footer Banner Bar with Angled Gold Flaps
-    const footerY = 744;
+    // 5. Bottom Footer Banner Bar with Angled Gold Flaps
+    const footerY = 762;
     doc.save();
-    doc.rect(0, footerY, 595, 28).fill('#0F254B');
-    doc.polygon([0, footerY], [20, footerY], [0, footerY + 28]).fill('#D6A21D');
-    doc.polygon([595, footerY], [575, footerY], [595, footerY + 28]).fill('#D6A21D');
+    doc.rect(0, footerY, 595, 26).fill('#0F254B');
+    doc.polygon([0, footerY], [20, footerY], [0, footerY + 26]).fill('#D6A21D');
+    doc.polygon([595, footerY], [575, footerY], [595, footerY + 26]).fill('#D6A21D');
     doc.restore();
 
-    doc.fillColor('#FFFFFF').fontSize(7.2).font('Helvetica-Bold');
-    doc.text(`${GKA_COMPANY.phoneDisplay}    |    ${GKA_COMPANY.email}    |    ${GKA_COMPANY.website}`, 30, footerY + 9);
+    doc.fillColor('#FFFFFF').fontSize(7).font('Helvetica-Bold');
+    doc.text(`${GKA_COMPANY.phoneDisplay}    |    ${GKA_COMPANY.email}    |    ${GKA_COMPANY.website}`, 30, footerY + 8);
 
-    doc.fillColor('#D6A21D').fontSize(7.2).font('Helvetica-Bold');
-    doc.text('QUALITY CONSTRUCTION FOR A BETTER TOMORROW', 350, footerY + 9, { width: 215, align: 'right' });
+    doc.fillColor('#D6A21D').fontSize(7).font('Helvetica-Bold');
+    doc.text('QUALITY CONSTRUCTION FOR A BETTER TOMORROW', 350, footerY + 8, { width: 215, align: 'right' });
   }
 
   /**
@@ -478,7 +492,7 @@ export class PDFService {
     const clientUsername =
       (quotation as any).clientPortalUsername ||
       (quotation as any).clientEmail ||
-      (quotation.clientContactPerson ? `${quotation.clientContactPerson.toLowerCase().replace(/[^a-z0-9]/g, '')}@client.com` : 'client@gingerhotel.com');
+      formatClientPortalUsername(quotation.clientName || quotation.clientContactPerson || 'client');
     const clientPassword = (quotation as any).clientPortalPassword || (quotation as any).defaultPassword || 'GKAclient2026!';
     const portalUrl = 'https://www.gkaconstruction.com/login';
 
@@ -661,7 +675,7 @@ export class PDFService {
     const clientUsername =
       (invoice as any).clientPortalUsername ||
       (invoice as any).clientEmail ||
-      (invoice.clientContactPerson ? `${invoice.clientContactPerson.toLowerCase().replace(/[^a-z0-9]/g, '')}@client.com` : 'client@gingerhotel.com');
+      formatClientPortalUsername(invoice.clientName || invoice.clientContactPerson || 'client');
     const clientPassword = (invoice as any).clientPortalPassword || (invoice as any).defaultPassword || 'GKAclient2026!';
     const portalUrl = 'https://www.gkaconstruction.com/login';
 

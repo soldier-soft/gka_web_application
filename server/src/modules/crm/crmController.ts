@@ -1,9 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { Lead } from '../../models/Lead';
 import { Client } from '../../models/Client';
+import { User } from '../../models/User';
 import { Project } from '../../models/Project';
 import { Milestone } from '../../models/Milestone';
-import { STANDARD_MILESTONES } from '../../shared/constants';
+import { STANDARD_MILESTONES, formatClientPortalUsername } from '../../shared/constants';
 import { toPaise } from '../../shared/types';
 
 export const createEnquiry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -116,10 +119,11 @@ export const convertLeadToProject = async (req: Request, res: Response, next: Ne
 
     // 1. Find or create Client
     let client = await Client.findOne({ phone: lead.phone });
+    const portalUsername = formatClientPortalUsername(lead.name);
     if (!client) {
       client = await Client.create({
         name: lead.name,
-        email: lead.email || `${lead.phone.replace(/[^0-9]/g, '')}@client.gkaconstruction.com`,
+        email: portalUsername,
         phone: lead.phone,
         billingAddress: {
           street: lead.siteLocation,
@@ -128,6 +132,9 @@ export const convertLeadToProject = async (req: Request, res: Response, next: Ne
           pincode: '',
         },
       });
+    } else if (!client.email || !client.email.endsWith('@gkaconstruction.com')) {
+      client.email = portalUsername;
+      await client.save();
     }
 
     // 2. Generate unique Project ID: GKA-YYYY-XXX
@@ -165,7 +172,60 @@ export const convertLeadToProject = async (req: Request, res: Response, next: Ne
       assignedManagerId: req.user?.id,
     });
 
-    // 4. Initialize standard milestones for this project
+    // 4. Client Account Automation: Create or Link Client Portal User
+    let clientAccess: any = null;
+    let existingUser = await User.findOne({
+      $or: [
+        { clientId: client._id },
+        { email: portalUsername.toLowerCase() },
+        { phone: client.phone },
+      ],
+    });
+
+    if (!existingUser) {
+      const rawTempPassword = `GKA@${(client.phone || '').replace(/\D/g, '').slice(-4) || '2026'}`;
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(rawTempPassword, salt);
+      const activationToken = crypto.randomBytes(24).toString('hex');
+
+      const newUser = await User.create({
+        name: client.name,
+        email: portalUsername,
+        phone: client.phone || '8838030917',
+        passwordHash,
+        defaultPassword: rawTempPassword,
+        role: 'client',
+        clientId: client._id,
+        assignedProjects: [project._id],
+        mustChangePasswordOnLogin: false,
+        activationToken,
+        activationTokenExpires: new Date(Date.now() + 7 * 86400000),
+        isActive: true,
+      });
+
+      await Client.findByIdAndUpdate(client._id, { userId: newUser._id, email: portalUsername });
+      clientAccess = {
+        username: portalUsername,
+        password: rawTempPassword,
+        isNewAccount: true,
+      };
+    } else {
+      if (!existingUser.assignedProjects.includes(project._id as any)) {
+        existingUser.assignedProjects.push(project._id as any);
+      }
+      if (!existingUser.clientId) {
+        existingUser.clientId = client._id as any;
+      }
+      await existingUser.save();
+      await Client.findByIdAndUpdate(client._id, { userId: existingUser._id });
+      clientAccess = {
+        username: existingUser.email,
+        password: existingUser.defaultPassword || 'GKAclient2026!',
+        isNewAccount: false,
+      };
+    }
+
+    // 5. Initialize standard milestones for this project
     const milestoneDocs = STANDARD_MILESTONES.map((m) => {
       const pStart = new Date(startDate);
       pStart.setDate(pStart.getDate() + (m.orderIndex - 1) * 30);
@@ -188,7 +248,7 @@ export const convertLeadToProject = async (req: Request, res: Response, next: Ne
 
     await Milestone.insertMany(milestoneDocs);
 
-    // 5. Update lead record with converted IDs
+    // 6. Update lead record with converted IDs
     lead.status = 'won';
     lead.convertedToClientId = client._id as any;
     lead.convertedToProjectId = project._id as any;
@@ -199,6 +259,7 @@ export const convertLeadToProject = async (req: Request, res: Response, next: Ne
       message: `Enquiry successfully converted to Project ${project.projectId}`,
       client,
       project,
+      clientAccess,
     });
   } catch (error) {
     next(error);

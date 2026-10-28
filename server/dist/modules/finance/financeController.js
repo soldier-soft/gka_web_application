@@ -144,15 +144,28 @@ const downloadInvoicePDF = async (req, res, next) => {
             res.status(403).json({ success: false, message: 'Forbidden. Access not permitted.' });
             return;
         }
-        let clientPortalUsername = 'client@gingerhotel.com';
+        let clientPortalUsername = (0, constants_1.formatClientPortalUsername)(invoice.clientName);
         let clientPortalPassword = 'GKAclient2026!';
         if (invoice.clientId) {
             const client = await Client_1.Client.findById(invoice.clientId);
-            if (client?.email) {
-                clientPortalUsername = client.email.toLowerCase();
-                const clientUser = await User_1.User.findOne({ email: client.email.toLowerCase() });
-                if (clientUser?.defaultPassword) {
-                    clientPortalPassword = clientUser.defaultPassword;
+            if (client) {
+                const clientUser = await User_1.User.findOne({
+                    $or: [
+                        { clientId: client._id },
+                        { _id: client.userId },
+                        { email: client.email.toLowerCase() },
+                    ],
+                });
+                if (clientUser) {
+                    clientPortalUsername = clientUser.email;
+                    if (clientUser.defaultPassword) {
+                        clientPortalPassword = clientUser.defaultPassword;
+                    }
+                }
+                else if (client.email) {
+                    clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+                        ? client.email.toLowerCase()
+                        : (0, constants_1.formatClientPortalUsername)(client.name);
                 }
             }
         }
@@ -180,6 +193,33 @@ const downloadInvoiceDOCX = async (req, res, next) => {
             res.status(403).json({ success: false, message: 'Forbidden. Access not permitted.' });
             return;
         }
+        let clientPortalUsername = (0, constants_1.formatClientPortalUsername)(invoice.clientName);
+        let clientPortalPassword = 'GKAclient2026!';
+        if (invoice.clientId) {
+            const client = await Client_1.Client.findById(invoice.clientId);
+            if (client) {
+                const clientUser = await User_1.User.findOne({
+                    $or: [
+                        { clientId: client._id },
+                        { _id: client.userId },
+                        { email: client.email.toLowerCase() },
+                    ],
+                });
+                if (clientUser) {
+                    clientPortalUsername = clientUser.email;
+                    if (clientUser.defaultPassword) {
+                        clientPortalPassword = clientUser.defaultPassword;
+                    }
+                }
+                else if (client.email) {
+                    clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+                        ? client.email.toLowerCase()
+                        : (0, constants_1.formatClientPortalUsername)(client.name);
+                }
+            }
+        }
+        invoice.clientPortalUsername = clientPortalUsername;
+        invoice.clientPortalPassword = clientPortalPassword;
         const docxPath = await docxService_1.DOCXService.generateInvoiceDocx(invoice);
         res.download(docxPath, `GKA_Invoice_${invoice.invoiceNumber}.docx`, (err) => {
             try {

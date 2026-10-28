@@ -266,3 +266,23 @@ export const DEFAULT_QUOTATION_TERMS = [
   'Work will be executed as per agreed specifications and site conditions.',
 ];
 
+/**
+ * Generates an official GKA Client Portal username format: [clean_name]@gkaconstruction.com
+ */
+export const formatClientPortalUsername = (clientName: string, projectIdentifier?: string): string => {
+  if (!clientName) return 'client@gkaconstruction.com';
+  let clean = clientName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, '');
+  if (!clean) clean = 'client';
+  if (clean.length > 25) clean = clean.slice(0, 25);
+
+  if (projectIdentifier) {
+    const pCode = projectIdentifier.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `${clean}.${pCode}@gkaconstruction.com`;
+  }
+  return `${clean}@gkaconstruction.com`;
+};
+
+

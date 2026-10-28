@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toPaise, toRupees } from '@shared/types';
+import { formatClientPortalUsername } from '@shared/constants';
 import { DocumentVisualView } from '../../components/documents/DocumentVisualView';
 import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
@@ -1646,8 +1647,8 @@ export const InvoicesPage: React.FC = () => {
             dueDate: shareInvoice.dueDate ? new Date(shareInvoice.dueDate).toLocaleDateString('en-IN') : undefined,
             pdfUrl: `/api/v1/finance/invoices/${shareInvoice._id}/pdf`,
             docxUrl: `/api/v1/finance/invoices/${shareInvoice._id}/docx`,
-            username: shareInvoice.clientId?.email || 'client@gingerhotel.com',
-            password: 'GKAclient2026!',
+            username: shareInvoice.clientId?.email || formatClientPortalUsername(shareInvoice.clientName || 'client'),
+            password: shareInvoice.clientId?.portalUser?.defaultPassword || 'GKAclient2026!',
           }}
         />
       )}

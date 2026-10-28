@@ -305,7 +305,7 @@ export const ProjectDetailPage: React.FC = () => {
                   siteLocation: `${project.siteAddress?.street || ''}, ${project.siteAddress?.city || ''}`,
                   amount: toRupees(project.contractValuePaise || 0),
                   pdfUrl: `/api/v1/projects/${project._id}/welcome-pdf`,
-                  username: project.clientId?.email || 'client@gingerhotel.com',
+                  username: project.clientId?.email || 'gingerhotel@gkaconstruction.com',
                   password: 'GKAclient2026!',
                 });
                 setShowShareModal(true);
@@ -819,7 +819,7 @@ export const ProjectDetailPage: React.FC = () => {
                           amount: toRupees(q.totalAmountPaise || 0),
                           pdfUrl: `/api/v1/quotations/${q._id}/pdf`,
                           docxUrl: `/api/v1/quotations/${q._id}/docx`,
-                          username: project.clientId?.email || 'client@gingerhotel.com',
+                          username: project.clientId?.email || 'gingerhotel@gkaconstruction.com',
                           password: 'GKAclient2026!',
                         });
                         setShowShareModal(true);
@@ -958,7 +958,7 @@ export const ProjectDetailPage: React.FC = () => {
                             dueDate: inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-IN') : undefined,
                             pdfUrl: `/api/v1/finance/invoices/${inv._id}/pdf`,
                             docxUrl: `/api/v1/finance/invoices/${inv._id}/docx`,
-                            username: project.clientId?.email || 'client@gingerhotel.com',
+                            username: project.clientId?.email || 'gingerhotel@gkaconstruction.com',
                             password: 'GKAclient2026!',
                           });
                           setShowShareModal(true);

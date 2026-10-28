@@ -35,6 +35,7 @@ import { FinancePage } from './pages/admin/FinancePage';
 import { PortfolioAdminPage } from './pages/admin/PortfolioAdminPage';
 import { InvoicesPage } from './pages/admin/InvoicesPage';
 import { ProfilePage } from './pages/admin/ProfilePage';
+import { ClientsPage } from './pages/admin/ClientsPage';
 
 // Client Portal
 import { ClientPortalPage } from './pages/client/ClientPortalPage';
@@ -116,6 +117,7 @@ export const App: React.FC = () => {
               <Route index element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="crm" element={<CrmPage />} />
+              <Route path="clients" element={<ClientsPage />} />
               <Route path="projects" element={<AdminProjectsPage />} />
               <Route path="projects/:id" element={<ProjectDetailPage />} />
               <Route path="quotations" element={<QuotationsPage />} />

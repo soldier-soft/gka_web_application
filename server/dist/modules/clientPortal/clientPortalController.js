@@ -10,14 +10,32 @@ const Document_1 = require("../../models/Document");
 const Payment_1 = require("../../models/Payment");
 const ClientFeedback_1 = require("../../models/ClientFeedback");
 const constants_1 = require("../../shared/constants");
+const User_1 = require("../../models/User");
 const getMyProjects = async (req, res, next) => {
     try {
-        const clientId = req.user?.clientId;
-        if (!clientId) {
-            res.status(403).json({ success: false, message: 'No client profile associated with this account.' });
+        let clientId = req.user?.clientId;
+        let assignedProjects = [];
+        if (req.user?.id) {
+            const dbUser = await User_1.User.findById(req.user.id);
+            if (dbUser) {
+                if (!clientId && dbUser.clientId) {
+                    clientId = dbUser.clientId.toString();
+                }
+                if (dbUser.assignedProjects && dbUser.assignedProjects.length > 0) {
+                    assignedProjects = dbUser.assignedProjects;
+                }
+            }
+        }
+        const conditions = [];
+        if (clientId)
+            conditions.push({ clientId });
+        if (assignedProjects.length > 0)
+            conditions.push({ _id: { $in: assignedProjects } });
+        if (conditions.length === 0) {
+            res.json({ success: true, count: 0, projects: [] });
             return;
         }
-        const projects = await Project_1.Project.find({ clientId }).select('projectId title category siteAddress startDate targetEndDate status progressPercent');
+        const projects = await Project_1.Project.find({ $or: conditions }).select('projectId title category siteAddress startDate targetEndDate status progressPercent');
         res.json({ success: true, count: projects.length, projects });
     }
     catch (error) {
@@ -28,11 +46,30 @@ exports.getMyProjects = getMyProjects;
 const getClientProjectDetails = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const clientId = req.user?.clientId;
-        const project = await Project_1.Project.findOne({
-            _id: id,
-            ...(req.user?.role === 'client' ? { clientId } : {}),
-        }).select('projectId title category siteAddress scopeOfWork startDate targetEndDate status progressPercent');
+        let clientId = req.user?.clientId;
+        let assignedProjects = [];
+        if (req.user?.id) {
+            const dbUser = await User_1.User.findById(req.user.id);
+            if (dbUser) {
+                if (!clientId && dbUser.clientId)
+                    clientId = dbUser.clientId.toString();
+                if (dbUser.assignedProjects)
+                    assignedProjects = dbUser.assignedProjects;
+            }
+        }
+        const isClient = req.user?.role === 'client';
+        const authConditions = [];
+        if (isClient) {
+            if (clientId)
+                authConditions.push({ clientId });
+            if (assignedProjects.length > 0)
+                authConditions.push({ _id: { $in: assignedProjects } });
+        }
+        const query = { _id: id };
+        if (isClient && authConditions.length > 0) {
+            query.$or = authConditions;
+        }
+        const project = await Project_1.Project.findOne(query).select('projectId title category siteAddress scopeOfWork startDate targetEndDate status progressPercent');
         if (!project) {
             res.status(404).json({ success: false, message: 'Authorized project not found.' });
             return;

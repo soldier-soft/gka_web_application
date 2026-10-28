@@ -14,7 +14,7 @@ import { Quotation } from '../../models/Quotation';
 import { TaxReconciliation } from '../../models/TaxReconciliation';
 import { ClientFeedback } from '../../models/ClientFeedback';
 import { PDFService } from '../../services/pdfService';
-import { STANDARD_MILESTONES } from '../../shared/constants';
+import { STANDARD_MILESTONES, formatClientPortalUsername } from '../../shared/constants';
 
 export const getProjects = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -167,35 +167,46 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
     let clientAccess: any = null;
     const clientDoc = await Client.findById(clientId);
     if (clientDoc) {
-      const existingUser = await User.findOne({ email: clientDoc.email.toLowerCase() });
+      let existingUser = await User.findOne({
+        $or: [
+          { clientId: clientDoc._id },
+          { _id: clientDoc.userId },
+          { email: clientDoc.email.toLowerCase() },
+        ],
+      });
+
       if (!existingUser) {
-        const rawTempPassword = `GKA@${Math.floor(100000 + Math.random() * 900000)}`;
+        const portalUsername = clientDoc.email?.endsWith('@gkaconstruction.com')
+          ? clientDoc.email.toLowerCase()
+          : formatClientPortalUsername(clientDoc.name);
+        const rawTempPassword = `GKA@${(clientDoc.phone || '').replace(/\D/g, '').slice(-4) || '2026'}`;
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(rawTempPassword, salt);
         const activationToken = crypto.randomBytes(24).toString('hex');
 
         const newUser = await User.create({
           name: clientDoc.name,
-          email: clientDoc.email.toLowerCase(),
-          phone: clientDoc.phone,
+          email: portalUsername,
+          phone: clientDoc.phone || '8838030917',
           passwordHash,
+          defaultPassword: rawTempPassword,
           role: 'client',
           clientId: clientDoc._id,
           assignedProjects: [project._id],
-          mustChangePasswordOnLogin: true,
+          mustChangePasswordOnLogin: false,
           activationToken,
           activationTokenExpires: new Date(Date.now() + 7 * 86400000),
           isActive: true,
         });
 
-        await Client.findByIdAndUpdate(clientDoc._id, { userId: newUser._id });
+        await Client.findByIdAndUpdate(clientDoc._id, { userId: newUser._id, email: portalUsername });
 
         clientAccess = {
-          username: clientDoc.email,
-          tempPassword: rawTempPassword,
+          username: portalUsername,
+          password: rawTempPassword,
           isNewAccount: true,
           activationToken,
-          message: 'Client portal account automatically created. Must change password on first login.',
+          message: 'Client portal account automatically created with @gkaconstruction.com domain.',
         };
       } else {
         // Link project to existing client user
@@ -210,6 +221,7 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
 
         clientAccess = {
           username: existingUser.email,
+          password: existingUser.defaultPassword || 'GKAclient2026!',
           isNewAccount: false,
           message: 'Existing client account linked to this new project workspace.',
         };

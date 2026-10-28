@@ -1301,7 +1301,7 @@ export const QuotationsPage: React.FC = () => {
             amount: toRupees(shareQuotation.totalAmountPaise),
             pdfUrl: `/api/v1/quotations/${shareQuotation._id}/pdf`,
             docxUrl: `/api/v1/quotations/${shareQuotation._id}/docx`,
-            username: shareQuotation.clientEmail || 'client@gingerhotel.com',
+            username: shareQuotation.clientEmail || 'gingerhotel@gkaconstruction.com',
             password: 'GKAclient2026!',
           }}
         />
