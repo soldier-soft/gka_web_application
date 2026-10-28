@@ -82,6 +82,8 @@ const QuotationSchema = new mongoose_1.Schema({
     isNegotiated: { type: Boolean, default: false },
     negotiatedDiscountPaise: { type: Number, default: 0 },
     negotiatedNotes: { type: String, default: '' },
+    clientEmail: { type: String },
+    clientPhone: { type: String },
     termsAndConditions: [{ type: String }],
     revisionNumber: { type: Number, default: 1 },
     status: {

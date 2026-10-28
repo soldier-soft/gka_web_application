@@ -275,6 +275,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  updateQuotation: (id: string, data: any) =>
+    request<{ success: boolean; message: string; quotation: any }>(`/quotations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
   approveQuotation: (id: string) =>
     request<{ success: boolean; message: string; quotation: any }>(`/quotations/${id}/approve`, {
       method: 'POST',

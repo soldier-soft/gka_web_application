@@ -172,7 +172,20 @@ export const downloadInvoiceDOCX = async (req: Request, res: Response, next: Nex
 export const updateInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const { items, billingAddress, dueDate, notes, subject, clientContactPerson, clientCompany, status } = req.body;
+    const {
+      invoiceNumber,
+      clientName,
+      items,
+      billingAddress,
+      dueDate,
+      issueDate,
+      notes,
+      subject,
+      clientContactPerson,
+      clientCompany,
+      status,
+      paidAmountPaise,
+    } = req.body;
 
     const invoice = await Invoice.findById(id);
     if (!invoice) {
@@ -214,13 +227,20 @@ export const updateInvoice = async (req: Request, res: Response, next: NextFunct
       }
     }
 
-    if (billingAddress) invoice.billingAddress = billingAddress;
+    if (invoiceNumber) invoice.invoiceNumber = invoiceNumber;
+    if (clientName) invoice.clientName = clientName;
+    if (billingAddress !== undefined) invoice.billingAddress = billingAddress;
     if (dueDate) invoice.dueDate = new Date(dueDate);
+    if (issueDate) invoice.issueDate = new Date(issueDate);
     if (notes !== undefined) invoice.notes = notes;
-    if (subject) invoice.subject = subject;
-    if (clientContactPerson) invoice.clientContactPerson = clientContactPerson;
-    if (clientCompany) invoice.clientCompany = clientCompany;
-    if (status) invoice.status = status;
+    if (subject !== undefined) invoice.subject = subject;
+    if (clientContactPerson !== undefined) invoice.clientContactPerson = clientContactPerson;
+    if (clientCompany !== undefined) invoice.clientCompany = clientCompany;
+    if (status !== undefined) invoice.status = status;
+    if (paidAmountPaise !== undefined) {
+      invoice.paidAmountPaise = Number(paidAmountPaise) || 0;
+      invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
+    }
 
     await invoice.save();
 

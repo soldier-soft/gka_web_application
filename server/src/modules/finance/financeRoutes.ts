@@ -33,6 +33,7 @@ router.use(authenticate);
 router.get('/invoices', getInvoices);
 router.post('/invoices', requireRoles('super_admin', 'accounts'), createInvoice);
 router.put('/invoices/:id', requireRoles('super_admin', 'accounts'), updateInvoice);
+router.patch('/invoices/:id', requireRoles('super_admin', 'accounts'), updateInvoice);
 router.patch('/invoices/:id/gst-toggle', requireRoles('super_admin', 'accounts'), toggleInvoiceGst);
 
 router.get('/expenses', requireRoles('super_admin', 'project_manager', 'accounts', 'site_supervisor'), getExpenses);

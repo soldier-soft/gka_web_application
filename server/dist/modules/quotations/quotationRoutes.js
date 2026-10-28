@@ -14,6 +14,8 @@ router.use(auth_1.authenticate);
 router.get('/', quotationController_1.getQuotations);
 router.get('/:id', quotationController_1.getQuotationById);
 router.post('/', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager'), quotationController_1.createQuotation);
+router.put('/:id', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager'), quotationController_1.updateQuotation);
+router.patch('/:id', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager'), quotationController_1.updateQuotation);
 router.post('/:id/approve', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager'), quotationController_1.approveQuotation);
 router.post('/:id/convert-to-invoice', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts'), quotationController_1.convertToInvoice);
 exports.default = router;

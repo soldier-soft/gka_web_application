@@ -8,6 +8,7 @@ import {
   downloadQuotationPDF,
   downloadQuotationDOCX,
   convertToInvoice,
+  updateQuotation,
 } from './quotationController';
 import { authenticate, optionalAuthenticate } from '../../middleware/auth';
 import { requireRoles } from '../../middleware/roleCheck';
@@ -26,6 +27,8 @@ router.use(authenticate);
 router.get('/', getQuotations);
 router.get('/:id', getQuotationById);
 router.post('/', requireRoles('super_admin', 'project_manager'), createQuotation);
+router.put('/:id', requireRoles('super_admin', 'project_manager'), updateQuotation);
+router.patch('/:id', requireRoles('super_admin', 'project_manager'), updateQuotation);
 router.post('/:id/approve', requireRoles('super_admin', 'project_manager'), approveQuotation);
 router.post('/:id/convert-to-invoice', requireRoles('super_admin', 'project_manager', 'accounts'), convertToInvoice);
 

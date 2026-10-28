@@ -156,6 +156,8 @@ export interface IQuotation {
   isNegotiated?: boolean;
   negotiatedDiscountPaise?: number;
   negotiatedNotes?: string;
+  clientEmail?: string;
+  clientPhone?: string;
   termsAndConditions: string[];
   revisionNumber: number;
   status: 'draft' | 'sent' | 'revised' | 'approved' | 'rejected';

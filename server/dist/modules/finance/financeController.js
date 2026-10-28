@@ -165,7 +165,7 @@ exports.downloadInvoiceDOCX = downloadInvoiceDOCX;
 const updateInvoice = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { items, billingAddress, dueDate, notes, subject, clientContactPerson, clientCompany, status } = req.body;
+        const { invoiceNumber, clientName, items, billingAddress, dueDate, issueDate, notes, subject, clientContactPerson, clientCompany, status, paidAmountPaise, } = req.body;
         const invoice = await Invoice_1.Invoice.findById(id);
         if (!invoice) {
             res.status(404).json({ success: false, message: 'Invoice not found' });
@@ -200,20 +200,30 @@ const updateInvoice = async (req, res, next) => {
                 });
             }
         }
-        if (billingAddress)
+        if (invoiceNumber)
+            invoice.invoiceNumber = invoiceNumber;
+        if (clientName)
+            invoice.clientName = clientName;
+        if (billingAddress !== undefined)
             invoice.billingAddress = billingAddress;
         if (dueDate)
             invoice.dueDate = new Date(dueDate);
+        if (issueDate)
+            invoice.issueDate = new Date(issueDate);
         if (notes !== undefined)
             invoice.notes = notes;
-        if (subject)
+        if (subject !== undefined)
             invoice.subject = subject;
-        if (clientContactPerson)
+        if (clientContactPerson !== undefined)
             invoice.clientContactPerson = clientContactPerson;
-        if (clientCompany)
+        if (clientCompany !== undefined)
             invoice.clientCompany = clientCompany;
-        if (status)
+        if (status !== undefined)
             invoice.status = status;
+        if (paidAmountPaise !== undefined) {
+            invoice.paidAmountPaise = Number(paidAmountPaise) || 0;
+            invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
+        }
         await invoice.save();
         res.json({ success: true, message: 'Invoice updated successfully', invoice });
     }

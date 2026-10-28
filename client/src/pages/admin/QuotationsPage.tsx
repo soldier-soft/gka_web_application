@@ -14,6 +14,7 @@ import {
   X,
   Printer,
   Share2,
+  Edit3,
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toPaise, toRupees } from '@shared/types';
@@ -45,6 +46,23 @@ export const QuotationsPage: React.FC = () => {
   const [isNegotiated, setIsNegotiated] = useState(false);
   const [negotiatedDiscountRupees, setNegotiatedDiscountRupees] = useState<number>(0);
   const [negotiatedNotes, setNegotiatedNotes] = useState<string>('');
+
+  // Edit Quotation form state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingQuotation, setEditingQuotation] = useState<any>(null);
+  const [editQuotationNumber, setEditQuotationNumber] = useState('');
+  const [editClientName, setEditClientName] = useState('');
+  const [editClientCompany, setEditClientCompany] = useState('');
+  const [editProjectTitle, setEditProjectTitle] = useState('');
+  const [editSiteLocation, setEditSiteLocation] = useState('');
+  const [editSubject, setEditSubject] = useState('');
+  const [editSenderName, setEditSenderName] = useState('Arivazhagan');
+  const [editSenderCompany, setEditSenderCompany] = useState('GKA CONSTRUCTION');
+  const [editStatus, setEditStatus] = useState('draft');
+  const [editIsNegotiated, setEditIsNegotiated] = useState(false);
+  const [editNegotiatedDiscountRupees, setEditNegotiatedDiscountRupees] = useState<number>(0);
+  const [editNegotiatedNotes, setEditNegotiatedNotes] = useState<string>('');
+  const [editItems, setEditItems] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([
     {
       description: 'Civil Construction & Finishing Works',
@@ -214,6 +232,127 @@ export const QuotationsPage: React.FC = () => {
     }
   };
 
+  // Open Edit Quotation Modal
+  const handleOpenEditQuotation = (q: any) => {
+    setEditingQuotation(q);
+    setEditQuotationNumber(q.quotationNumber || '');
+    setEditClientName(q.clientName || '');
+    setEditClientCompany(q.clientCompany || '');
+    setEditProjectTitle(q.projectTitle || '');
+    setEditSiteLocation(q.siteLocation || q.clientAddress || '');
+    setEditSubject(q.subject || '');
+    setEditSenderName(q.senderName || 'Arivazhagan');
+    setEditSenderCompany(q.senderCompany || 'GKA CONSTRUCTION');
+    setEditStatus(q.status || 'draft');
+    setEditIsNegotiated(Boolean(q.isNegotiated));
+    setEditNegotiatedDiscountRupees(toRupees(q.negotiatedDiscountPaise || q.discountPaise || 0));
+    setEditNegotiatedNotes(q.negotiatedNotes || '');
+    setEditItems(
+      (q.items || []).map((it: any) => ({
+        description: it.description || '',
+        category: it.category || 'civil',
+        unit: it.unit || 'CFT',
+        quantity: it.quantity || 1,
+        unitRateRupees: toRupees(it.unitRatePaise || 0),
+      }))
+    );
+    setShowEditModal(true);
+  };
+
+  const calculateEditSubtotal = () => {
+    return editItems.reduce(
+      (acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.unitRateRupees) || 0),
+      0
+    );
+  };
+
+  const handleEditItemChange = (index: number, field: string, value: any) => {
+    const updated = [...editItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditItems(updated);
+  };
+
+  const handleAddEditItem = (preset?: any) => {
+    if (preset) {
+      setEditItems([
+        ...editItems,
+        {
+          description: preset.description,
+          category: preset.category || 'civil',
+          unit: preset.unit || 'sq.ft',
+          quantity: 1,
+          unitRateRupees: preset.unitRateRupees || 0,
+        },
+      ]);
+    } else {
+      setEditItems([
+        ...editItems,
+        {
+          description: '',
+          category: 'civil',
+          unit: 'sq.ft',
+          quantity: 1,
+          unitRateRupees: 0,
+        },
+      ]);
+    }
+  };
+
+  const handleRemoveEditItem = (index: number) => {
+    setEditItems(editItems.filter((_, i) => i !== index));
+  };
+
+  const editSubtotal = calculateEditSubtotal();
+  const editDiscountRupees = editIsNegotiated ? Math.max(0, Number(editNegotiatedDiscountRupees) || 0) : 0;
+  const editTaxableAmount = Math.max(0, editSubtotal - editDiscountRupees);
+  const editTaxAmount = Math.round(editTaxableAmount * 0.18);
+  const editGrandTotal = editTaxableAmount + editTaxAmount;
+
+  const handleSaveEditQuotation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuotation) return;
+    setIsSubmitting(true);
+    try {
+      const convertedItems = editItems.map((it, idx) => ({
+        id: `item-${idx + 1}`,
+        description: it.description,
+        category: it.category || 'civil',
+        unit: it.unit || 'CFT',
+        quantity: Number(it.quantity) || 1,
+        unitRatePaise: toPaise(Number(it.unitRateRupees) || 0),
+      }));
+
+      const res = await api.updateQuotation(editingQuotation._id, {
+        quotationNumber: editQuotationNumber,
+        clientName: editClientName,
+        clientContactPerson: editClientName,
+        clientCompany: editClientCompany,
+        clientAddress: editSiteLocation,
+        projectTitle: editProjectTitle,
+        siteLocation: editSiteLocation,
+        subject: editSubject,
+        senderName: editSenderName,
+        senderCompany: editSenderCompany,
+        status: editStatus,
+        items: convertedItems,
+        taxRatePercent: 18,
+        isNegotiated: editIsNegotiated,
+        negotiatedDiscountPaise: editIsNegotiated ? toPaise(Number(editNegotiatedDiscountRupees) || 0) : 0,
+        negotiatedNotes: editIsNegotiated ? editNegotiatedNotes : '',
+      });
+
+      if (res.success) {
+        setShowEditModal(false);
+        setEditingQuotation(null);
+        fetchQuotations();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating quotation');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -324,6 +463,15 @@ export const QuotationsPage: React.FC = () => {
                           title="Live Preview GKA Format"
                         >
                           <Eye className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Edit Quotation Button */}
+                        <button
+                          onClick={() => handleOpenEditQuotation(q)}
+                          className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-100"
+                          title="Edit Quotation Parameters & Line Items"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
 
                         {/* PDF Download */}
@@ -700,6 +848,316 @@ export const QuotationsPage: React.FC = () => {
                   className="px-5 py-2 rounded-lg font-bold bg-[#0F254B] text-white hover:bg-[#1E3A8A] shadow"
                 >
                   {isSubmitting ? 'Generating...' : 'Generate & Auto-Download PDF'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Quotation Modal */}
+      {showEditModal && editingQuotation && (
+        <div className="fixed inset-0 z-50 bg-[#0F254B]/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 text-xs my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-base font-heading font-bold text-[#0F254B] flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-[#D6A21D]" />
+                <span>Edit Quotation ({editQuotationNumber})</span>
+              </h3>
+              <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditQuotation} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                    Quotation #
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editQuotationNumber}
+                    onChange={(e) => setEditQuotationNumber(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                    Quotation Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-bold capitalize text-slate-900"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="sent">Sent</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="revised">Revised</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                    Project Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editProjectTitle}
+                    onChange={(e) => setEditProjectTitle(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                    Client / Contact Person
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editClientName}
+                    onChange={(e) => setEditClientName(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                    Client Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editClientCompany}
+                    onChange={(e) => setEditClientCompany(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                    Site Location / Address
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editSiteLocation}
+                    onChange={(e) => setEditSiteLocation(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                    Subject Scope
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editSubject}
+                    onChange={(e) => setEditSubject(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Items Section */}
+              <div className="space-y-2 border-t border-slate-100 pt-3">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                    Quotation Line Items & Measurements
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleAddEditItem()}
+                    className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Item</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {editItems.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-12 gap-2 items-center text-xs"
+                    >
+                      <div className="col-span-6">
+                        <label className="block text-[10px] text-slate-500 font-semibold mb-0.5">
+                          Description
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={item.description}
+                          onChange={(e) => handleEditItemChange(idx, 'description', e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded border border-slate-300 bg-white font-medium"
+                        />
+                      </div>
+
+                      <div className="col-span-2">
+                        <label className="block text-[10px] text-slate-500 font-semibold mb-0.5">
+                          Qty
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={item.quantity}
+                          onChange={(e) => handleEditItemChange(idx, 'quantity', e.target.value)}
+                          className="w-full px-2 py-1.5 rounded border border-slate-300 bg-white text-center font-bold"
+                        />
+                      </div>
+
+                      <div className="col-span-2">
+                        <label className="block text-[10px] text-slate-500 font-semibold mb-0.5">
+                          Unit
+                        </label>
+                        <select
+                          value={item.unit}
+                          onChange={(e) => handleEditItemChange(idx, 'unit', e.target.value)}
+                          className="w-full px-2 py-1.5 rounded border border-slate-300 bg-white uppercase font-bold"
+                        >
+                          <option value="CFT">CFT</option>
+                          <option value="LOT">LOT</option>
+                          <option value="SQ.FT">SQ.FT</option>
+                          <option value="CU.FT">CU.FT</option>
+                          <option value="NOS">NOS</option>
+                          <option value="RFT">RFT</option>
+                        </select>
+                      </div>
+
+                      <div className="col-span-2 flex items-center gap-2">
+                        <div className="flex-1">
+                          <label className="block text-[10px] text-slate-500 font-semibold mb-0.5">
+                            Rate (₹)
+                          </label>
+                          <input
+                            type="number"
+                            required
+                            value={item.unitRateRupees}
+                            onChange={(e) => handleEditItemChange(idx, 'unitRateRupees', e.target.value)}
+                            className="w-full px-2 py-1.5 rounded border border-slate-300 bg-white text-right font-mono font-bold"
+                          />
+                        </div>
+                        {editItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEditItem(idx)}
+                            className="text-rose-500 hover:text-rose-700 mt-4"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Negotiated Terms Option in Edit */}
+              <div className="p-3.5 bg-gradient-to-r from-amber-50/80 to-orange-50/50 rounded-xl border border-amber-200">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editIsNegotiated}
+                      onChange={(e) => {
+                        setEditIsNegotiated(e.target.checked);
+                        if (!e.target.checked) {
+                          setEditNegotiatedDiscountRupees(0);
+                          setEditNegotiatedNotes('');
+                        }
+                      }}
+                      className="w-4 h-4 text-[#0F254B] rounded border-slate-300 focus:ring-[#0F254B]"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span>🤝 Mark as Negotiated Quotation</span>
+                        <span className="text-[10px] font-normal text-slate-500">(Apply negotiated pricing & special discount)</span>
+                      </span>
+                    </div>
+                  </label>
+                  {editIsNegotiated && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                      Negotiated Active
+                    </span>
+                  )}
+                </div>
+
+                {editIsNegotiated && (
+                  <div className="mt-3 pt-3 border-t border-amber-200/80 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                        Agreed Negotiated Discount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editNegotiatedDiscountRupees}
+                        onChange={(e) => setEditNegotiatedDiscountRupees(Number(e.target.value) || 0)}
+                        placeholder="e.g. 25000"
+                        className="w-full px-2.5 py-1.5 rounded border border-amber-300 bg-white font-mono font-bold text-slate-900 focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                        Negotiated Agreement Notes / Terms
+                      </label>
+                      <input
+                        type="text"
+                        value={editNegotiatedNotes}
+                        onChange={(e) => setEditNegotiatedNotes(e.target.value)}
+                        placeholder="e.g. Special executive management discount agreed on 28-Oct-2026"
+                        className="w-full px-2.5 py-1.5 rounded border border-amber-300 bg-white font-medium text-slate-900 focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Total Calculation Display */}
+              <div className="p-3 bg-slate-100 rounded-xl space-y-1 text-right font-mono text-xs">
+                <div className="text-slate-600">
+                  Subtotal: <strong className="text-slate-900">₹ {editSubtotal.toLocaleString('en-IN')}</strong>
+                </div>
+                {editIsNegotiated && editDiscountRupees > 0 && (
+                  <div className="text-amber-800 font-semibold">
+                    Less Negotiated Discount: <strong className="text-amber-900">- ₹ {editDiscountRupees.toLocaleString('en-IN')}</strong>
+                  </div>
+                )}
+                {editIsNegotiated && editDiscountRupees > 0 && (
+                  <div className="text-slate-600">
+                    Taxable Amount: <strong className="text-slate-900">₹ {editTaxableAmount.toLocaleString('en-IN')}</strong>
+                  </div>
+                )}
+                <div className="text-slate-600">
+                  18% GST: <strong className="text-slate-900">₹ {editTaxAmount.toLocaleString('en-IN')}</strong>
+                </div>
+                <div className="text-sm font-bold text-[#0F254B]">
+                  Grand Total: <strong>₹ {editGrandTotal.toLocaleString('en-IN')}</strong>
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 rounded-lg font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-lg font-bold bg-[#0F254B] text-white hover:bg-[#1E3A8A] shadow"
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Quotation Changes'}
                 </button>
               </div>
             </form>

@@ -457,6 +457,15 @@ export const FinancePage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <Link
+                          to={`/admin/invoices?edit=${inv._id}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200"
+                          title="Edit Bill / Tax Invoice"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Edit Bill</span>
+                        </Link>
+
                         <a
                           href={`/api/v1/finance/invoices/${inv._id}/pdf`}
                           target="_blank"

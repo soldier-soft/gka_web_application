@@ -12,6 +12,7 @@ router.use(auth_1.authenticate);
 router.get('/invoices', financeController_1.getInvoices);
 router.post('/invoices', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.createInvoice);
 router.put('/invoices/:id', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.updateInvoice);
+router.patch('/invoices/:id', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.updateInvoice);
 router.patch('/invoices/:id/gst-toggle', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.toggleInvoiceGst);
 router.get('/expenses', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts', 'site_supervisor'), financeController_1.getExpenses);
 router.post('/expenses', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts', 'site_supervisor'), financeController_1.createExpense);

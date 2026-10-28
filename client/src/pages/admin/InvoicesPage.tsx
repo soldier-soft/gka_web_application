@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FileText,
   Plus,
@@ -30,6 +30,7 @@ import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
 export const InvoicesPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [approvedQuotations, setApprovedQuotations] = useState<any[]>([]);
@@ -80,8 +81,13 @@ export const InvoicesPage: React.FC = () => {
   ]);
 
   // Edit Invoice form state
+  const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
+  const [editClientName, setEditClientName] = useState('');
   const [editBillingAddress, setEditBillingAddress] = useState('');
+  const [editIssueDate, setEditIssueDate] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
+  const [editStatus, setEditStatus] = useState('issued');
+  const [editPaidAmountRupees, setEditPaidAmountRupees] = useState<number>(0);
   const [editNotes, setEditNotes] = useState('');
   const [editSubject, setEditSubject] = useState('');
   const [editContactPerson, setEditContactPerson] = useState('');
@@ -122,6 +128,16 @@ export const InvoicesPage: React.FC = () => {
   useEffect(() => {
     fetchInvoiceData();
   }, []);
+
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && invoices.length > 0) {
+      const target = invoices.find((i) => i._id === editId);
+      if (target) {
+        handleOpenEdit(target);
+      }
+    }
+  }, [searchParams, invoices]);
 
   // Filtered invoices
   const filteredInvoices = invoices.filter((inv) => {
@@ -247,12 +263,20 @@ export const InvoicesPage: React.FC = () => {
   };
 
   // Open Edit Modal
+  // Open Edit Modal
   const handleOpenEdit = (inv: any) => {
     setSelectedInvoice(inv);
+    setEditInvoiceNumber(inv.invoiceNumber || '');
+    setEditClientName(inv.clientName || '');
     setEditBillingAddress(inv.billingAddress || '');
+    setEditIssueDate(
+      inv.issueDate ? new Date(inv.issueDate).toISOString().split('T')[0] : ''
+    );
     setEditDueDate(
       inv.dueDate ? new Date(inv.dueDate).toISOString().split('T')[0] : ''
     );
+    setEditStatus(inv.status || 'issued');
+    setEditPaidAmountRupees(toRupees(inv.paidAmountPaise || 0));
     setEditNotes(inv.notes || '');
     setEditSubject(inv.subject || '');
     setEditContactPerson(inv.clientContactPerson || '');
@@ -261,12 +285,23 @@ export const InvoicesPage: React.FC = () => {
       (inv.items || []).map((it: any) => ({
         description: it.description,
         quantity: it.quantity,
-        unit: it.unit,
+        unit: it.unit || 'CFT',
         unitRateRupees: toRupees(it.unitPricePaise),
       }))
     );
     setShowEditModal(true);
   };
+
+  const calculateEditInvSubtotal = () => {
+    return editItems.reduce(
+      (acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.unitRateRupees) || 0),
+      0
+    );
+  };
+
+  const editInvSubtotal = calculateEditInvSubtotal();
+  const editInvTax = Math.round(editInvSubtotal * 0.18);
+  const editInvTotal = editInvSubtotal + editInvTax;
 
   // Save Edited Invoice
   const handleSaveEditInvoice = async (e: React.FormEvent) => {
@@ -282,12 +317,17 @@ export const InvoicesPage: React.FC = () => {
       }));
 
       const res = await api.updateInvoice(selectedInvoice._id, {
+        invoiceNumber: editInvoiceNumber,
+        clientName: editClientName,
         billingAddress: editBillingAddress,
+        issueDate: editIssueDate,
         dueDate: editDueDate,
+        status: editStatus,
         notes: editNotes,
         subject: editSubject,
         clientContactPerson: editContactPerson,
         clientCompany: editCompany,
+        paidAmountPaise: toPaise(Number(editPaidAmountRupees) || 0),
         items: convertedItems,
       });
 
@@ -1028,59 +1068,117 @@ export const InvoicesPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveEditInvoice} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Client Contact Person</label>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Invoice #</label>
+                  <input
+                    type="text"
+                    required
+                    value={editInvoiceNumber}
+                    onChange={(e) => setEditInvoiceNumber(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Status</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-bold capitalize text-slate-900"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="issued">Issued</option>
+                    <option value="partially_paid">Partially Paid</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Issue Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={editIssueDate}
+                    onChange={(e) => setEditIssueDate(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Payment Due Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Client Contact Person</label>
                   <input
                     type="text"
                     value={editContactPerson}
                     onChange={(e) => setEditContactPerson(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 font-bold"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-bold"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Company / Entity</label>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Company / Entity</label>
                   <input
                     type="text"
                     value={editCompany}
                     onChange={(e) => setEditCompany(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 font-bold"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Client Name</label>
+                  <input
+                    type="text"
+                    value={editClientName}
+                    onChange={(e) => setEditClientName(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Site / Billing Address</label>
-                <input
-                  type="text"
-                  value={editBillingAddress}
-                  onChange={(e) => setEditBillingAddress(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Subject</label>
-                <input
-                  type="text"
-                  value={editSubject}
-                  onChange={(e) => setEditSubject(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 font-medium"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Site / Billing Address</label>
+                  <input
+                    type="text"
+                    value={editBillingAddress}
+                    onChange={(e) => setEditBillingAddress(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Subject Scope</label>
+                  <input
+                    type="text"
+                    value={editSubject}
+                    onChange={(e) => setEditSubject(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium"
+                  />
+                </div>
               </div>
 
               {/* Items Section */}
               <div className="space-y-2 border-t border-slate-100 pt-3">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                    Edit Line Items
+                    Bill Line Items & Measurements
                   </span>
                   <button
                     type="button"
                     onClick={() =>
                       setEditItems([
                         ...editItems,
-                        { description: 'Additional Scope', quantity: 1, unit: 'CFT', unitRateRupees: 1000 },
+                        { description: 'Additional Construction Scope', quantity: 1, unit: 'CFT', unitRateRupees: 1000 },
                       ])
                     }
                     className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1"
@@ -1184,6 +1282,49 @@ export const InvoicesPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Paid Receipts & Notes */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                    Direct Paid Receipts / Advance (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editPaidAmountRupees}
+                    onChange={(e) => setEditPaidAmountRupees(Number(e.target.value) || 0)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-emerald-800"
+                  />
+                  <span className="block text-[9px] text-slate-400 mt-0.5">
+                    Remaining balance due: ₹ {Math.max(0, editInvTotal - editPaidAmountRupees).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                    Invoice Notes & Payment Instructions
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium text-slate-800"
+                  />
+                </div>
+              </div>
+
+              {/* Live Calculation Display */}
+              <div className="p-3 bg-slate-100 rounded-xl space-y-1 text-right font-mono text-xs">
+                <div className="text-slate-600">
+                  Subtotal: <strong className="text-slate-900">₹ {editInvSubtotal.toLocaleString('en-IN')}</strong>
+                </div>
+                <div className="text-slate-600">
+                  18% GST: <strong className="text-slate-900">₹ {editInvTax.toLocaleString('en-IN')}</strong>
+                </div>
+                <div className="text-sm font-bold text-[#0F254B]">
+                  Grand Total (Inc. 18% GST): <strong>₹ {editInvTotal.toLocaleString('en-IN')}</strong>
+                </div>
+              </div>
+
               <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
@@ -1197,7 +1338,7 @@ export const InvoicesPage: React.FC = () => {
                   disabled={isSubmitting}
                   className="px-5 py-2 rounded-lg font-bold bg-[#0F254B] text-white hover:bg-[#1E3A8A] shadow"
                 >
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                  {isSubmitting ? 'Saving...' : 'Save Bill Changes'}
                 </button>
               </div>
             </form>

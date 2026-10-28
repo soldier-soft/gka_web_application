@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.convertToInvoice = exports.downloadQuotationDOCX = exports.downloadQuotationPDF = exports.approveQuotation = exports.createQuotation = exports.getQuotationById = exports.getQuotations = exports.getRateLibrary = void 0;
+exports.updateQuotation = exports.convertToInvoice = exports.downloadQuotationDOCX = exports.downloadQuotationPDF = exports.approveQuotation = exports.createQuotation = exports.getQuotationById = exports.getQuotations = exports.getRateLibrary = void 0;
 const fs_1 = __importDefault(require("fs"));
 const Quotation_1 = require("../../models/Quotation");
 const Project_1 = require("../../models/Project");
@@ -297,3 +297,100 @@ const convertToInvoice = async (req, res, next) => {
     }
 };
 exports.convertToInvoice = convertToInvoice;
+const updateQuotation = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const quotation = await Quotation_1.Quotation.findById(id);
+        if (!quotation) {
+            res.status(404).json({ success: false, message: 'Quotation not found' });
+            return;
+        }
+        const { quotationNumber, clientName, clientCompany, clientContactPerson, clientAddress, clientEmail, clientPhone, projectTitle, siteLocation, subject, senderName, senderCompany, items, discountPaise, isNegotiated, negotiatedDiscountPaise, negotiatedNotes, taxRatePercent, termsAndConditions, status, validUntil, } = req.body;
+        if (items && Array.isArray(items)) {
+            let subtotalPaise = 0;
+            const calculatedItems = items.map((item, idx) => {
+                const qty = Number(item.quantity) || 0;
+                const rate = Number(item.unitRatePaise) || 0;
+                const amountPaise = Math.round(qty * rate);
+                subtotalPaise += amountPaise;
+                return {
+                    id: item.id || `item-${idx + 1}`,
+                    category: item.category || 'civil',
+                    description: item.description,
+                    unit: item.unit || 'sq.ft',
+                    quantity: qty,
+                    unitRatePaise: rate,
+                    amountPaise,
+                    materialCostPaise: item.materialCostPaise || 0,
+                    labourCostPaise: item.labourCostPaise || 0,
+                    equipmentCostPaise: item.equipmentCostPaise || 0,
+                    notes: item.notes,
+                };
+            });
+            quotation.items = calculatedItems;
+            quotation.subtotalPaise = subtotalPaise;
+        }
+        const isNeg = isNegotiated !== undefined ? Boolean(isNegotiated) : Boolean(quotation.isNegotiated);
+        quotation.isNegotiated = isNeg;
+        let disc = 0;
+        if (isNeg) {
+            disc = negotiatedDiscountPaise !== undefined
+                ? Number(negotiatedDiscountPaise)
+                : (discountPaise !== undefined ? Number(discountPaise) : (quotation.negotiatedDiscountPaise || quotation.discountPaise || 0));
+            quotation.negotiatedDiscountPaise = disc;
+            quotation.discountPaise = disc;
+            if (negotiatedNotes !== undefined)
+                quotation.negotiatedNotes = negotiatedNotes;
+        }
+        else {
+            disc = discountPaise !== undefined ? Number(discountPaise) : (quotation.discountPaise || 0);
+            quotation.discountPaise = disc;
+            quotation.negotiatedDiscountPaise = 0;
+            quotation.negotiatedNotes = '';
+        }
+        const taxableAmountPaise = Math.max(0, quotation.subtotalPaise - disc);
+        const taxRate = taxRatePercent !== undefined ? Number(taxRatePercent) : (quotation.taxRatePercent || 18);
+        quotation.taxRatePercent = taxRate;
+        const totalTaxPaise = Math.round((taxableAmountPaise * taxRate) / 100);
+        quotation.cgstPaise = Math.round(totalTaxPaise / 2);
+        quotation.sgstPaise = totalTaxPaise - quotation.cgstPaise;
+        quotation.igstPaise = 0;
+        quotation.totalAmountPaise = taxableAmountPaise + totalTaxPaise;
+        if (quotationNumber)
+            quotation.quotationNumber = quotationNumber;
+        if (clientName)
+            quotation.clientName = clientName;
+        if (clientCompany !== undefined)
+            quotation.clientCompany = clientCompany;
+        if (clientContactPerson !== undefined)
+            quotation.clientContactPerson = clientContactPerson;
+        if (clientAddress !== undefined)
+            quotation.clientAddress = clientAddress;
+        if (clientEmail !== undefined)
+            quotation.clientEmail = clientEmail;
+        if (clientPhone !== undefined)
+            quotation.clientPhone = clientPhone;
+        if (projectTitle)
+            quotation.projectTitle = projectTitle;
+        if (siteLocation !== undefined)
+            quotation.siteLocation = siteLocation;
+        if (subject !== undefined)
+            quotation.subject = subject;
+        if (senderName !== undefined)
+            quotation.senderName = senderName;
+        if (senderCompany !== undefined)
+            quotation.senderCompany = senderCompany;
+        if (termsAndConditions !== undefined)
+            quotation.termsAndConditions = termsAndConditions;
+        if (status !== undefined)
+            quotation.status = status;
+        if (validUntil)
+            quotation.validUntil = new Date(validUntil);
+        await quotation.save();
+        res.json({ success: true, message: 'Quotation updated successfully', quotation });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.updateQuotation = updateQuotation;
