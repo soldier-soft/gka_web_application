@@ -44,6 +44,7 @@ router.get('/:id', (req: Request, res: Response, next: NextFunction) => {
 // Staff creation & modification routes
 router.post('/', authenticate, requireRoles('super_admin', 'project_manager'), createProject);
 router.patch('/:id', authenticate, requireRoles('super_admin', 'project_manager'), updateProject);
+router.put('/:id', authenticate, requireRoles('super_admin', 'project_manager'), updateProject);
 router.patch('/milestones/:id', authenticate, requireRoles('super_admin', 'project_manager', 'site_supervisor'), updateMilestone);
 
 export default router;

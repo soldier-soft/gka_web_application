@@ -67,6 +67,9 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
       siteLocation,
       items,
       discountPaise,
+      isNegotiated,
+      negotiatedDiscountPaise,
+      negotiatedNotes,
       taxRatePercent,
       termsAndConditions,
       validDays,
@@ -95,7 +98,8 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
       };
     });
 
-    const disc = Number(discountPaise) || 0;
+    const isNeg = Boolean(isNegotiated);
+    const disc = isNeg ? (Number(negotiatedDiscountPaise) || Number(discountPaise) || 0) : (Number(discountPaise) || 0);
     const taxableAmountPaise = Math.max(0, subtotalPaise - disc);
     const taxRate = Number(taxRatePercent) || 18;
     const totalTaxPaise = Math.round((taxableAmountPaise * taxRate) / 100);
@@ -122,6 +126,9 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
       items: calculatedItems,
       subtotalPaise,
       discountPaise: disc,
+      isNegotiated: isNeg,
+      negotiatedDiscountPaise: isNeg ? disc : 0,
+      negotiatedNotes: isNeg ? (negotiatedNotes || '') : '',
       cgstPaise,
       sgstPaise,
       igstPaise: 0,

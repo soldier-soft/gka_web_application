@@ -18,6 +18,9 @@ export interface IQuotationDocument extends Document {
   igstPaise: number;
   taxRatePercent: number;
   totalAmountPaise: number;
+  isNegotiated?: boolean;
+  negotiatedDiscountPaise?: number;
+  negotiatedNotes?: string;
   subject?: string;
   clientContactPerson?: string;
   clientCompany?: string;
@@ -84,6 +87,9 @@ const QuotationSchema = new Schema<IQuotationDocument>(
     igstPaise: { type: Number, default: 0 },
     taxRatePercent: { type: Number, default: 18 },
     totalAmountPaise: { type: Number, required: true, default: 0 },
+    isNegotiated: { type: Boolean, default: false },
+    negotiatedDiscountPaise: { type: Number, default: 0 },
+    negotiatedNotes: { type: String, default: '' },
     termsAndConditions: [{ type: String }],
     revisionNumber: { type: Number, default: 1 },
     status: {

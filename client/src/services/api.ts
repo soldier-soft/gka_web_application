@@ -432,4 +432,25 @@ export const api = {
     const q = params ? '?' + new URLSearchParams(params).toString() : '';
     return request<{ success: boolean; count: number; tickets: any[] }>(`/client-portal/feedback${q}`);
   },
+
+  // Mail Service
+  sendDocumentEmail: (data: {
+    recipientEmail: string;
+    recipientName?: string;
+    documentType: 'welcome' | 'quotation' | 'invoice';
+    documentNumber: string;
+    projectTitle: string;
+    siteLocation?: string;
+    amount?: number;
+    dueDate?: string;
+    pdfUrl: string;
+    portalUsername?: string;
+    portalPassword?: string;
+    customSubject?: string;
+    customMessage?: string;
+  }) =>
+    request<{ success: boolean; message: string }>('/mail/send-document', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

@@ -266,7 +266,10 @@ exports.downloadProjectWelcomePDF = downloadProjectWelcomePDF;
 const updateProject = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const project = await Project_1.Project.findByIdAndUpdate(id, req.body, { new: true });
+        const project = await Project_1.Project.findByIdAndUpdate(id, req.body, { new: true })
+            .populate('clientId')
+            .populate('assignedManagerId', 'name email phone')
+            .populate('assignedSupervisorId', 'name email phone');
         if (!project) {
             res.status(404).json({ success: false, message: 'Project not found' });
             return;

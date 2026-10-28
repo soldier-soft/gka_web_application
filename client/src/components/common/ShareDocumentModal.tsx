@@ -11,8 +11,12 @@ import {
   ShieldCheck,
   Phone,
   Send,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
 import { GKA_COMPANY } from '@shared/constants';
+import { api } from '../../services/api';
 
 export interface ShareDocumentData {
   documentType: 'welcome' | 'quotation' | 'invoice';
@@ -27,7 +31,7 @@ export interface ShareDocumentData {
   amount?: number;
   dueDate?: string;
   pdfUrl?: string;
-  docxUrl?: string;
+  docxUrl?: string; // Kept optional for backward compatibility, not sent in links
   username?: string;
   password?: string;
 }
@@ -60,108 +64,146 @@ export const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({
 
   const origin = window.location.origin;
   const fullPdfUrl = data.pdfUrl?.startsWith('http') ? data.pdfUrl : `${origin}${data.pdfUrl || ''}`;
-  const fullDocxUrl = data.docxUrl?.startsWith('http') ? data.docxUrl : `${origin}${data.docxUrl || ''}`;
 
-  // Default Subject & Body Templates
+  // Default Subject & Structured Body Templates (Only PDF link, DOCX removed)
   let defaultSubject = '';
   let defaultBody = '';
 
   if (docType === 'welcome') {
     defaultSubject = `GKA Construction — Project Workspace Onboarding & Portal Access for ${projectTitle}`;
-    defaultBody = `*FROM: GKA CONSTRUCTION*
-*PROJECT WORKSPACE ONBOARDING & CLIENT CREDENTIAL PACKET*
+    defaultBody = `===============================================
+   GKA CONSTRUCTION — CLIENT ONBOARDING PACKET
+===============================================
 
 Dear ${clientName},
 
 Welcome to GKA Construction! Your dedicated project workspace and digital tracking portal have been successfully provisioned.
 
-Project ID: ${docNumber}
-Project: ${projectTitle}
-Site Location: ${siteLocation}
+-----------------------------------------------
+📋 PROJECT WORKSPACE DETAILS
+-----------------------------------------------
+• Project ID     : ${docNumber}
+• Project Scope  : ${projectTitle}
+• Site Location  : ${siteLocation}
 
-🔗 *Client Portal Link:* ${portalUrl}
-👤 *Your Portal Username / Email:* ${username}
-🔑 *Your Portal Password:* ${password}
+-----------------------------------------------
+📄 OFFICIAL ONBOARDING DOCUMENT (PDF ONLY)
+-----------------------------------------------
+Direct Download PDF:
+${fullPdfUrl}
 
-Through your 24/7 digital portal, you can:
-• Track live milestone progress and completion certificates
-• View daily verified geotagged site photographs & supervisor logs
-• Access formal BOQ quotations and project scope
-• View progressive tax invoices, receipts, and payment records
+-----------------------------------------------
+🔐 24/7 CLIENT TRACKING PORTAL ACCESS
+-----------------------------------------------
+Track live site progress, supervisor logs, and verified milestones:
+• Portal Link    : ${portalUrl}
+• Username/Email : ${username}
+• Access Password: ${password}
 
-📎 *Attachment:* GKA_Project_Welcome_${docNumber}.pdf
-Direct Download: ${fullPdfUrl}
+Portal Features:
+• Real-time milestone tracking & completion certificates
+• Daily geotagged site photographs & supervisor logs
+• Formal BOQ scope, bills, and tax receipts
 
-For assistance or technical inquiries, contact our project desk:
-📞 Helpline: +91 ${GKA_COMPANY.phoneDisplay}
-✉️ Email: ${GKA_COMPANY.email}
-🌐 Website: ${GKA_COMPANY.website}
+-----------------------------------------------
+📞 ENGINEERING & CLIENT DESK SUPPORT
+-----------------------------------------------
+• Helpline       : +91 ${GKA_COMPANY.phoneDisplay}
+• Official Email : ${GKA_COMPANY.email}
+• Website        : https://${GKA_COMPANY.website}
+• Office Address : Rajan Nagar, Kelambakkam – Vandalur Junction, Chennai & Tiruvannamalai
 
 GKA Construction — Building Trust. Delivering Quality.`;
   } else if (docType === 'quotation') {
     defaultSubject = `GKA Construction — Commercial Quotation & Itemized BOQ [${docNumber}] for ${projectTitle}`;
-    defaultBody = `*FROM: GKA CONSTRUCTION*
-*COMMERCIAL QUOTATION & ITEMIZED ESTIMATION*
+    defaultBody = `===============================================
+   GKA CONSTRUCTION — OFFICIAL COMMERCIAL QUOTATION
+===============================================
 
 Dear ${clientName},
 
-Greetings from GKA Construction. We are pleased to share our official detailed quotation and line-item BOQ for your construction works:
+Greetings from GKA Construction. We are pleased to share our official detailed quotation and line-item BOQ estimation for your project:
 
-📄 *Quotation No:* ${docNumber}
-🏗️ *Project Scope:* ${projectTitle}
-📍 *Site Location:* ${siteLocation}
-💰 *Total Amount:* Rs. ${formattedAmount} (Incl. Taxes)
+-----------------------------------------------
+📋 ESTIMATION & SCOPE SUMMARY
+-----------------------------------------------
+• Quotation No   : ${docNumber}
+• Project Scope  : ${projectTitle}
+• Site Location  : ${siteLocation}
+• Total Amount   : Rs. ${formattedAmount} (Incl. Taxes)
 
-🔗 *Client Portal Link:* ${portalUrl}
-👤 *Your Portal Username / Email:* ${username}
-🔑 *Your Portal Password:* ${password}
+-----------------------------------------------
+📄 OFFICIAL PDF QUOTATION (DIRECT DOWNLOAD)
+-----------------------------------------------
+Click the verified link below to inspect / download your official PDF:
+${fullPdfUrl}
 
-You can log in to your portal to review milestone specifications, approve stages, and track execution schedules.
+(Note: All BOQ rates are calculated with 100% precision and include statutory compliance)
 
-📎 *Attached Files:*
-• Formal PDF Quotation: ${fullPdfUrl}
-• Editable DOCX Document: ${fullDocxUrl}
+-----------------------------------------------
+🔐 24/7 CLIENT TRACKING PORTAL ACCESS
+-----------------------------------------------
+Review milestone breakdowns, specifications, and approve stages online:
+• Portal Link    : ${portalUrl}
+• Username/Email : ${username}
+• Access Password: ${password}
 
-Office Address: Rajan Nagar, Kelambakkam – Vandalur Junction, Chennai & Tiruvannamalai
-📞 Helpline: +91 ${GKA_COMPANY.phoneDisplay}
-✉️ Email: ${GKA_COMPANY.email}
-🌐 Website: ${GKA_COMPANY.website}
+-----------------------------------------------
+📞 ENGINEERING & ESTIMATION DESK
+-----------------------------------------------
+• Helpline       : +91 ${GKA_COMPANY.phoneDisplay}
+• Official Email : ${GKA_COMPANY.email}
+• Website        : https://${GKA_COMPANY.website}
+• Registered Office: Rajan Nagar, Kelambakkam – Vandalur Junction, Chennai & Tiruvannamalai
 
 GKA Construction — Building Trust. Delivering Quality.`;
   } else {
     // Invoice / Bill
     defaultSubject = `GKA Construction — Tax Invoice & Progressive RA Bill [${docNumber}] for ${projectTitle}`;
-    defaultBody = `*FROM: GKA CONSTRUCTION*
-*TAX INVOICE & PROGRESSIVE RA BILL*
+    defaultBody = `===============================================
+   GKA CONSTRUCTION — TAX INVOICE & RA BILL
+===============================================
 
 Dear ${clientName},
 
-Greetings from GKA Construction. Please find attached the official progressive tax invoice for construction works executed:
+Greetings from GKA Construction. Please find attached the official progressive tax invoice for works executed:
 
-📄 *Invoice No:* ${docNumber}
-🏗️ *Project:* ${projectTitle}
-💵 *Total Invoice Value:* Rs. ${formattedAmount}
-📅 *Payment Due Date:* ${data.dueDate || 'Within 14 calendar days'}
+-----------------------------------------------
+📋 INVOICE BILLING SUMMARY
+-----------------------------------------------
+• Invoice No     : ${docNumber}
+• Project Scope  : ${projectTitle}
+• Total Bill Amt : Rs. ${formattedAmount}
+• Due Date       : ${data.dueDate || 'Within 14 calendar days'}
 
-🏦 *Official Bank Transfer Details:*
-Beneficiary: ${GKA_COMPANY.bankDetails.beneficiary}
-Account No: ${GKA_COMPANY.bankDetails.accountNumber}
-Bank: ${GKA_COMPANY.bankDetails.bankName.toUpperCase()} (${GKA_COMPANY.bankDetails.branch})
-IFSC Code: ${GKA_COMPANY.bankDetails.ifscCode}
+-----------------------------------------------
+📄 OFFICIAL TAX INVOICE (PDF DOWNLOAD)
+-----------------------------------------------
+Click to view or download the certified PDF Tax Invoice:
+${fullPdfUrl}
 
-🔗 *Client Portal Link:* ${portalUrl}
-👤 *Your Portal Username / Email:* ${username}
-🔑 *Your Portal Password:* ${password}
+-----------------------------------------------
+🏦 OFFICIAL SETTLEMENT BANK DETAILS
+-----------------------------------------------
+• Beneficiary    : ${GKA_COMPANY.bankDetails.beneficiary}
+• Account Number : ${GKA_COMPANY.bankDetails.accountNumber}
+• Bank & Branch  : ${GKA_COMPANY.bankDetails.bankName.toUpperCase()} (${GKA_COMPANY.bankDetails.branch})
+• IFSC Code      : ${GKA_COMPANY.bankDetails.ifscCode}
 
-Please log in to your portal to inspect verified site photographs and milestone completion certificates for this billing period.
+-----------------------------------------------
+🔐 24/7 CLIENT TRACKING PORTAL ACCESS
+-----------------------------------------------
+Inspect verified geotagged photographs & stage certificates for this bill:
+• Portal Link    : ${portalUrl}
+• Username/Email : ${username}
+• Access Password: ${password}
 
-📎 *Attached Files:*
-• Tax Invoice PDF: ${fullPdfUrl}
-• Editable DOCX: ${fullDocxUrl}
-
-📞 Accounts Helpline: +91 ${GKA_COMPANY.phoneDisplay}
-✉️ Email: ${GKA_COMPANY.email}
-🌐 Website: ${GKA_COMPANY.website}
+-----------------------------------------------
+📞 ACCOUNTS & PROJECT DESK SUPPORT
+-----------------------------------------------
+• Accounts Desk  : +91 ${GKA_COMPANY.phoneDisplay}
+• Official Email : ${GKA_COMPANY.email}
+• Website        : https://${GKA_COMPANY.website}
 
 GKA Construction — Building Trust. Delivering Quality.`;
   }
@@ -171,6 +213,8 @@ GKA Construction — Building Trust. Delivering Quality.`;
   const [subjectText, setSubjectText] = useState(defaultSubject);
   const [messageBody, setMessageBody] = useState(defaultBody);
   const [copied, setCopied] = useState(false);
+  const [isSendingMail, setIsSendingMail] = useState(false);
+  const [mailStatus, setMailStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(messageBody);
@@ -189,11 +233,60 @@ GKA Construction — Building Trust. Delivering Quality.`;
     window.open(waUrl, '_blank');
   };
 
-  const handleShareEmail = () => {
+  const handleShareEmailClient = () => {
     const mailtoUrl = `mailto:${encodeURIComponent(recipientEmail)}?subject=${encodeURIComponent(
       subjectText
     )}&body=${encodeURIComponent(messageBody)}`;
     window.open(mailtoUrl, '_blank');
+  };
+
+  const handleSendDirectEmail = async () => {
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      alert('Please enter a valid recipient email address.');
+      return;
+    }
+
+    setIsSendingMail(true);
+    setMailStatus(null);
+
+    try {
+      const res = await api.sendDocumentEmail({
+        recipientEmail,
+        recipientName: clientName,
+        documentType: docType,
+        documentNumber: docNumber,
+        projectTitle,
+        siteLocation,
+        amount: data.amount,
+        dueDate: data.dueDate,
+        pdfUrl: fullPdfUrl,
+        portalUsername: username,
+        portalPassword: password,
+        customSubject: subjectText,
+        customMessage: messageBody,
+      });
+
+      if (res.success) {
+        setMailStatus({
+          type: 'success',
+          message: `Official PDF dispatched successfully to ${recipientEmail} via GKA Mail Service.`,
+        });
+      } else {
+        setMailStatus({
+          type: 'error',
+          message: res.message || 'Failed to dispatch email.',
+        });
+      }
+    } catch (err: any) {
+      // If server SMTP is not configured, fall back smoothly to client mailto
+      console.warn('Direct SMTP failed, offering client mailto fallback:', err);
+      setMailStatus({
+        type: 'error',
+        message: err.message || 'SMTP not configured on server. Use "Open Mail Client" below.',
+      });
+    } finally {
+      setIsSendingMail(false);
+    }
   };
 
   const typeLabels = {
@@ -204,12 +297,12 @@ GKA Construction — Building Trust. Delivering Quality.`;
     },
     quotation: {
       title: 'Share Commercial Quotation & BOQ',
-      badge: 'Quotation Document',
+      badge: 'PDF Quotation',
       badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
     },
     invoice: {
       title: 'Share Tax Invoice & Bill',
-      badge: 'Progressive RA Bill',
+      badge: 'Progressive RA Bill (PDF)',
       badgeBg: 'bg-blue-100 text-blue-900 border-blue-300',
     },
   };
@@ -254,21 +347,42 @@ GKA Construction — Building Trust. Delivering Quality.`;
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-1">
             <div className="flex items-center gap-1.5 font-bold text-amber-900">
               <ShieldCheck className="w-4 h-4 text-amber-600" />
-              <span>Embedded Client Credentials Notice</span>
+              <span>Embedded Client Credentials & PDF Link Notice</span>
             </div>
             <p className="text-amber-800 text-[11px] leading-relaxed">
-              This message automatically embeds the client portal link{' '}
-              <strong className="underline">{portalUrl}</strong> along with login username{' '}
+              This message automatically embeds the official PDF link and client portal access{' '}
+              <strong className="underline">{portalUrl}</strong> (User:{' '}
               <strong className="font-mono bg-white px-1.5 py-0.2 rounded border border-amber-300">
                 {username}
-              </strong>{' '}
-              and access password{' '}
-              <strong className="font-mono bg-white px-1.5 py-0.2 rounded border border-amber-300">
-                {password}
               </strong>
-              .
+              ). Only the official PDF link will be sent.
             </p>
           </div>
+
+          {/* Mail Status Alert (if sent via SMTP) */}
+          {mailStatus && (
+            <div
+              className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
+                mailStatus.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}
+            >
+              {mailStatus.type === 'success' ? (
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span className="flex-1 font-medium">{mailStatus.message}</span>
+              <button
+                type="button"
+                onClick={() => setMailStatus(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Quick Recipient Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -290,7 +404,7 @@ GKA Construction — Building Trust. Delivering Quality.`;
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Recipient Email Address
+                Recipient Email Address *
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
@@ -299,7 +413,7 @@ GKA Construction — Building Trust. Delivering Quality.`;
                   placeholder="client@gingerhotel.com"
                   value={recipientEmail}
                   onChange={(e) => setRecipientEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-brand-gold-500 focus:outline-none"
+                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-brand-gold-500 focus:outline-none font-medium"
                 />
               </div>
             </div>
@@ -320,7 +434,7 @@ GKA Construction — Building Trust. Delivering Quality.`;
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-semibold text-slate-700">
-                Message Content & Template Preview
+                Structured Message Preview (PDF Link Included &bull; Document Removed)
               </label>
               <button
                 type="button"
@@ -335,7 +449,7 @@ GKA Construction — Building Trust. Delivering Quality.`;
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5" />
-                    <span>Copy Text</span>
+                    <span>Copy Structured Text</span>
                   </>
                 )}
               </button>
@@ -348,32 +462,20 @@ GKA Construction — Building Trust. Delivering Quality.`;
             />
           </div>
 
-          {/* Attachment Links Preview */}
+          {/* Attachment Link Preview: ONLY PDF */}
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 text-xs flex-wrap">
-            <span className="font-semibold text-slate-600">Attached Documents:</span>
-            <div className="flex items-center gap-2 flex-wrap">
-              {data.pdfUrl && (
-                <a
-                  href={fullPdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 rounded bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold inline-flex items-center gap-1 shadow-sm"
-                >
-                  <FileDown className="w-3 h-3 text-[#D6A21D]" />
-                  <span>PDF Document</span>
-                </a>
-              )}
-              {data.docxUrl && (
-                <a
-                  href={fullDocxUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1 rounded bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold inline-flex items-center gap-1 shadow-sm"
-                >
-                  <FileDown className="w-3 h-3 text-blue-600" />
-                  <span>DOCX Template</span>
-                </a>
-              )}
+            <span className="font-semibold text-slate-600">Certified Attachment:</span>
+            <div className="flex items-center gap-2">
+              <a
+                href={fullPdfUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-[#0F254B] text-white hover:bg-brand-navy-800 font-bold inline-flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <FileDown className="w-3.5 h-3.5 text-[#D6A21D]" />
+                <span>Official PDF Document Link</span>
+                <ExternalLink className="w-3 h-3 opacity-60 ml-0.5" />
+              </a>
             </div>
           </div>
         </div>
@@ -388,7 +490,7 @@ GKA Construction — Building Trust. Delivering Quality.`;
             {copied ? (
               <>
                 <Check className="w-4 h-4 text-emerald-600" />
-                <span>Text Copied to Clipboard</span>
+                <span>Text Copied</span>
               </>
             ) : (
               <>
@@ -398,25 +500,48 @@ GKA Construction — Building Trust. Delivering Quality.`;
             )}
           </button>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
             {/* WhatsApp Button */}
             <button
               type="button"
               onClick={handleShareWhatsApp}
               className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
+              title="Share structured template with PDF link on WhatsApp"
             >
               <MessageCircle className="w-4 h-4 fill-white text-emerald-600" />
-              <span>Send WhatsApp</span>
+              <span>WhatsApp</span>
             </button>
 
-            {/* Email Button */}
+            {/* Direct Send via Mail Service (SMTP) Button */}
             <button
               type="button"
-              onClick={handleShareEmail}
-              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-[#0F254B] hover:bg-[#1A3A73] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
+              onClick={handleSendDirectEmail}
+              disabled={isSendingMail}
+              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-[#0F254B] hover:bg-[#1A3A73] disabled:opacity-60 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 border border-[#C59A27]/40"
+              title="Dispatch verified PDF email via GKA Mail Service"
             >
-              <Mail className="w-4 h-4 text-[#D6A21D]" />
-              <span>Send Mail</span>
+              {isSendingMail ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#D6A21D]" />
+                  <span>Sending Mail...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 text-[#D6A21D]" />
+                  <span>Dispatch Mail</span>
+                </>
+              )}
+            </button>
+
+            {/* Email Client (Mailto) Fallback Button */}
+            <button
+              type="button"
+              onClick={handleShareEmailClient}
+              className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5"
+              title="Open default email application"
+            >
+              <Mail className="w-3.5 h-3.5 text-slate-500" />
+              <span>Mail App</span>
             </button>
           </div>
         </div>

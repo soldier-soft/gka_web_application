@@ -42,6 +42,9 @@ export const QuotationsPage: React.FC = () => {
   const [subject, setSubject] = useState('');
   const [senderName, setSenderName] = useState('Arivazhagan');
   const [senderCompany, setSenderCompany] = useState('GKA CONSTRUCTION');
+  const [isNegotiated, setIsNegotiated] = useState(false);
+  const [negotiatedDiscountRupees, setNegotiatedDiscountRupees] = useState<number>(0);
+  const [negotiatedNotes, setNegotiatedNotes] = useState<string>('');
   const [items, setItems] = useState<any[]>([
     {
       description: 'Civil Construction & Finishing Works',
@@ -114,20 +117,15 @@ export const QuotationsPage: React.FC = () => {
   };
 
   const subtotal = calculateSubtotal();
-  const taxAmount = Math.round(subtotal * 0.18);
-  const grandTotal = subtotal + taxAmount;
+  const discountRupees = isNegotiated ? Math.max(0, Number(negotiatedDiscountRupees) || 0) : 0;
+  const taxableAmount = Math.max(0, subtotal - discountRupees);
+  const taxAmount = Math.round(taxableAmount * 0.18);
+  const grandTotal = taxableAmount + taxAmount;
 
-  // Auto download helper
+  // Auto download helper (downloads official PDF directly)
   const triggerAutoDownloads = async (quotationId: string, quoNum: string) => {
     try {
       await downloadFile(`/quotations/${quotationId}/pdf`, `GKA_Quotation_${quoNum}.pdf`, true);
-      setTimeout(async () => {
-        try {
-          await downloadFile(`/quotations/${quotationId}/docx`, `GKA_Quotation_${quoNum}.docx`, false);
-        } catch (docxErr) {
-          console.error('Auto-download DOCX error:', docxErr);
-        }
-      }, 600);
     } catch (err) {
       console.error('Auto-download PDF error:', err);
     }
@@ -168,6 +166,9 @@ export const QuotationsPage: React.FC = () => {
         senderCompany,
         items: convertedItems,
         taxRatePercent: 18,
+        isNegotiated,
+        negotiatedDiscountPaise: isNegotiated ? toPaise(Number(negotiatedDiscountRupees) || 0) : 0,
+        negotiatedNotes: isNegotiated ? negotiatedNotes : undefined,
       });
 
       if (res.success && res.quotation) {
@@ -261,7 +262,14 @@ export const QuotationsPage: React.FC = () => {
                 {quotations.map((q) => (
                   <tr key={q._id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-[#0F254B]">
-                      {q.quotationNumber}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{q.quotationNumber}</span>
+                        {q.isNegotiated && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                            🤝 Negotiated
+                          </span>
+                        )}
+                      </div>
                       <span className="block text-[10px] text-slate-400 font-normal">
                         Rev #{q.revisionNumber} • {new Date(q.createdAt).toLocaleDateString('en-IN')}
                       </span>
@@ -594,11 +602,82 @@ export const QuotationsPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Negotiated Terms Option */}
+              <div className="p-3.5 bg-gradient-to-r from-amber-50/80 to-orange-50/50 rounded-xl border border-amber-200">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isNegotiated}
+                      onChange={(e) => {
+                        setIsNegotiated(e.target.checked);
+                        if (!e.target.checked) {
+                          setNegotiatedDiscountRupees(0);
+                          setNegotiatedNotes('');
+                        }
+                      }}
+                      className="w-4 h-4 text-[#0F254B] rounded border-slate-300 focus:ring-[#0F254B]"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span>🤝 Mark as Negotiated Quotation</span>
+                        <span className="text-[10px] font-normal text-slate-500">(Apply negotiated pricing & special discount)</span>
+                      </span>
+                    </div>
+                  </label>
+                  {isNegotiated && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                      Negotiated Active
+                    </span>
+                  )}
+                </div>
+
+                {isNegotiated && (
+                  <div className="mt-3 pt-3 border-t border-amber-200/80 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                        Agreed Negotiated Discount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={negotiatedDiscountRupees}
+                        onChange={(e) => setNegotiatedDiscountRupees(Number(e.target.value) || 0)}
+                        placeholder="e.g. 25000"
+                        className="w-full px-2.5 py-1.5 rounded border border-amber-300 bg-white font-mono font-bold text-slate-900 focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                        Negotiated Agreement Notes / Terms
+                      </label>
+                      <input
+                        type="text"
+                        value={negotiatedNotes}
+                        onChange={(e) => setNegotiatedNotes(e.target.value)}
+                        placeholder="e.g. Special executive management discount agreed on 28-Oct-2026"
+                        className="w-full px-2.5 py-1.5 rounded border border-amber-300 bg-white font-medium text-slate-900 focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Total Calculation Display */}
               <div className="p-3 bg-slate-100 rounded-xl space-y-1 text-right font-mono text-xs">
                 <div className="text-slate-600">
                   Subtotal: <strong className="text-slate-900">₹ {subtotal.toLocaleString('en-IN')}</strong>
                 </div>
+                {isNegotiated && discountRupees > 0 && (
+                  <div className="text-amber-800 font-semibold">
+                    Less Negotiated Discount: <strong className="text-amber-900">- ₹ {discountRupees.toLocaleString('en-IN')}</strong>
+                  </div>
+                )}
+                {isNegotiated && discountRupees > 0 && (
+                  <div className="text-slate-600">
+                    Taxable Amount: <strong className="text-slate-900">₹ {taxableAmount.toLocaleString('en-IN')}</strong>
+                  </div>
+                )}
                 <div className="text-slate-600">
                   18% GST: <strong className="text-slate-900">₹ {taxAmount.toLocaleString('en-IN')}</strong>
                 </div>
@@ -620,7 +699,7 @@ export const QuotationsPage: React.FC = () => {
                   disabled={isSubmitting}
                   className="px-5 py-2 rounded-lg font-bold bg-[#0F254B] text-white hover:bg-[#1E3A8A] shadow"
                 >
-                  {isSubmitting ? 'Generating...' : 'Generate & Auto-Download PDF & DOCX'}
+                  {isSubmitting ? 'Generating...' : 'Generate & Auto-Download PDF'}
                 </button>
               </div>
             </form>

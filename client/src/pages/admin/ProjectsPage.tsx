@@ -11,9 +11,11 @@ import {
   Clock,
   ArrowRight,
   User,
+  Edit3,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatINR, toPaise } from '@shared/types';
+import { EditProjectModal } from '../../components/projects/EditProjectModal';
 
 export const ProjectsPage: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
@@ -21,6 +23,7 @@ export const ProjectsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<any | null>(null);
 
   // New Project form state
   const [newTitle, setNewTitle] = useState('');
@@ -219,13 +222,25 @@ export const ProjectsPage: React.FC = () => {
                   PM: <strong>{p.assignedManagerId?.name?.split(' ')[0] || 'Unassigned'}</strong>
                 </span>
 
-                <Link
-                  to={`/admin/projects/${p._id}`}
-                  className="px-3.5 py-1.5 rounded-lg font-bold bg-brand-navy-900 text-white hover:bg-brand-navy-800 transition-colors inline-flex items-center gap-1.5"
-                >
-                  <span>Open Workspace</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProject(p)}
+                    className="px-3 py-1.5 rounded-lg font-bold border border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-brand-navy-950 transition-colors inline-flex items-center gap-1.5"
+                    title="Edit project parameters"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-[#D6A21D]" />
+                    <span>Edit</span>
+                  </button>
+
+                  <Link
+                    to={`/admin/projects/${p._id}`}
+                    className="px-3.5 py-1.5 rounded-lg font-bold bg-brand-navy-900 text-white hover:bg-brand-navy-800 transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                  >
+                    <span>Open Workspace</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
             </div>
           ))}
@@ -325,6 +340,19 @@ export const ProjectsPage: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Edit Project Modal */}
+      {editingProject && (
+        <EditProjectModal
+          isOpen={!!editingProject}
+          onClose={() => setEditingProject(null)}
+          project={editingProject}
+          onProjectUpdated={(updated) => {
+            setProjects((prev) => prev.map((item) => (item._id === updated._id ? updated : item)));
+            fetchProjects();
+          }}
+        />
       )}
     </div>
   );

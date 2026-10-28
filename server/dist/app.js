@@ -20,6 +20,7 @@ const siteOpsRoutes_1 = __importDefault(require("./modules/siteOps/siteOpsRoutes
 const inventoryRoutes_1 = __importDefault(require("./modules/inventory/inventoryRoutes"));
 const financeRoutes_1 = __importDefault(require("./modules/finance/financeRoutes"));
 const clientPortalRoutes_1 = __importDefault(require("./modules/clientPortal/clientPortalRoutes"));
+const mailRoutes_1 = __importDefault(require("./modules/mail/mailRoutes"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const createApp = () => {
     const app = (0, express_1.default)();
@@ -102,6 +103,7 @@ const createApp = () => {
     apiRouter.use('/inventory', inventoryRoutes_1.default);
     apiRouter.use('/finance', financeRoutes_1.default);
     apiRouter.use('/client-portal', clientPortalRoutes_1.default);
+    apiRouter.use('/mail', mailRoutes_1.default);
     app.use('/api/v1', apiRouter);
     // Static Asset 404 Guard: Ensure missing static files return 404, never index.html
     app.use('/assets', (req, res) => {

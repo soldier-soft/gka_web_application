@@ -31,11 +31,13 @@ import {
   Copy,
   Key,
   Share2,
+  Edit,
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toRupees } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
 import { ShareDocumentModal, ShareDocumentData } from '../../components/common/ShareDocumentModal';
+import { EditProjectModal } from '../../components/projects/EditProjectModal';
 
 type WorkspaceTab =
   | 'overview'
@@ -65,6 +67,9 @@ export const ProjectDetailPage: React.FC = () => {
   // Share Modal State
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareModalData, setShareModalData] = useState<ShareDocumentData | null>(null);
+
+  // Edit Project Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
@@ -277,13 +282,23 @@ export const ProjectDetailPage: React.FC = () => {
               <span>Share Welcome Packet</span>
             </button>
 
+            {/* Edit Project Parameters */}
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#0F254B] hover:bg-[#1A3A73] text-white transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              title="Edit project details, status, dates, and budget"
+            >
+              <Edit className="w-4 h-4 text-[#D6A21D]" />
+              <span>Edit Project</span>
+            </button>
+
             {/* Quick Portal Preview switch */}
             <button
               onClick={() => setActiveTab('preview_portal')}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#10203A] text-white hover:bg-slate-800 transition-all shadow-sm flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-all shadow-sm flex items-center gap-1.5"
             >
               <Eye className="w-4 h-4 text-[#D6A21D]" />
-              <span>Preview Client Portal</span>
+              <span>Preview Portal</span>
             </button>
           </div>
         </div>
@@ -1204,6 +1219,20 @@ export const ProjectDetailPage: React.FC = () => {
         }}
         data={shareModalData}
       />
+
+      {/* Edit Project Workspace Modal */}
+      {showEditModal && project && (
+        <EditProjectModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          project={project}
+          onProjectUpdated={(updated) => {
+            setProject(updated);
+            showNotification(`Project "${updated.title}" workspace updated successfully.`);
+            fetchProjectDetails();
+          }}
+        />
+      )}
     </div>
   );
 };

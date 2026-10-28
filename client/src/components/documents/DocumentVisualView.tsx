@@ -241,7 +241,7 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
             />
             {/* Center Navy Banner */}
             <div className="bg-[#0F254B] text-white px-14 py-2 text-center shadow-lg font-heading font-black tracking-widest text-lg sm:text-xl">
-              {isQuotation ? 'QUOTATION' : 'TAX INVOICE'}
+              {isQuotation ? (data.isNegotiated ? 'NEGOTIATED QUOTATION' : 'QUOTATION') : 'TAX INVOICE'}
             </div>
             {/* Right Gold Angle */}
             <div
@@ -374,6 +374,15 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
               </span>
             </div>
 
+            {data.isNegotiated && (data.negotiatedDiscountPaise || 0) > 0 && (
+              <div className="flex justify-between py-1 px-3 text-amber-800 font-bold bg-amber-50 rounded border border-amber-200">
+                <span>LESS: NEGOTIATED DISCOUNT</span>
+                <span className="font-mono text-amber-900 font-extrabold">
+                  - ₹ {toRupees(data.negotiatedDiscountPaise).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+
             <div className="flex justify-between py-1 px-3 text-slate-600 font-bold">
               <span>TAXES / GST ({data.taxRatePercent || 18}%)</span>
               <span className="font-mono text-slate-900 font-extrabold">
@@ -500,28 +509,41 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
                 <li>Payment terms will be mutually agreed.</li>
                 <li>GST applicable as per government norms.</li>
                 <li>Work will be executed as per agreed specifications and site conditions.</li>
+                {data.isNegotiated && data.negotiatedNotes && (
+                  <li className="text-amber-800 font-semibold list-none mt-1 p-1.5 bg-amber-50 rounded border border-amber-200">
+                    🤝 <strong>Special Negotiated Terms:</strong> {data.negotiatedNotes}
+                  </li>
+                )}
               </ul>
             </div>
 
-            {/* Signature & Seal Graphic */}
-            <div className="pt-2 flex items-end justify-between border-t border-slate-200 mt-2">
-              <div>
-                <img
-                  src="/signature.png"
-                  alt="Proprietor Signature Hari A"
-                  className="h-9 w-auto object-contain mb-1"
-                />
-                <p className="text-[10px] font-bold text-[#0F254B]">For GKA CONSTRUCTION</p>
-                <p className="text-[9px] text-slate-500 font-medium">Proprietor</p>
+            {/* Signature & Seal Graphic - Corrected Authentic Order */}
+            <div className="pt-3 flex items-end justify-between border-t border-slate-200 mt-3">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-bold text-[#0F254B] tracking-wide uppercase">
+                  For GKA CONSTRUCTION
+                </p>
+                <div className="py-1">
+                  <img
+                    src="/signature.png"
+                    alt="Authorized Signatory Signature"
+                    className="h-10 w-auto object-contain"
+                  />
+                </div>
+                <p className="text-[10px] font-bold text-[#0F254B]">Hari A</p>
+                <p className="text-[9px] text-slate-500 font-medium">Proprietor / Authorized Signatory</p>
               </div>
 
               {/* Circular Company Seal Stamp */}
-              <div className="select-none">
+              <div className="flex flex-col items-center select-none pl-2">
                 <img
                   src="/seal.png"
                   alt="GKA Construction Company Seal"
-                  className="w-16 h-16 object-contain"
+                  className="w-20 h-20 object-contain drop-shadow-sm"
                 />
+                <span className="text-[8px] font-bold text-slate-400 mt-0.5 tracking-wider uppercase">
+                  (Company Seal)
+                </span>
               </div>
             </div>
           </div>

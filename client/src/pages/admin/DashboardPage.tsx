@@ -15,6 +15,10 @@ import {
   ShieldCheck,
   Calculator,
   KeyRound,
+  Edit3,
+  MapPin,
+  Sliders,
+  Check,
 } from 'lucide-react';
 import {
   BarChart,
@@ -30,30 +34,52 @@ import {
 } from 'recharts';
 import { api } from '../../services/api';
 import { formatINR, toRupees } from '@shared/types';
+import { EditProjectModal } from '../../components/projects/EditProjectModal';
 
 export const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [recentReports, setRecentReports] = useState<any[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [editingProject, setEditingProject] = useState<any | null>(null);
+  const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const res = await api.getDashboardStats();
-        if (res.success) {
-          setStats(res.stats);
-          setRecentReports(res.recentSiteReports || []);
-          setRecentExpenses(res.recentExpenses || []);
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-      } finally {
-        setLoading(false);
+  const fetchDashboard = async () => {
+    try {
+      const [statsRes, projectsRes] = await Promise.all([
+        api.getDashboardStats().catch(() => ({ success: false })),
+        api.getProjects({ limit: '6' }).catch(() => ({ success: false })),
+      ]);
+
+      if (statsRes.success) {
+        setStats(statsRes.stats);
+        setRecentReports(statsRes.recentSiteReports || []);
+        setRecentExpenses(statsRes.recentExpenses || []);
       }
-    };
+
+      if (projectsRes.success && Array.isArray(projectsRes.projects)) {
+        setProjects(projectsRes.projects);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchDashboard();
   }, []);
+
+  const handleProjectUpdated = (updatedProject: any) => {
+    setProjects((prev) =>
+      prev.map((p) => (p._id === updatedProject._id ? updatedProject : p))
+    );
+    setNotificationMsg(`Project "${updatedProject.title}" updated successfully.`);
+    setTimeout(() => setNotificationMsg(null), 4000);
+    fetchDashboard();
+  };
 
   if (loading) {
     return (
@@ -137,6 +163,22 @@ export const DashboardPage: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* Success Notification Alert */}
+      {notificationMsg && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between text-xs font-semibold shadow-sm animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{notificationMsg}</span>
+          </div>
+          <button
+            onClick={() => setNotificationMsg(null)}
+            className="p-1 text-emerald-600 hover:text-emerald-900 rounded"
+          >
+            <Check className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* KPI Stat Cards Grid - 6 Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -314,6 +356,122 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Active Construction Projects (Owner Quick-Edit & Workspace Controls) */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle space-y-5">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#0F254B] text-[#D6A21D] flex items-center justify-center">
+              <Briefcase className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-heading font-bold text-base text-brand-navy-950">
+                Active Projects & Workspace Controls
+              </h3>
+              <p className="text-xs text-slate-500">
+                Live contract values, progress percentages, and instant project editing for owners
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/admin/projects"
+            className="text-xs font-bold text-brand-navy-900 hover:text-brand-gold-600 transition-colors inline-flex items-center gap-1"
+          >
+            <span>Manage All Projects ({stats?.totalProjects || projects.length})</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {projects.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            No projects found. Click "Projects" in the header to initialize your first project.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {projects.slice(0, 6).map((p) => (
+              <div
+                key={p._id}
+                className="bg-slate-50/80 rounded-xl border border-slate-200 p-4 hover:border-brand-navy-900 transition-all flex flex-col justify-between space-y-3"
+              >
+                <div className="space-y-2">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] font-mono font-bold text-brand-gold-700 bg-brand-gold-50 px-2 py-0.5 rounded border border-brand-gold-200">
+                      {p.projectId}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                        p.status === 'active'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : p.status === 'completed'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {p.status}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="font-heading font-bold text-sm text-brand-navy-950 line-clamp-1">
+                      {p.title}
+                    </h4>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Client: <strong>{p.clientId?.name || 'Client'}</strong>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                    <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span className="truncate">{p.siteAddress?.street || 'Site location'} • {p.siteAddress?.city || 'Chennai'}</span>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-500">Progress</span>
+                      <strong className="text-brand-navy-950 font-bold">{p.progressPercent || 0}%</strong>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-brand-teal-500 to-brand-gold-500 rounded-full"
+                        style={{ width: `${p.progressPercent || 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200/60 flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Contract Value:</span>
+                    <strong className="text-slate-900 font-mono font-bold">
+                      {formatINR(p.contractValuePaise || 0)}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProject(p)}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#0F254B] text-white hover:bg-[#1A3A73] transition-colors inline-flex items-center gap-1 shadow-sm"
+                    title="Edit project parameters, dates, status and financials"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-[#D6A21D]" />
+                    <span>Edit Project</span>
+                  </button>
+
+                  <Link
+                    to={`/admin/projects/${p._id}`}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors inline-flex items-center gap-1"
+                  >
+                    <span>Workspace</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Bottom Feeds: Recent Site Reports & Recent Expenses */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Site Reports */}
@@ -399,6 +557,16 @@ export const DashboardPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Edit Project Modal */}
+      {editingProject && (
+        <EditProjectModal
+          isOpen={!!editingProject}
+          onClose={() => setEditingProject(null)}
+          project={editingProject}
+          onProjectUpdated={handleProjectUpdated}
+        />
+      )}
     </div>
   );
 };

@@ -153,6 +153,9 @@ export interface IQuotation {
   igstPaise: number;
   taxRatePercent: number; // e.g. 18
   totalAmountPaise: number;
+  isNegotiated?: boolean;
+  negotiatedDiscountPaise?: number;
+  negotiatedNotes?: string;
   termsAndConditions: string[];
   revisionNumber: number;
   status: 'draft' | 'sent' | 'revised' | 'approved' | 'rejected';

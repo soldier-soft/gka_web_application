@@ -66,6 +66,27 @@ function amountInWords(rupees, paise = 0) {
 }
 class PDFService {
     /**
+     * Helper to resolve static image assets across public, dist, and server asset directories
+     */
+    static resolveAssetPath(filename) {
+        const candidates = [
+            path_1.default.resolve(process.cwd(), 'client/public', filename),
+            path_1.default.resolve(process.cwd(), 'public', filename),
+            path_1.default.resolve(process.cwd(), 'dist', filename),
+            path_1.default.resolve(process.cwd(), 'assets', filename),
+            path_1.default.resolve(__dirname, '../assets', filename),
+            path_1.default.resolve(__dirname, '../../src/assets', filename),
+            path_1.default.resolve(process.cwd(), 'server/src/assets', filename),
+            path_1.default.resolve(process.cwd(), 'server/dist/assets', filename),
+            path_1.default.resolve(__dirname, '../../../client/public', filename),
+        ];
+        for (const p of candidates) {
+            if (fs_1.default.existsSync(p))
+                return p;
+        }
+        return '';
+    }
+    /**
      * Draw the authentic GKA Construction Header with brand colors, pillars, registered office and tax details.
      */
     static drawBrandedHeader(doc, title, docNumber, docDate) {
@@ -75,8 +96,8 @@ class PDFService {
         doc.polygon([560, 0], [595, 0], [595, 45]).fill('#D6A21D');
         doc.restore();
         // Brand Logo & Title on Left (Use authentic cropped brand header image if available)
-        const headerImgPath = path_1.default.resolve(__dirname, '../assets/gka_header_full.png');
-        if (fs_1.default.existsSync(headerImgPath)) {
+        const headerImgPath = this.resolveAssetPath('gka_header_full.png');
+        if (headerImgPath) {
             doc.image(headerImgPath, 38, 16, { width: 205 });
         }
         else {
@@ -155,7 +176,7 @@ class PDFService {
     /**
      * Draw Bank Details, Terms & Conditions, Proprietor Signature & Seal, and Footer
      */
-    static drawBottomAndFooter(doc, startY) {
+    static drawBottomAndFooter(doc, startY, notes) {
         const bottomY = Math.max(startY + 8, 565);
         // Left Card: BANK DETAILS (Light Blue border, Deep Navy Header)
         doc.rect(40, bottomY, 255, 124).fill('#F8FAFC').stroke('#B8D5E5').lineWidth(1).stroke();
@@ -189,32 +210,38 @@ class PDFService {
             '• GST applicable as per government norms.',
             '• Work executed as per agreed specifications and site conditions.',
         ];
+        if (notes) {
+            terms.push(`• Negotiated Terms: ${notes}`);
+        }
         let tY = bottomY + 17;
         doc.font('Helvetica').fontSize(6.2).fillColor('#475569');
         terms.forEach((t) => {
             doc.text(t, 314, tY, { width: 236 });
-            tY += 7.8;
+            tY += 7.2;
         });
-        // Signature and Seal Images (Zero text overlap, ample breathing room)
-        const sigImgPath = path_1.default.resolve(__dirname, '../assets/signature.png');
-        const sealImgPath = path_1.default.resolve(__dirname, '../assets/seal.png');
-        if (fs_1.default.existsSync(sigImgPath)) {
-            doc.image(sigImgPath, 314, bottomY + 50, { width: 64 });
+        // Signature and Seal Images (Company on top, signature below, proprietor, seal beside)
+        const sigImgPath = this.resolveAssetPath('signature.png');
+        const sealImgPath = this.resolveAssetPath('seal.png');
+        // Left Column: Authorized Signatory Block
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text('For GKA CONSTRUCTION', 314, bottomY + 52);
+        if (sigImgPath) {
+            doc.image(sigImgPath, 314, bottomY + 62, { width: 58 });
         }
         else {
-            doc.font('Helvetica-Bold').fontSize(13).fillColor('#0F254B').text('Hari A', 314, bottomY + 54);
+            doc.font('Helvetica-Bold').fontSize(11).fillColor('#0F254B').text('Hari A', 314, bottomY + 66);
         }
-        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text('For GKA CONSTRUCTION', 314, bottomY + 86);
-        doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text('Proprietor', 314, bottomY + 96);
-        if (fs_1.default.existsSync(sealImgPath)) {
-            doc.image(sealImgPath, 462, bottomY + 48, { width: 58 });
-            doc.font('Helvetica').fontSize(6).fillColor('#64748B').text('(Company Seal)', 450, bottomY + 104, { width: 82, align: 'center' });
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text('Hari A', 314, bottomY + 95);
+        doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text('Proprietor / Authorized Signatory', 314, bottomY + 105);
+        // Right Column: Circular Company Seal Stamp
+        if (sealImgPath) {
+            doc.image(sealImgPath, 452, bottomY + 50, { width: 62 });
+            doc.font('Helvetica-Bold').fontSize(5.5).fillColor('#64748B').text('(Company Seal)', 445, bottomY + 114, { width: 76, align: 'center' });
         }
         else {
-            const sealCenterX = 491;
-            const sealCenterY = bottomY + 75;
-            doc.circle(sealCenterX, sealCenterY, 22).lineWidth(1.2).strokeColor('#0F254B').stroke();
-            doc.circle(sealCenterX, sealCenterY, 19).lineWidth(0.6).strokeColor('#0F254B').stroke();
+            const sealCenterX = 482;
+            const sealCenterY = bottomY + 80;
+            doc.circle(sealCenterX, sealCenterY, 23).lineWidth(1.2).strokeColor('#0F254B').stroke();
+            doc.circle(sealCenterX, sealCenterY, 20).lineWidth(0.6).strokeColor('#0F254B').stroke();
             doc.font('Helvetica-Bold').fontSize(5).fillColor('#0F254B');
             doc.text('GKA CONSTRUCTION', sealCenterX - 20, sealCenterY - 12, { width: 40, align: 'center' });
             doc.text('★ CHENNAI ★', sealCenterX - 20, sealCenterY - 3, { width: 40, align: 'center' });
@@ -238,7 +265,8 @@ class PDFService {
     static generateQuotationPDF(quotation) {
         const doc = new pdfkit_1.default({ margin: 40, size: 'A4' });
         // 1. Header
-        const yAfterHeader = this.drawBrandedHeader(doc, 'QUOTATION', quotation.quotationNumber, new Date(quotation.createdAt || Date.now()));
+        const quotationTitle = quotation.isNegotiated ? 'NEGOTIATED QUOTATION' : 'QUOTATION';
+        const yAfterHeader = this.drawBrandedHeader(doc, quotationTitle, quotation.quotationNumber, new Date(quotation.createdAt || Date.now()));
         // 2. Client & Subject
         const client = {
             name: quotation.clientName,
@@ -297,17 +325,36 @@ class PDFService {
         doc.rect(40, tableTopY - 20, 515, (y - tableTopY) + 20).strokeColor('#CBD5E1').lineWidth(0.8).stroke();
         // 5. Totals Block (Right Aligned)
         const subtotalRupees = (0, constants_1.toRupees)(quotation.subtotalPaise);
+        const discountRupees = (0, constants_1.toRupees)(quotation.negotiatedDiscountPaise || quotation.discountPaise || 0);
+        const taxableSubtotal = Math.max(0, subtotalRupees - discountRupees);
         const taxRupees = (0, constants_1.toRupees)(quotation.cgstPaise + quotation.sgstPaise + quotation.igstPaise);
         const totalRupees = (0, constants_1.toRupees)(quotation.totalAmountPaise);
         y += 4;
         // Total Amount Row
         doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
-        doc.text('TOTAL AMOUNT', 330, y, { width: 130, align: 'right' });
+        doc.text(quotation.isNegotiated ? 'GROSS ESTIMATE' : 'TOTAL AMOUNT', 330, y, { width: 130, align: 'right' });
         doc.fillColor('#0F254B').text(`Rs.  ${subtotalRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
             width: 85,
             align: 'right',
         });
         y += 14;
+        // Negotiated Discount Row (Only when isNegotiated is enabled)
+        if (quotation.isNegotiated && discountRupees > 0) {
+            doc.font('Helvetica-Bold').fontSize(8).fillColor('#059669');
+            doc.text('LESS: NEGOTIATED DISCOUNT', 290, y, { width: 170, align: 'right' });
+            doc.text(`- Rs.  ${discountRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
+                width: 85,
+                align: 'right',
+            });
+            y += 14;
+            doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
+            doc.text('TAXABLE ESTIMATE', 330, y, { width: 130, align: 'right' });
+            doc.fillColor('#0F254B').text(`Rs.  ${taxableSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
+                width: 85,
+                align: 'right',
+            });
+            y += 14;
+        }
         // Taxes Row
         doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
         doc.text(`TAXES / GST (${quotation.taxRatePercent || 18}%)`, 330, y, { width: 130, align: 'right' });
@@ -322,7 +369,7 @@ class PDFService {
         doc.rect(342, y - 2, 213, 20).fill('#0F254B');
         doc.restore();
         doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF');
-        doc.text('GRAND TOTAL', 350, y + 3, { width: 100, align: 'left' });
+        doc.text(quotation.isNegotiated ? 'NET NEGOTIATED TOTAL' : 'GRAND TOTAL', 350, y + 3, { width: 120, align: 'left' });
         doc.text(`Rs.  ${totalRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 450, y + 3, {
             width: 100,
             align: 'right',
@@ -354,7 +401,7 @@ class PDFService {
         doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#92400E').text(clientPassword, 487, y + 18.5, { width: 62, align: 'center' });
         y += 38;
         // 8. Bottom Sections (Bank Details + Terms + Seal) and Footer Banner
-        this.drawBottomAndFooter(doc, y);
+        this.drawBottomAndFooter(doc, y, quotation.isNegotiated ? quotation.negotiatedNotes : undefined);
         doc.end();
         return doc;
     }
