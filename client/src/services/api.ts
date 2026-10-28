@@ -467,6 +467,22 @@ export const api = {
       feedbackTickets: any[];
       bankDetails: any;
     }>(`/client-portal/projects/${id}`),
+  getAllClientProjectsDetails: () =>
+    request<{
+      success: boolean;
+      count: number;
+      projectsData: Array<{
+        project: any;
+        milestones: any[];
+        publishedReports: any[];
+        invoices: any[];
+        payments: any[];
+        quotations: any[];
+        documents: any[];
+        feedbackTickets: any[];
+      }>;
+      bankDetails: any;
+    }>('/client-portal/all-projects-details'),
   submitClientPayment: (data: any) =>
     request<{ success: boolean; message: string; payment: any }>('/client-portal/payments/submit-notification', {
       method: 'POST',

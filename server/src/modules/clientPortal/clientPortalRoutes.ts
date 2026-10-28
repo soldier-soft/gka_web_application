@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getMyProjects,
+  getAllClientProjectsWithData,
   getClientProjectDetails,
   submitPaymentNotification,
   submitFeedback,
@@ -15,6 +16,7 @@ router.use(authenticate);
 router.use(requireRoles('client', 'super_admin'));
 
 router.get('/my-projects', getMyProjects);
+router.get('/all-projects-details', getAllClientProjectsWithData);
 router.get('/projects/:id', getClientProjectDetails);
 router.post('/payments/submit-notification', submitPaymentNotification);
 router.post('/feedback', submitFeedback);

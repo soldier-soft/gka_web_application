@@ -105,11 +105,17 @@ export const getClientProjectDetails = async (req: Request, res: Response, next:
       projectId: project._id,
     }).sort({ paymentDate: -1 });
 
-    // Approved Quotations (deleted hidden)
+    // Project Quotations (exclude soft-deleted)
+    const quotationConditions: any[] = [{ projectId: project._id }];
+    if (project.title) {
+      quotationConditions.push({ projectTitle: project.title });
+    }
+    if (project.projectId) {
+      quotationConditions.push({ projectTitle: { $regex: project.projectId, $options: 'i' } });
+    }
     const quotations = await Quotation.find({
-      projectId: project._id,
+      $or: quotationConditions,
       isDeleted: { $ne: true },
-      status: { $in: ['sent', 'approved'] },
     }).sort({ createdAt: -1 });
 
     // Documents visible to client
@@ -134,6 +140,105 @@ export const getClientProjectDetails = async (req: Request, res: Response, next:
       quotations,
       documents,
       feedbackTickets,
+      bankDetails: GKA_COMPANY.bankDetails,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAllClientProjectsWithData = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    let clientId = req.user?.clientId;
+    let assignedProjects: any[] = [];
+
+    if (req.user?.id) {
+      const dbUser = await User.findById(req.user.id);
+      if (dbUser) {
+        if (!clientId && dbUser.clientId) {
+          clientId = dbUser.clientId.toString();
+        }
+        if (dbUser.assignedProjects && dbUser.assignedProjects.length > 0) {
+          assignedProjects = dbUser.assignedProjects;
+        }
+      }
+    }
+
+    const conditions: any[] = [];
+    if (clientId) conditions.push({ clientId });
+    if (assignedProjects.length > 0) conditions.push({ _id: { $in: assignedProjects } });
+
+    if (conditions.length === 0) {
+      res.json({ success: true, count: 0, projectsData: [], bankDetails: GKA_COMPANY.bankDetails });
+      return;
+    }
+
+    const isClient = req.user?.role === 'client';
+    const query = isClient ? { $or: conditions } : {};
+
+    const projects = await Project.find(query).sort({ createdAt: -1 });
+
+    const projectsData = await Promise.all(
+      projects.map(async (project) => {
+        const milestones = await Milestone.find({
+          projectId: project._id,
+          isPublishedToClient: true,
+        }).sort({ orderIndex: 1 });
+
+        const publishedReports = await SiteReport.find({
+          projectId: project._id,
+          isPublishedToClient: true,
+        }).sort({ reportDate: -1 });
+
+        const invoices = await Invoice.find({
+          projectId: project._id,
+          isDeleted: { $ne: true },
+          status: { $ne: 'draft' },
+        }).sort({ issueDate: -1 });
+
+        const payments = await Payment.find({
+          projectId: project._id,
+        }).sort({ paymentDate: -1 });
+
+        const quotationConditions: any[] = [{ projectId: project._id }];
+        if (project.title) {
+          quotationConditions.push({ projectTitle: project.title });
+        }
+        if (project.projectId) {
+          quotationConditions.push({ projectTitle: { $regex: project.projectId, $options: 'i' } });
+        }
+        const quotations = await Quotation.find({
+          $or: quotationConditions,
+          isDeleted: { $ne: true },
+        }).sort({ createdAt: -1 });
+
+        const documents = await ProjectDocument.find({
+          projectId: project._id,
+          visibleToClient: true,
+        }).sort({ createdAt: -1 });
+
+        const feedbackTickets = await ClientFeedback.find({
+          projectId: project._id,
+          ...(clientId ? { clientId } : {}),
+        }).sort({ createdAt: -1 });
+
+        return {
+          project,
+          milestones,
+          publishedReports,
+          invoices,
+          payments,
+          quotations,
+          documents,
+          feedbackTickets,
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      count: projectsData.length,
+      projectsData,
       bankDetails: GKA_COMPANY.bankDetails,
     });
   } catch (error) {

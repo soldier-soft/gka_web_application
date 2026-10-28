@@ -29,29 +29,52 @@ import {
   EyeOff,
   Building2,
   BadgeCheck,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  X,
+  ExternalLink,
+  Receipt,
+  Download,
 } from 'lucide-react';
-import { api } from '../../services/api';
+import { api, downloadFile, getFileUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { formatINR } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
+import { DocumentVisualView } from '../../components/documents/DocumentVisualView';
 
 export const ClientPortalPage: React.FC = () => {
   const { user, logout, setUser } = useAuth();
   const [projects, setProjects] = useState<any[]>([]);
+  const [allProjectsData, setAllProjectsData] = useState<any[]>([]);
+  const [viewMode, setViewMode] = useState<'all_sections' | 'single'>('single');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [projectData, setProjectData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Active view tab in Client Portal
+  // Active view tab in Single-Project View
   const [activePortalTab, setActivePortalTab] = useState<
-    'overview' | 'milestones' | 'photos' | 'billing' | 'feedback' | 'profile'
+    'overview' | 'quotations' | 'milestones' | 'photos' | 'billing' | 'feedback' | 'profile'
   >('overview');
+
+  // Document Modal Preview State (Quotation or Invoice)
+  const [selectedDocForModal, setSelectedDocForModal] = useState<{ type: 'quotation' | 'invoice'; data: any } | null>(null);
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [expandedScopeItems, setExpandedScopeItems] = useState<Record<string, boolean>>({});
+
+  const toggleScopeExpand = (quotationId: string) => {
+    setExpandedScopeItems((prev) => ({
+      ...prev,
+      [quotationId]: !prev[quotationId],
+    }));
+  };
 
   // Copy bank details state
   const [copiedBank, setCopiedBank] = useState(false);
 
   // Payment Notification modal/form
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [payProjectId, setPayProjectId] = useState('');
   const [payAmountRupees, setPayAmountRupees] = useState('');
   const [payInvoiceId, setPayInvoiceId] = useState('');
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
@@ -62,6 +85,7 @@ export const ClientPortalPage: React.FC = () => {
 
   // Feedback / Query ticket modal/form
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackProjectId, setFeedbackProjectId] = useState('');
   const [feedbackCategory, setFeedbackCategory] = useState<string>('site_query');
   const [feedbackSubject, setFeedbackSubject] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
@@ -93,34 +117,65 @@ export const ClientPortalPage: React.FC = () => {
   const [clientPassSuccess, setClientPassSuccess] = useState('');
   const [clientPassError, setClientPassError] = useState('');
 
-  useEffect(() => {
-    const fetchClientProjects = async () => {
+  const fetchClientProjects = async () => {
+    try {
+      setLoading(true);
+      let fullRes;
       try {
-        setLoading(true);
+        fullRes = await api.getAllClientProjectsDetails();
+      } catch (err) {
+        console.warn('getAllClientProjectsDetails failed, falling back:', err);
+      }
+
+      if (fullRes?.success && fullRes.projectsData && fullRes.projectsData.length > 0) {
+        setAllProjectsData(fullRes.projectsData);
+        const projs = fullRes.projectsData.map((d: any) => d.project);
+        setProjects(projs);
+        if (fullRes.projectsData.length >= 2) {
+          setViewMode('all_sections');
+        } else {
+          setViewMode('single');
+        }
+        setSelectedProjectId(fullRes.projectsData[0].project._id);
+        setProjectData(fullRes.projectsData[0]);
+      } else {
+        // Fallback
         let res;
         if (user?.role === 'client') {
           res = await api.getClientProjects();
         } else {
-          // If staff previewing portal, fetch all projects
           res = await api.getProjects();
         }
 
-        if (res.success && res.projects && res.projects.length > 0) {
+        if (res?.success && res.projects && res.projects.length > 0) {
           setProjects(res.projects);
           setSelectedProjectId(res.projects[0]._id);
+          if (res.projects.length >= 2) {
+            setViewMode('all_sections');
+          } else {
+            setViewMode('single');
+          }
         }
-      } catch (error) {
-        console.error('Error fetching client projects:', error);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching client projects:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchClientProjects();
     fetchClientProfile();
   }, [user]);
 
   const fetchProjectDetails = async (projId: string) => {
     if (!projId) return;
+    const existing = allProjectsData.find((d: any) => d.project._id === projId);
+    if (existing) {
+      setProjectData(existing);
+      return;
+    }
     try {
       const res = await api.getClientProjectDetails(projId);
       if (res.success) {
@@ -135,7 +190,7 @@ export const ClientPortalPage: React.FC = () => {
     if (selectedProjectId) {
       fetchProjectDetails(selectedProjectId);
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, allProjectsData]);
 
   const handleCopyBankDetails = () => {
     const text = `GKA CONSTRUCTION - Official Bank Transfer Details:
@@ -163,7 +218,7 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
     try {
       const amountPaise = Math.round(Number(payAmountRupees) * 100);
       const res = await api.submitClientPayment({
-        projectId: selectedProjectId,
+        projectId: payProjectId || selectedProjectId,
         invoiceId: payInvoiceId || undefined,
         amountPaise,
         paymentDate: payDate,
@@ -177,6 +232,7 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
         setPayTxnRef('');
         setPayNotes('');
         fetchProjectDetails(selectedProjectId);
+        fetchClientProjects();
         setTimeout(() => {
           setShowPaymentModal(false);
           setPaymentSuccessMsg('');
@@ -198,7 +254,7 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
     setIsSubmittingFeedback(true);
     try {
       const res = await api.submitClientFeedback({
-        projectId: selectedProjectId,
+        projectId: feedbackProjectId || selectedProjectId,
         category: feedbackCategory,
         subject: feedbackSubject,
         message: feedbackMessage,
@@ -209,6 +265,7 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
         setFeedbackSubject('');
         setFeedbackMessage('');
         fetchProjectDetails(selectedProjectId);
+        fetchClientProjects();
         setTimeout(() => {
           setShowFeedbackModal(false);
           setFeedbackSuccessMsg('');
@@ -413,27 +470,523 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
           <>
             {/* Multi-Project Switcher (if client has multiple properties) */}
             {projects.length > 1 && (
-              <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 text-xs">
-                <span className="text-slate-500 font-bold px-2">Select Property:</span>
-                {projects.map((p) => (
+              <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-[#0F254B]" />
+                  <span className="font-bold text-slate-800">Your Properties:</span>
+                  <span className="px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-900 border border-blue-200">
+                    {projects.length} Active Construction Sites
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
                   <button
-                    key={p._id}
-                    onClick={() => setSelectedProjectId(p._id)}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
-                      selectedProjectId === p._id
-                        ? 'bg-[#10203A] text-white shadow-sm'
+                    type="button"
+                    onClick={() => setViewMode('all_sections')}
+                    className={`px-3.5 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 ${
+                      viewMode === 'all_sections'
+                        ? 'bg-[#0F254B] text-white shadow-sm ring-1 ring-[#D6A21D]'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    {p.projectId} - {p.title}
+                    <Layers className="w-3.5 h-3.5 text-[#D6A21D]" />
+                    <span>All Projects Breakdown ({projects.length} Sections)</span>
                   </button>
-                ))}
+
+                  {projects.map((p, idx) => (
+                    <button
+                      key={p._id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedProjectId(p._id);
+                        const pd = allProjectsData.find((d: any) => d.project._id === p._id);
+                        if (pd) setProjectData(pd);
+                        setViewMode('single');
+                      }}
+                      className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                        viewMode === 'single' && selectedProjectId === p._id
+                          ? 'bg-[#0F254B] text-white shadow-sm ring-1 ring-[#D6A21D]'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>Section {idx + 1}: {p.projectId}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Project Hero Banner & Quick Actions */}
-            {projectData?.project && activePortalTab !== 'profile' && (
+            {/* Check viewMode: All Projects Breakdown (2+ Sections) vs Single Focused Workspace */}
+            {viewMode === 'all_sections' && allProjectsData.length >= 2 && activePortalTab !== 'profile' ? (
+              <div className="space-y-8">
+                {/* Portfolio Summary Notice */}
+                <div className="bg-gradient-to-r from-[#0F254B] via-[#16356B] to-[#0A1A36] text-white p-6 rounded-3xl border border-blue-900/40 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#D6A21D] text-[#0F254B] shadow-sm">
+                        🏢 Multi-Property Client Portfolio
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white/10 text-blue-200">
+                        {allProjectsData.length} Properties Under Construction
+                      </span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-heading font-extrabold text-white mt-2">
+                      All Construction Projects & Official Quotations
+                    </h2>
+                    <p className="text-xs text-blue-200/90 mt-1 max-w-2xl leading-relaxed">
+                      Below you will find individual, dedicated sections for each of your properties under active construction with GKA Construction, complete with official project quotations, verified construction stages, milestone completion, and tax invoices.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeedbackProjectId(projects[0]?._id || '');
+                        setShowFeedbackModal(true);
+                      }}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#D6A21D] text-[#0F254B] hover:bg-amber-400 transition-colors flex items-center gap-1.5 shadow-sm"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>General Query</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActivePortalTab('profile')}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1.5"
+                    >
+                      <UserIcon className="w-3.5 h-3.5 text-[#D6A21D]" />
+                      <span>My Profile</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Render EACH Project as its own distinct SECTION */}
+                {allProjectsData.map((pd: any, index: number) => {
+                  const p = pd.project;
+                  const quotes = pd.quotations || [];
+                  const milestones = pd.milestones || [];
+                  const invoices = pd.invoices || [];
+                  const completedMilestones = milestones.filter((m: any) => m.status === 'completed').length;
+
+                  return (
+                    <section
+                      key={p._id}
+                      className="bg-white rounded-3xl border-2 border-slate-200 shadow-md p-6 sm:p-8 space-y-6 transition-all hover:border-[#0F254B]/30"
+                    >
+                      {/* Section Header */}
+                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-5 border-b border-slate-100">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-3 py-1 rounded-lg text-xs font-bold font-mono bg-[#0F254B] text-white">
+                              SECTION #{index + 1}
+                            </span>
+                            <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold text-[#0F254B] bg-slate-100 border border-slate-300">
+                              {p.projectId}
+                            </span>
+                            <span className="px-2.5 py-1 rounded-full text-xs font-bold capitalize bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              {p.status}
+                            </span>
+                            {p.category && (
+                              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 capitalize">
+                                {p.category}
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-2xl font-heading font-extrabold text-[#0F254B]">
+                            {p.title}
+                          </h2>
+                          <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-[#D6A21D] shrink-0" />
+                            <span>
+                              {p.siteAddress?.street ? `${p.siteAddress.street}, ` : ''}
+                              {p.siteAddress?.city || 'Tamil Nadu'}
+                              {p.siteAddress?.pincode ? ` - ${p.siteAddress.pincode}` : ''}
+                            </span>
+                          </p>
+                        </div>
+
+                        {/* Progress gauge and focus button */}
+                        <div className="flex items-center gap-3">
+                          <div className="bg-[#0F254B] text-white p-3.5 rounded-2xl text-center min-w-[140px] shadow-sm">
+                            <span className="text-[10px] text-[#D6A21D] font-bold uppercase tracking-wider block">
+                              Verified Progress
+                            </span>
+                            <span className="text-2xl font-extrabold font-heading text-white">
+                              {p.progressPercent || 0}%
+                            </span>
+                            <span className="text-[10px] text-slate-300 block">
+                              {completedMilestones} of {milestones.length} Stages
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedProjectId(p._id);
+                              setProjectData(pd);
+                              setViewMode('single');
+                              setActivePortalTab('overview');
+                            }}
+                            className="px-3.5 py-3 rounded-2xl text-xs font-bold bg-slate-100 hover:bg-[#0F254B] text-slate-800 hover:text-white transition-all border border-slate-200 flex items-center gap-1.5 shadow-sm group"
+                            title="Focus this project with full detailed tabs"
+                          >
+                            <span>Open Project Workspace</span>
+                            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs text-slate-600 font-semibold">
+                          <span>Overall Construction Progress</span>
+                          <span className="font-mono font-bold text-[#0F254B]">{p.progressPercent || 0}% Completed</span>
+                        </div>
+                        <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-[#0F254B] via-[#1E3A8A] to-[#D6A21D] rounded-full transition-all duration-700"
+                            style={{ width: `${p.progressPercent || 0}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* 1. PROJECT QUOTATION(S) SUBSECTION */}
+                      <div className="bg-slate-50/70 rounded-2xl p-5 border border-slate-200/80 space-y-4">
+                        <div className="flex justify-between items-center border-b border-slate-200/60 pb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-2 bg-blue-100 text-[#0F254B] rounded-xl">
+                              <FileText className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-heading font-bold text-[#0F254B]">
+                                Project Quotation & Scope Estimate
+                              </h3>
+                              <p className="text-[11px] text-slate-500">
+                                Official architectural and civil cost estimate approved for this property.
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-bold font-mono px-2.5 py-1 rounded-full bg-blue-50 text-blue-900 border border-blue-200">
+                            {quotes.length} {quotes.length === 1 ? 'Quotation' : 'Quotations'}
+                          </span>
+                        </div>
+
+                        {quotes.length === 0 ? (
+                          <div className="p-6 text-center text-xs text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">
+                            Quotation for this property is currently being compiled by GKA engineers. Please check back shortly or submit an inquiry below.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {quotes.map((q: any) => {
+                              const isExpanded = !!expandedScopeItems[q._id];
+                              return (
+                                <div
+                                  key={q._id}
+                                  className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm space-y-3"
+                                >
+                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                    <div>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-mono font-bold text-sm text-[#0F254B]">
+                                          {q.quotationNumber}
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                          Rev #{q.revisionNumber || 1}
+                                        </span>
+                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                          {q.status}
+                                        </span>
+                                        {q.isNegotiated && (
+                                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                            🤝 Negotiated
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-xs font-semibold text-slate-800 mt-1">
+                                        {q.subject || q.projectTitle || p.title}
+                                      </p>
+                                      <span className="text-[11px] text-slate-500">
+                                        Date: {new Date(q.createdAt).toLocaleDateString('en-IN')} • {q.items?.length || 0} scope items
+                                      </span>
+                                    </div>
+
+                                    <div className="text-right space-y-1 shrink-0">
+                                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Grand Total (Inc. 18% GST)</span>
+                                      <strong className="text-lg font-mono font-extrabold text-[#0F254B] block">
+                                        {formatINR(q.totalAmountPaise)}
+                                      </strong>
+                                    </div>
+                                  </div>
+
+                                  {/* Actions & Expand Scope */}
+                                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleScopeExpand(q._id)}
+                                      className="text-blue-700 hover:text-blue-900 font-bold flex items-center gap-1 py-1"
+                                    >
+                                      <span>{isExpanded ? 'Hide Scope Items' : `View Scope of Work (${q.items?.length || 0} items)`}</span>
+                                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                    </button>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedDocForModal({ type: 'quotation', data: q });
+                                          setShowDocModal(true);
+                                        }}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0F254B] text-white hover:bg-slate-800 transition-colors flex items-center gap-1 shadow-sm"
+                                        title="Live Interactive View"
+                                      >
+                                        <Eye className="w-3.5 h-3.5 text-[#D6A21D]" />
+                                        <span>Live View</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          downloadFile(
+                                            `/quotations/${q._id}/pdf`,
+                                            `GKA_Quotation_${q.quotationNumber}.pdf`,
+                                            true
+                                          )
+                                        }
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-[#0F254B] hover:bg-slate-100 border border-slate-200 transition-colors flex items-center gap-1"
+                                        title="Download Official PDF"
+                                      >
+                                        <FileDown className="w-3.5 h-3.5 text-[#D6A21D]" />
+                                        <span>PDF</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          downloadFile(
+                                            `/quotations/${q._id}/docx`,
+                                            `GKA_Quotation_${q.quotationNumber}.docx`,
+                                            false
+                                          )
+                                        }
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 hover:bg-blue-50 border border-blue-200 transition-colors flex items-center gap-1"
+                                        title="Download Word DOCX"
+                                      >
+                                        <FileText className="w-3.5 h-3.5" />
+                                        <span>DOCX</span>
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Expanded BOQ Items */}
+                                  {isExpanded && q.items && q.items.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-slate-200 overflow-x-auto">
+                                      <table className="w-full text-left text-[11px]">
+                                        <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                                          <tr>
+                                            <th className="py-2 px-3">#</th>
+                                            <th className="py-2 px-3">Description</th>
+                                            <th className="py-2 px-3">Category</th>
+                                            <th className="py-2 px-3 text-right">Qty</th>
+                                            <th className="py-2 px-3">Unit</th>
+                                            <th className="py-2 px-3 text-right">Unit Rate</th>
+                                            <th className="py-2 px-3 text-right">Amount</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                          {q.items.map((item: any, idx: number) => (
+                                            <tr key={idx} className="hover:bg-slate-50/50">
+                                              <td className="py-2 px-3 text-slate-400 font-mono">{idx + 1}</td>
+                                              <td className="py-2 px-3 font-semibold text-slate-800">{item.description}</td>
+                                              <td className="py-2 px-3 capitalize text-slate-500">{item.category}</td>
+                                              <td className="py-2 px-3 text-right font-mono">{item.quantity}</td>
+                                              <td className="py-2 px-3 text-slate-500">{item.unit}</td>
+                                              <td className="py-2 px-3 text-right font-mono">{formatINR(item.unitRatePaise)}</td>
+                                              <td className="py-2 px-3 text-right font-mono font-bold text-[#0F254B]">{formatINR(item.amountPaise)}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 2. STAGES & MILESTONES SUBSECTION */}
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            Verified Construction Stages ({completedMilestones}/{milestones.length})
+                          </h4>
+                          <span className="text-[11px] text-slate-500">Live Stage Tracker</span>
+                        </div>
+                        {milestones.length === 0 ? (
+                          <p className="text-xs text-slate-400 py-2">Stages being scheduled by site engineer.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            {milestones.map((m: any) => (
+                              <div
+                                key={m._id}
+                                className={`p-3 rounded-xl border text-xs ${
+                                  m.status === 'completed'
+                                    ? 'bg-emerald-50/60 border-emerald-200'
+                                    : m.status === 'in_progress'
+                                    ? 'bg-blue-50/60 border-blue-200'
+                                    : 'bg-slate-50/60 border-slate-200'
+                                }`}
+                              >
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="font-mono font-bold text-[#0F254B]">{m.code}</span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
+                                      m.status === 'completed'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : m.status === 'in_progress'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-slate-200 text-slate-700'
+                                    }`}
+                                  >
+                                    {m.status?.replace('_', ' ')}
+                                  </span>
+                                </div>
+                                <strong className="block text-slate-900 font-semibold truncate">{m.title}</strong>
+                                <div className="mt-2 space-y-1">
+                                  <div className="flex justify-between text-[10px] text-slate-500">
+                                    <span>Progress</span>
+                                    <span>{m.progressPercent}%</span>
+                                  </div>
+                                  <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                    <div className="h-full bg-[#0F254B] rounded-full" style={{ width: `${m.progressPercent}%` }} />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. INVOICES & BILLING SUBSECTION */}
+                      <div className="space-y-3 pt-2 border-t border-slate-100">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            Billing & Tax Invoices ({invoices.length})
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPayProjectId(p._id);
+                              setShowPaymentModal(true);
+                            }}
+                            className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Submit Transfer Proof</span>
+                          </button>
+                        </div>
+                        {invoices.length === 0 ? (
+                          <p className="text-xs text-slate-400 py-2">No invoices generated yet for this site.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {invoices.map((inv: any) => (
+                              <div key={inv._id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center text-xs">
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <strong className="text-slate-900 font-bold font-mono">{inv.invoiceNumber}</strong>
+                                    <span
+                                      className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
+                                        inv.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                      }`}
+                                    >
+                                      {inv.status}
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                                    Total: <strong>{formatINR(inv.totalAmountPaise)}</strong> • Due: {formatINR(inv.dueAmountPaise)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedDocForModal({ type: 'invoice', data: inv });
+                                      setShowDocModal(true);
+                                    }}
+                                    className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-200"
+                                    title="Live View"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                  <a
+                                    href={`/api/v1/finance/invoices/${inv._id}/pdf`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50"
+                                    title="Download PDF"
+                                  >
+                                    <FileDown className="w-3.5 h-3.5" />
+                                  </a>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 4. QUICK ACTIONS ROW */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFeedbackProjectId(p._id);
+                              setFeedbackCategory('site_visit_request');
+                              setFeedbackSubject(`Site Inspection Visit - ${p.projectId}`);
+                              setShowFeedbackModal(true);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold flex items-center gap-1.5"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-[#D6A21D]" />
+                            <span>Request Site Visit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFeedbackProjectId(p._id);
+                              setFeedbackCategory('additional_requirement');
+                              setFeedbackSubject(`Estimation / Scope Inquiry - ${p.projectId}`);
+                              setShowFeedbackModal(true);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold flex items-center gap-1.5"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Scope Inquiry</span>
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedProjectId(p._id);
+                            setProjectData(pd);
+                            setViewMode('single');
+                            setActivePortalTab('quotations');
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-[#0F254B] hover:underline flex items-center gap-1"
+                        >
+                          <span>Detailed Quotation & Milestone Workspace →</span>
+                        </button>
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            ) : (
               <>
+                {/* Project Hero Banner & Quick Actions */}
+                {projectData?.project && activePortalTab !== 'profile' && (
+                  <>
                 <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-subtle space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
@@ -540,6 +1093,7 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
             <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
               {[
                 { id: 'overview', label: 'Stages & Milestones' },
+                { id: 'quotations', label: `Quotations & Scope (${projectData.quotations?.length || 0})` },
                 { id: 'photos', label: `Verified Photos (${projectData.publishedReports?.length || 0})` },
                 { id: 'billing', label: 'Invoices & Bank Transfer' },
                 { id: 'feedback', label: `Queries & Requests (${projectData.feedbackTickets?.length || 0})` },
@@ -619,6 +1173,200 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* TAB: QUOTATIONS & SCOPE */}
+            {activePortalTab === 'quotations' && (
+              <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-subtle space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2.5 bg-blue-100 text-[#0F254B] rounded-xl">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-heading font-bold text-brand-navy-950">
+                        Project Quotation & Scope of Work
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Official civil, architectural & BOQ estimation approved for {projectData.project?.title}.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-blue-900 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                    {projectData.quotations?.length || 0} Official {projectData.quotations?.length === 1 ? 'Quotation' : 'Quotations'}
+                  </span>
+                </div>
+
+                {projectData.quotations?.length === 0 ? (
+                  <div className="p-12 text-center text-xs text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                    <FileText className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="font-semibold text-slate-700">No quotation published yet for this project.</p>
+                    <p className="text-slate-500 max-w-md mx-auto">
+                      Our engineering and estimating team is currently finalizing the detailed itemized scope. Please check back shortly or submit an inquiry to our site engineer.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {projectData.quotations.map((q: any) => {
+                      const isExpanded = !!expandedScopeItems[q._id];
+                      return (
+                        <div
+                          key={q._id}
+                          className="p-6 rounded-2xl border-2 border-slate-200 bg-white hover:border-[#0F254B]/40 transition-all space-y-4 shadow-sm"
+                        >
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono font-bold text-base text-[#0F254B]">
+                                  {q.quotationNumber}
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                  Rev #{q.revisionNumber || 1}
+                                </span>
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  {q.status}
+                                </span>
+                                {q.isNegotiated && (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                    🤝 Negotiated
+                                  </span>
+                                )}
+                              </div>
+                              <h4 className="text-base font-bold text-slate-900 mt-1.5">
+                                {q.subject || q.projectTitle || projectData.project?.title}
+                              </h4>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Issued: {new Date(q.createdAt).toLocaleDateString('en-IN', { dateStyle: 'long' })} • {q.items?.length || 0} scope items
+                              </p>
+                            </div>
+
+                            <div className="text-right space-y-1 sm:border-l sm:border-slate-100 sm:pl-6 shrink-0">
+                              <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                                Grand Total (Inc. 18% GST)
+                              </span>
+                              <p className="text-2xl font-heading font-extrabold text-[#0F254B] font-mono">
+                                {formatINR(q.totalAmountPaise)}
+                              </p>
+                              {q.cgstPaise && (
+                                <span className="text-[10px] text-slate-400 block font-mono">
+                                  CGST 9% + SGST 9%: {formatINR(q.cgstPaise * 2)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick Document Actions */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleScopeExpand(q._id)}
+                              className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1.5 py-1"
+                            >
+                              <span>{isExpanded ? 'Hide Itemized BOQ Scope' : `View Itemized BOQ Scope (${q.items?.length || 0} Items)`}</span>
+                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedDocForModal({ type: 'quotation', data: q });
+                                  setShowDocModal(true);
+                                }}
+                                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#0F254B] text-white hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm"
+                                title="Open Online GKA Document Preview"
+                              >
+                                <Eye className="w-4 h-4 text-[#D6A21D]" />
+                                <span>Live Preview</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  downloadFile(
+                                    `/quotations/${q._id}/pdf`,
+                                    `GKA_Quotation_${q.quotationNumber}.pdf`,
+                                    true
+                                  )
+                                }
+                                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-[#0F254B] hover:bg-slate-100 border border-slate-300 transition-colors flex items-center gap-1.5 shadow-sm"
+                                title="Download Official Signed PDF"
+                              >
+                                <FileDown className="w-4 h-4 text-[#D6A21D]" />
+                                <span>Official PDF</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  downloadFile(
+                                    `/quotations/${q._id}/docx`,
+                                    `GKA_Quotation_${q.quotationNumber}.docx`,
+                                    false
+                                  )
+                                }
+                                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-blue-700 hover:bg-blue-50 border border-blue-200 transition-colors flex items-center gap-1.5"
+                                title="Download Word DOCX"
+                              >
+                                <FileText className="w-4 h-4" />
+                                <span>Editable DOCX</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* BOQ Items Breakdown Table */}
+                          {isExpanded && q.items && q.items.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-slate-200 overflow-x-auto bg-slate-50 p-4 rounded-xl">
+                              <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                                Bill of Quantities (BOQ) Scope Items
+                              </h5>
+                              <table className="w-full text-left text-xs bg-white rounded-lg border border-slate-200 overflow-hidden">
+                                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
+                                  <tr>
+                                    <th className="py-2.5 px-3">#</th>
+                                    <th className="py-2.5 px-3">Scope Description</th>
+                                    <th className="py-2.5 px-3">Category</th>
+                                    <th className="py-2.5 px-3 text-right">Quantity</th>
+                                    <th className="py-2.5 px-3">Unit</th>
+                                    <th className="py-2.5 px-3 text-right">Unit Rate</th>
+                                    <th className="py-2.5 px-3 text-right">Total Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {q.items.map((item: any, idx: number) => (
+                                    <tr key={idx} className="hover:bg-slate-50/70">
+                                      <td className="py-2.5 px-3 text-slate-400 font-mono">{idx + 1}</td>
+                                      <td className="py-2.5 px-3 font-semibold text-slate-900">{item.description}</td>
+                                      <td className="py-2.5 px-3 capitalize text-slate-600">{item.category}</td>
+                                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-800">{item.quantity}</td>
+                                      <td className="py-2.5 px-3 text-slate-500">{item.unit}</td>
+                                      <td className="py-2.5 px-3 text-right font-mono text-slate-700">{formatINR(item.unitRatePaise)}</td>
+                                      <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0F254B]">{formatINR(item.amountPaise)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+
+                              {q.termsAndConditions && q.termsAndConditions.length > 0 && (
+                                <div className="mt-4 pt-3 border-t border-slate-200 text-[11px] text-slate-600 space-y-1">
+                                  <strong className="block text-slate-800 uppercase tracking-wider text-[10px]">
+                                    Terms & Conditions:
+                                  </strong>
+                                  <ul className="list-disc list-inside space-y-0.5 text-slate-500">
+                                    {q.termsAndConditions.map((t: string, i: number) => (
+                                      <li key={i}>{t}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1288,6 +2036,8 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
             )}
           </>
         )}
+        </>
+      )}
       </main>
 
       {/* MODAL: Submit Bank Transfer Claim */}
@@ -1451,6 +2201,48 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Live Document Preview (Quotation / Invoice) */}
+      {showDocModal && selectedDocForModal && (
+        <div className="fixed inset-0 z-50 bg-[#0F254B]/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="relative w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setShowDocModal(false)}
+              className="absolute top-4 right-4 z-20 p-2 rounded-full bg-slate-900 text-white hover:bg-slate-800"
+              title="Close Preview"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <DocumentVisualView
+              type={selectedDocForModal.type}
+              data={selectedDocForModal.data}
+              onDownloadPdf={() => {
+                const endpoint =
+                  selectedDocForModal.type === 'quotation'
+                    ? `/quotations/${selectedDocForModal.data._id}/pdf`
+                    : `/finance/invoices/${selectedDocForModal.data._id}/pdf`;
+                const filename =
+                  selectedDocForModal.type === 'quotation'
+                    ? `GKA_Quotation_${selectedDocForModal.data.quotationNumber}.pdf`
+                    : `GKA_Invoice_${selectedDocForModal.data.invoiceNumber}.pdf`;
+                downloadFile(endpoint, filename, true);
+              }}
+              onDownloadDocx={() => {
+                const endpoint =
+                  selectedDocForModal.type === 'quotation'
+                    ? `/quotations/${selectedDocForModal.data._id}/docx`
+                    : `/finance/invoices/${selectedDocForModal.data._id}/docx`;
+                const filename =
+                  selectedDocForModal.type === 'quotation'
+                    ? `GKA_Quotation_${selectedDocForModal.data.quotationNumber}.docx`
+                    : `GKA_Invoice_${selectedDocForModal.data.invoiceNumber}.docx`;
+                downloadFile(endpoint, filename, false);
+              }}
+            />
           </div>
         </div>
       )}
