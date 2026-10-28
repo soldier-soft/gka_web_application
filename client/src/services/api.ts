@@ -309,6 +309,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data || {}),
     }),
+  deleteQuotation: (id: string) =>
+    request<{ success: boolean; message: string; quotation: any }>(`/quotations/${id}`, {
+      method: 'DELETE',
+    }),
+  restoreQuotation: (id: string) =>
+    request<{ success: boolean; message: string; quotation: any }>(`/quotations/${id}/restore`, {
+      method: 'POST',
+    }),
+  permanentDeleteQuotation: (id: string) =>
+    request<{ success: boolean; message: string }>(`/quotations/${id}/permanent`, {
+      method: 'DELETE',
+    }),
 
   // Site Operations
   getSiteReports: (params?: Record<string, string>) => {
@@ -373,6 +385,18 @@ export const api = {
     request<{ success: boolean; message: string; invoice: any }>(`/finance/invoices/${id}/gst-toggle`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    }),
+  deleteInvoice: (id: string) =>
+    request<{ success: boolean; message: string; invoice: any }>(`/finance/invoices/${id}`, {
+      method: 'DELETE',
+    }),
+  restoreInvoice: (id: string) =>
+    request<{ success: boolean; message: string; invoice: any }>(`/finance/invoices/${id}/restore`, {
+      method: 'POST',
+    }),
+  permanentDeleteInvoice: (id: string) =>
+    request<{ success: boolean; message: string }>(`/finance/invoices/${id}/permanent`, {
+      method: 'DELETE',
     }),
   getExpenses: (params?: Record<string, string>) => {
     const q = params ? '?' + new URLSearchParams(params).toString() : '';

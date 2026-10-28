@@ -331,6 +331,8 @@ export interface IInvoice {
     branch: string;
     upiId?: string;
   };
+  isDeleted?: boolean;
+  deletedAt?: string | Date;
   createdAt: string;
   updatedAt: string;
 }

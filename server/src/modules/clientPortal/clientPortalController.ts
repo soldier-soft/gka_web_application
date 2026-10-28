@@ -93,9 +93,10 @@ export const getClientProjectDetails = async (req: Request, res: Response, next:
       isPublishedToClient: true,
     }).sort({ reportDate: -1 });
 
-    // Client Invoices (Drafts hidden)
+    // Client Invoices (Drafts hidden and deleted hidden)
     const invoices = await Invoice.find({
       projectId: project._id,
+      isDeleted: { $ne: true },
       status: { $ne: 'draft' },
     }).sort({ issueDate: -1 });
 
@@ -104,9 +105,10 @@ export const getClientProjectDetails = async (req: Request, res: Response, next:
       projectId: project._id,
     }).sort({ paymentDate: -1 });
 
-    // Approved Quotations
+    // Approved Quotations (deleted hidden)
     const quotations = await Quotation.find({
       projectId: project._id,
+      isDeleted: { $ne: true },
       status: { $in: ['sent', 'approved'] },
     }).sort({ createdAt: -1 });
 

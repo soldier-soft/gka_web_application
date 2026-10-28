@@ -15,21 +15,32 @@ import { DEFAULT_INVOICE_TERMS, formatClientPortalUsername } from '../../shared/
 
 export const getInvoices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { projectId, clientId, status } = req.query;
+    // Automatic cleanup: permanently purge soft-deleted invoices older than 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    await Invoice.deleteMany({ isDeleted: true, deletedAt: { $lte: thirtyDaysAgo } });
+
+    const { projectId, clientId, status, deleted } = req.query;
     const filter: any = {};
     if (projectId) filter.projectId = projectId;
     if (clientId) filter.clientId = clientId;
     if (status) filter.status = status;
 
+    if (deleted === 'true') {
+      filter.isDeleted = true;
+    } else {
+      filter.isDeleted = { $ne: true };
+    }
+
     if (req.user?.role === 'client' && req.user.clientId) {
       filter.clientId = req.user.clientId;
       filter.status = { $ne: 'draft' };
+      filter.isDeleted = { $ne: true };
     }
 
     const invoices = await Invoice.find(filter)
       .populate('projectId', 'title projectId')
       .populate('clientId', 'name phone email')
-      .sort({ issueDate: -1 });
+      .sort({ updatedAt: -1, issueDate: -1 });
 
     res.json({ success: true, count: invoices.length, invoices });
   } catch (error) {
@@ -400,6 +411,91 @@ export const toggleInvoiceGst = async (req: Request, res: Response, next: NextFu
       success: true,
       message: `Invoice ${invoice.invoiceNumber} GST status updated to ${isFiled ? 'FILED' : 'UNFILED'}.`,
       invoice,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const invoice = await Invoice.findById(id);
+    if (!invoice) {
+      res.status(404).json({ success: false, message: 'Invoice not found' });
+      return;
+    }
+
+    invoice.isDeleted = true;
+    invoice.deletedAt = new Date();
+    await invoice.save();
+
+    // Recalculate project invoiced amounts
+    if (invoice.projectId) {
+      const activeInvoices = await Invoice.find({ projectId: invoice.projectId, isDeleted: { $ne: true } });
+      const totalInvoiced = activeInvoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
+      await Project.findByIdAndUpdate(invoice.projectId, { invoicedAmountPaise: totalInvoiced });
+    }
+
+    res.json({
+      success: true,
+      message: 'Bill / Tax Invoice moved to Recycle Bin. It will be automatically removed after 30 days unless restored.',
+      invoice,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const restoreInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const invoice = await Invoice.findById(id);
+    if (!invoice) {
+      res.status(404).json({ success: false, message: 'Invoice not found' });
+      return;
+    }
+
+    invoice.isDeleted = false;
+    invoice.deletedAt = undefined as any;
+    await invoice.save();
+
+    // Recalculate project invoiced amounts
+    if (invoice.projectId) {
+      const activeInvoices = await Invoice.find({ projectId: invoice.projectId, isDeleted: { $ne: true } });
+      const totalInvoiced = activeInvoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
+      await Project.findByIdAndUpdate(invoice.projectId, { invoicedAmountPaise: totalInvoiced });
+    }
+
+    res.json({
+      success: true,
+      message: 'Bill / Tax Invoice restored from Recycle Bin successfully.',
+      invoice,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const permanentDeleteInvoice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const invoice = await Invoice.findByIdAndDelete(id);
+    if (!invoice) {
+      res.status(404).json({ success: false, message: 'Invoice not found' });
+      return;
+    }
+
+    // Recalculate project invoiced amounts
+    if (invoice.projectId) {
+      const activeInvoices = await Invoice.find({ projectId: invoice.projectId, isDeleted: { $ne: true } });
+      const totalInvoiced = activeInvoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
+      await Project.findByIdAndUpdate(invoice.projectId, { invoicedAmountPaise: totalInvoiced });
+    }
+
+    res.json({
+      success: true,
+      message: 'Bill / Tax Invoice permanently removed from database.',
     });
   } catch (error) {
     next(error);

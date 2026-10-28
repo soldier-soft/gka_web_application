@@ -61,6 +61,13 @@ export const InvoicesPage: React.FC = () => {
   const [gstModalPeriod, setGstModalPeriod] = useState('2026-10');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Recycle Bin State
+  const [showRecycleBin, setShowRecycleBin] = useState(false);
+  const [recycleInvoices, setRecycleInvoices] = useState<any[]>([]);
+  const [deletingInvId, setDeletingInvId] = useState<string | null>(null);
+  const [restoringInvId, setRestoringInvId] = useState<string | null>(null);
+  const [permanentDeletingInvId, setPermanentDeletingInvId] = useState<string | null>(null);
+
   // New Invoice form state (clean live application default)
   const [invProject, setInvProject] = useState('');
   const [invClientName, setInvClientName] = useState('');
@@ -113,13 +120,15 @@ export const InvoicesPage: React.FC = () => {
   const fetchInvoiceData = async () => {
     try {
       setLoading(true);
-      const [invRes, projRes, quoRes] = await Promise.all([
+      const [invRes, projRes, quoRes, recRes] = await Promise.all([
         api.getInvoices(),
         api.getProjects(),
         api.getQuotations({ status: 'approved' }).catch(() => ({ success: false, quotations: [] })),
+        api.getInvoices({ deleted: 'true' }).catch(() => ({ success: false, invoices: [] })),
       ]);
 
       if (invRes.success) setInvoices(invRes.invoices);
+      if (recRes.success && Array.isArray(recRes.invoices)) setRecycleInvoices(recRes.invoices);
       if (projRes.success) {
         setProjects(projRes.projects);
         if (projRes.projects.length > 0 && !invProject) {
@@ -305,6 +314,62 @@ export const InvoicesPage: React.FC = () => {
       alert(err.message || 'Error converting quotation to invoice');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteInvoice = async (inv: any) => {
+    if (
+      !window.confirm(
+        `Move Tax Invoice / Bill "${inv.invoiceNumber}" to Recycle Bin?\n\nIt will be preserved in the Recycle Bin for 30 days before being automatically removed permanently. You can restore it anytime.`
+      )
+    ) {
+      return;
+    }
+    try {
+      setDeletingInvId(inv._id);
+      const res = await api.deleteInvoice(inv._id);
+      if (res.success) {
+        fetchInvoiceData();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error moving invoice to recycle bin');
+    } finally {
+      setDeletingInvId(null);
+    }
+  };
+
+  const handleRestoreInvoice = async (invId: string) => {
+    try {
+      setRestoringInvId(invId);
+      const res = await api.restoreInvoice(invId);
+      if (res.success) {
+        fetchInvoiceData();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error restoring invoice');
+    } finally {
+      setRestoringInvId(null);
+    }
+  };
+
+  const handlePermanentDeleteInvoice = async (inv: any) => {
+    if (
+      !window.confirm(
+        `PERMANENTLY DELETE Tax Invoice / Bill "${inv.invoiceNumber}"?\n\n⚠️ WARNING: This will permanently erase this invoice record and its associated financial ledger entries immediately. This action CANNOT be undone!`
+      )
+    ) {
+      return;
+    }
+    try {
+      setPermanentDeletingInvId(inv._id);
+      const res = await api.permanentDeleteInvoice(inv._id);
+      if (res.success) {
+        fetchInvoiceData();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error permanently deleting invoice');
+    } finally {
+      setPermanentDeletingInvId(null);
     }
   };
 
@@ -528,8 +593,44 @@ export const InvoicesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Filters & Search */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-subtle flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between text-xs">
+      {/* View Switcher: Active vs Recycle Bin */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowRecycleBin(false)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              !showRecycleBin
+                ? 'bg-[#0F254B] text-white shadow-sm'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>Active Tax Invoices ({invoices.length})</span>
+          </button>
+          <button
+            onClick={() => setShowRecycleBin(true)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              showRecycleBin
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
+            }`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Recycle Bin ({recycleInvoices.length})</span>
+          </button>
+        </div>
+
+        {showRecycleBin && (
+          <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 flex items-center gap-1.5">
+            <span>⏱️ 30-Day Auto Permanent Purge Active</span>
+          </span>
+        )}
+      </div>
+
+      {!showRecycleBin ? (
+        <>
+          {/* 3. Filters & Search */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-subtle flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between text-xs">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
@@ -757,6 +858,17 @@ export const InvoicesPage: React.FC = () => {
                           >
                             <Share2 className="w-3.5 h-3.5" />
                           </button>
+
+                          {/* Move to Recycle Bin */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteInvoice(inv)}
+                            disabled={deletingInvId === inv._id}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Move to Recycle Bin (Stored safely for 30 days before auto-purge)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -767,6 +879,127 @@ export const InvoicesPage: React.FC = () => {
           </div>
         )}
       </div>
+        </>
+      ) : (
+        <div className="space-y-4">
+          {/* Recycle Bin Notice Banner */}
+          <div className="p-4 bg-gradient-to-r from-rose-50 to-orange-50 border border-rose-200 rounded-2xl flex items-start justify-between gap-3 text-xs">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-rose-100 rounded-xl text-rose-700 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <strong className="text-rose-950 block font-heading text-sm">
+                  Tax Invoices & Bills Recycle Bin (30-Day Auto Purge Policy)
+                </strong>
+                <p className="text-rose-800 mt-0.5 leading-relaxed">
+                  Invoices and bills moved to the Recycle Bin are safely stored here for <strong>30 days</strong>. If not restored within 30 days, they will be <strong>automatically and permanently erased</strong> by the database scheduler. You can restore them anytime or erase them immediately.
+                </p>
+              </div>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-rose-200 text-rose-900 font-bold font-mono text-[11px] shrink-0 border border-rose-300">
+              {recycleInvoices.length} in bin
+            </span>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
+            {loading ? (
+              <div className="p-12 text-center text-xs text-slate-400">Loading recycle bin...</div>
+            ) : recycleInvoices.length === 0 ? (
+              <div className="p-12 text-center text-xs text-slate-400">
+                Recycle Bin is empty. No deleted tax invoices or bills.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="py-3.5 px-4">Invoice #</th>
+                      <th className="py-3.5 px-4">Client & Project</th>
+                      <th className="py-3.5 px-4 font-mono">Total (Inc. 18% GST)</th>
+                      <th className="py-3.5 px-4 text-center">Status</th>
+                      <th className="py-3.5 px-4 text-center">Auto-Purge Timeline</th>
+                      <th className="py-3.5 px-4 text-right">Recycle Bin Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {recycleInvoices.map((inv) => {
+                      const deletedTime = new Date(inv.deletedAt || inv.updatedAt).getTime();
+                      const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - deletedTime) / (1000 * 60 * 60 * 24)));
+                      const isPaid = inv.status === 'paid';
+                      const isPartiallyPaid = inv.status === 'partially_paid';
+
+                      return (
+                        <tr key={inv._id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3.5 px-4 font-mono font-bold text-[#0F254B]">
+                            <span>{inv.invoiceNumber}</span>
+                            <span className="block text-[10px] text-slate-400 font-normal">
+                              Deleted: {new Date(inv.deletedAt || inv.updatedAt).toLocaleDateString('en-IN')}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <strong className="text-slate-900 block">{inv.projectTitle || inv.projectId?.title || 'Standalone Invoice'}</strong>
+                            <span className="text-slate-500 text-[11px] block">{inv.clientCompany || inv.clientName || inv.clientId?.name}</span>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-sm text-[#0F254B]">
+                            {formatINR(inv.totalAmountPaise)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                isPaid
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : isPartiallyPaid
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {inv.status ? inv.status.toUpperCase() : 'ISSUED'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border ${
+                                daysLeft <= 5
+                                  ? 'bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
+                                  : 'bg-amber-100 text-amber-800 border-amber-300'
+                              }`}
+                            >
+                              ⏳ Purges in {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleRestoreInvoice(inv._id)}
+                                disabled={restoringInvId === inv._id}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5"
+                                title="Restore invoice back to active ledger"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>{restoringInvId === inv._id ? 'Restoring...' : 'Restore'}</span>
+                              </button>
+                              <button
+                                onClick={() => handlePermanentDeleteInvoice(inv)}
+                                disabled={permanentDeletingInvId === inv._id}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5"
+                                title="Permanently erase from database immediately"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>{permanentDeletingInvId === inv._id ? 'Erasing...' : 'Delete Permanently'}</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 5. Live Document Preview Modal */}
       {showPreviewModal && selectedInvoice && (

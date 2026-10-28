@@ -73,6 +73,7 @@ export const getProjectById = async (req: Request, res: Response, next: NextFunc
 
     const invoices = await Invoice.find({
       projectId: project._id,
+      isDeleted: { $ne: true },
       ...(isClientRole ? { status: { $ne: 'draft' } } : {}),
     }).sort({ issueDate: -1 });
 
@@ -83,6 +84,7 @@ export const getProjectById = async (req: Request, res: Response, next: NextFunc
 
     const quotations = await Quotation.find({
       projectId: project._id,
+      isDeleted: { $ne: true },
       ...(isClientRole ? { status: { $in: ['sent', 'approved'] } } : {}),
     }).sort({ createdAt: -1 });
 
@@ -285,8 +287,8 @@ export const downloadProjectWelcomePDF = async (req: Request, res: Response, nex
     }
 
     // Retrieve attached quotations and invoices for this project
-    const quotations = await Quotation.find({ projectId: project._id }).sort({ createdAt: -1 });
-    const invoices = await Invoice.find({ projectId: project._id }).sort({ issueDate: -1 });
+    const quotations = await Quotation.find({ projectId: project._id, isDeleted: { $ne: true } }).sort({ createdAt: -1 });
+    const invoices = await Invoice.find({ projectId: project._id, isDeleted: { $ne: true } }).sort({ issueDate: -1 });
 
     const host = req.get('host') || 'www.gkaconstruction.com';
     const isLocal = host.includes('localhost') || host.includes('127.0.0.1');

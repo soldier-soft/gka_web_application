@@ -44,6 +44,8 @@ export interface IInvoiceDocument extends Document {
     branch: string;
     upiId?: string;
   };
+  isDeleted?: boolean;
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -107,8 +109,19 @@ const InvoiceSchema = new Schema<IInvoiceDocument>(
       branch: { type: String, default: GKA_COMPANY.bankDetails.branch },
       upiId: { type: String, default: GKA_COMPANY.bankDetails.upiId },
     },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null, index: true },
   },
   { timestamps: true }
+);
+
+// Auto-purge soft-deleted invoices after 30 days (30 * 24 * 60 * 60 = 2,592,000 seconds)
+InvoiceSchema.index(
+  { deletedAt: 1 },
+  {
+    expireAfterSeconds: 30 * 24 * 60 * 60,
+    partialFilterExpression: { isDeleted: true },
+  }
 );
 
 export const Invoice = mongoose.model<IInvoiceDocument>('Invoice', InvoiceSchema);

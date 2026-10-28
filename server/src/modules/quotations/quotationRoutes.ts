@@ -9,6 +9,9 @@ import {
   downloadQuotationDOCX,
   convertToInvoice,
   updateQuotation,
+  deleteQuotation,
+  restoreQuotation,
+  permanentDeleteQuotation,
 } from './quotationController';
 import { authenticate, optionalAuthenticate } from '../../middleware/auth';
 import { requireRoles } from '../../middleware/roleCheck';
@@ -31,5 +34,8 @@ router.put('/:id', requireRoles('super_admin', 'project_manager'), updateQuotati
 router.patch('/:id', requireRoles('super_admin', 'project_manager'), updateQuotation);
 router.post('/:id/approve', requireRoles('super_admin', 'project_manager'), approveQuotation);
 router.post('/:id/convert-to-invoice', requireRoles('super_admin', 'project_manager', 'accounts'), convertToInvoice);
+router.delete('/:id', requireRoles('super_admin', 'project_manager'), deleteQuotation);
+router.post('/:id/restore', requireRoles('super_admin', 'project_manager'), restoreQuotation);
+router.delete('/:id/permanent', requireRoles('super_admin'), permanentDeleteQuotation);
 
 export default router;

@@ -16,22 +16,33 @@ export const getRateLibrary = async (req: Request, res: Response): Promise<void>
 
 export const getQuotations = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { projectId, clientId, status } = req.query;
+    // Automatic cleanup: permanently purge soft-deleted quotations older than 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    await Quotation.deleteMany({ isDeleted: true, deletedAt: { $lte: thirtyDaysAgo } });
+
+    const { projectId, clientId, status, deleted } = req.query;
     const filter: any = {};
     if (projectId) filter.projectId = projectId;
     if (clientId) filter.clientId = clientId;
     if (status) filter.status = status;
 
-    // For clients, restrict to their client ID
+    if (deleted === 'true') {
+      filter.isDeleted = true;
+    } else {
+      filter.isDeleted = { $ne: true };
+    }
+
+    // For clients, restrict to their client ID and hide drafts
     if (req.user?.role === 'client' && req.user.clientId) {
       filter.clientId = req.user.clientId;
       filter.status = { $in: ['sent', 'approved', 'revised'] }; // Drafts hidden from client
+      filter.isDeleted = { $ne: true };
     }
 
     const quotations = await Quotation.find(filter)
       .populate('projectId', 'projectId title siteAddress')
       .populate('clientId', 'name email phone companyName billingAddress')
-      .sort({ createdAt: -1 });
+      .sort({ updatedAt: -1, createdAt: -1 });
     res.json({ success: true, count: quotations.length, quotations });
   } catch (error) {
     next(error);
@@ -551,6 +562,70 @@ export const updateQuotation = async (req: Request, res: Response, next: NextFun
 
     await quotation.save();
     res.json({ success: true, message: 'Quotation updated successfully', quotation });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteQuotation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const quotation = await Quotation.findById(id);
+    if (!quotation) {
+      res.status(404).json({ success: false, message: 'Quotation not found' });
+      return;
+    }
+
+    quotation.isDeleted = true;
+    quotation.deletedAt = new Date();
+    await quotation.save();
+
+    res.json({
+      success: true,
+      message: 'Quotation moved to Recycle Bin. It will be automatically removed after 30 days unless restored.',
+      quotation,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const restoreQuotation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const quotation = await Quotation.findById(id);
+    if (!quotation) {
+      res.status(404).json({ success: false, message: 'Quotation not found' });
+      return;
+    }
+
+    quotation.isDeleted = false;
+    quotation.deletedAt = undefined as any;
+    await quotation.save();
+
+    res.json({
+      success: true,
+      message: 'Quotation restored from Recycle Bin successfully.',
+      quotation,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const permanentDeleteQuotation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const quotation = await Quotation.findByIdAndDelete(id);
+    if (!quotation) {
+      res.status(404).json({ success: false, message: 'Quotation not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Quotation permanently removed from database.',
+    });
   } catch (error) {
     next(error);
   }

@@ -37,6 +37,13 @@ export const QuotationsPage: React.FC = () => {
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Recycle Bin State
+  const [showRecycleBin, setShowRecycleBin] = useState(false);
+  const [recycleQuotations, setRecycleQuotations] = useState<any[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [permanentDeletingId, setPermanentDeletingId] = useState<string | null>(null);
+
   // New Quotation form state (clean live application default)
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [quotationNumber, setQuotationNumber] = useState('GKA-QUO-2026-001');
@@ -83,15 +90,19 @@ export const QuotationsPage: React.FC = () => {
   const fetchQuotationsAndProjects = async () => {
     try {
       setLoading(true);
-      const [quoRes, projRes] = await Promise.all([
+      const [quoRes, projRes, recRes] = await Promise.all([
         api.getQuotations(),
         api.getProjects().catch(() => ({ success: false, projects: [] })),
+        api.getQuotations({ deleted: 'true' }).catch(() => ({ success: false, quotations: [] })),
       ]);
       if (quoRes.success) {
         setQuotations(quoRes.quotations);
       }
       if (projRes.success && Array.isArray(projRes.projects)) {
         setProjects(projRes.projects);
+      }
+      if (recRes.success && Array.isArray(recRes.quotations)) {
+        setRecycleQuotations(recRes.quotations);
       }
     } catch (error) {
       console.error('Error fetching quotations & projects:', error);
@@ -272,6 +283,62 @@ export const QuotationsPage: React.FC = () => {
     }
   };
 
+  const handleDeleteQuotation = async (quotation: any) => {
+    if (
+      !window.confirm(
+        `Move Quotation "${quotation.quotationNumber}" to Recycle Bin?\n\nIt will be preserved in the Recycle Bin for 30 days before being automatically removed permanently. You can restore it anytime.`
+      )
+    ) {
+      return;
+    }
+    try {
+      setDeletingId(quotation._id);
+      const res = await api.deleteQuotation(quotation._id);
+      if (res.success) {
+        fetchQuotationsAndProjects();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error moving quotation to recycle bin');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleRestoreQuotation = async (quotationId: string) => {
+    try {
+      setRestoringId(quotationId);
+      const res = await api.restoreQuotation(quotationId);
+      if (res.success) {
+        fetchQuotationsAndProjects();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error restoring quotation');
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  const handlePermanentDeleteQuotation = async (quotation: any) => {
+    if (
+      !window.confirm(
+        `PERMANENTLY DELETE Quotation "${quotation.quotationNumber}"?\n\n⚠️ WARNING: This will permanently erase this quotation from the database immediately. This action CANNOT be undone!`
+      )
+    ) {
+      return;
+    }
+    try {
+      setPermanentDeletingId(quotation._id);
+      const res = await api.permanentDeleteQuotation(quotation._id);
+      if (res.success) {
+        fetchQuotationsAndProjects();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error permanently deleting quotation');
+    } finally {
+      setPermanentDeletingId(null);
+    }
+  };
+
   // Open Edit Quotation Modal
   const handleOpenEditQuotation = (q: any) => {
     setEditingQuotation(q);
@@ -415,191 +482,342 @@ export const QuotationsPage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-4 py-2 rounded-lg text-xs font-bold bg-[#0F254B] text-white hover:bg-[#1E3A8A] transition-colors shadow-sm flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4 text-[#D6A21D]" />
-          <span>New Quotation</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-[#0F254B] text-white hover:bg-[#1E3A8A] transition-colors shadow-sm flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4 text-[#D6A21D]" />
+            <span>New Quotation</span>
+          </button>
+        </div>
       </div>
 
-      {/* Quotations List */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-xs text-slate-400">Loading quotations...</div>
-        ) : quotations.length === 0 ? (
-          <div className="p-12 text-center text-xs text-slate-400">No quotations generated yet.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                <tr>
-                  <th className="py-3.5 px-4">Quotation #</th>
-                  <th className="py-3.5 px-4">Client & Subject Scope</th>
-                  <th className="py-3.5 px-4">Items Count</th>
-                  <th className="py-3.5 px-4 font-mono">Grand Total (Inc. 18% GST)</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">PDF, DOCX & Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {quotations.map((q) => (
-                  <tr key={q._id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-[#0F254B]">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>{q.quotationNumber}</span>
-                        {q.isNegotiated && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                            🤝 Negotiated
-                          </span>
-                        )}
-                      </div>
-                      <span className="block text-[10px] text-slate-400 font-normal">
-                        Rev #{q.revisionNumber} • {new Date(q.createdAt).toLocaleDateString('en-IN')}
-                      </span>
-                    </td>
+      {/* View Tabs: Active Quotations vs Recycle Bin */}
+      <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowRecycleBin(false)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              !showRecycleBin
+                ? 'bg-[#0F254B] text-white shadow-sm'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Active Quotations ({quotations.length})</span>
+          </button>
+          <button
+            onClick={() => setShowRecycleBin(true)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              showRecycleBin
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
+            }`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Recycle Bin ({recycleQuotations.length})</span>
+          </button>
+        </div>
 
-                    <td className="py-3.5 px-4">
-                      <strong className="text-slate-900 block">{q.projectTitle}</strong>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-slate-500 text-[11px]">
-                          {q.clientCompany || q.clientName}
-                        </span>
-                        {(q.clientGstin || q.clientId?.billingAddress?.gstin || q.clientId?.gstin) && (
-                          <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-900 border border-blue-200 font-mono text-[9px] font-bold">
-                            GST: {q.clientGstin || q.clientId?.billingAddress?.gstin || q.clientId?.gstin}
-                          </span>
-                        )}
-                      </div>
-                      {q.projectId ? (
-                        <Link
-                          to={`/admin/projects/${q.projectId?._id || q.projectId}?tab=quotations`}
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline mt-0.5"
-                        >
-                          <span>Open Project Workspace</span>
-                          <ArrowRight className="w-2.5 h-2.5" />
-                        </Link>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 block mt-0.5">Standalone / Unlinked</span>
-                      )}
-                      {q.subject && (
-                        <span className="text-[10px] text-slate-400 italic line-clamp-1 mt-0.5">
-                          "{q.subject}"
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-slate-600 font-semibold">
-                      {q.items?.length || 0} scope items
-                    </td>
-
-                    <td className="py-3.5 px-4 font-mono font-bold text-sm text-[#0F254B]">
-                      {formatINR(q.totalAmountPaise)}
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${
-                          q.status === 'approved'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {q.status}
-                      </span>
-                      {q.convertedToBudget && (
-                        <span className="block text-[10px] text-emerald-600 font-semibold mt-0.5">
-                          ✓ Linked to Project
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* Live Preview Button */}
-                        <button
-                          onClick={() => {
-                            setSelectedQuotation(q);
-                            setShowPreviewModal(true);
-                          }}
-                          className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-100"
-                          title="Live Preview GKA Format"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Edit Quotation Button */}
-                        <button
-                          onClick={() => handleOpenEditQuotation(q)}
-                          className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-100"
-                          title="Edit Quotation Parameters & Line Items"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* PDF Download */}
-                        <a
-                          href={getFileUrl(`/api/v1/quotations/${q._id}/pdf`)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-1.5 rounded-lg text-[#0F254B] hover:bg-slate-100 font-bold"
-                          title="Download Official PDF"
-                        >
-                          <FileDown className="w-3.5 h-3.5" />
-                        </a>
-
-                        {/* DOCX Download */}
-                        <a
-                          href={getFileUrl(`/api/v1/quotations/${q._id}/docx`)}
-                          className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 font-bold"
-                          title="Download Editable DOCX"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                        </a>
-
-                        {/* Share via WhatsApp & Mail */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShareQuotation(q);
-                            setShowShareModal(true);
-                          }}
-                          className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-bold"
-                          title="Share via WhatsApp & Mail"
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Approve or Convert */}
-                        {q.status !== 'approved' ? (
-                          <button
-                            onClick={() => handleApproveQuotation(q._id)}
-                            disabled={approvingId === q._id}
-                            className="px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                          >
-                            {approvingId === q._id ? 'Approving...' : 'Approve'}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleConvertToInvoice(q._id)}
-                            disabled={convertingId === q._id}
-                            className="px-2.5 py-1 rounded text-[11px] font-bold bg-[#0F254B] hover:bg-[#1E3A8A] text-white shadow-sm flex items-center gap-1"
-                            title="Convert approved quotation to sequential tax invoice"
-                          >
-                            <ArrowRight className="w-3 h-3 text-[#D6A21D]" />
-                            <span>{convertingId === q._id ? 'Converting...' : 'To Invoice'}</span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {showRecycleBin && (
+          <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 px-3 py-1 rounded-full border border-rose-200 flex items-center gap-1.5">
+            <span>⏱️ 30-Day Auto Permanent Purge Active</span>
+          </span>
         )}
       </div>
+
+      {/* Quotations List or Recycle Bin */}
+      {!showRecycleBin ? (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
+          {loading ? (
+            <div className="p-12 text-center text-xs text-slate-400">Loading quotations...</div>
+          ) : quotations.length === 0 ? (
+            <div className="p-12 text-center text-xs text-slate-400">No active quotations generated yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th className="py-3.5 px-4">Quotation #</th>
+                    <th className="py-3.5 px-4">Client & Subject Scope</th>
+                    <th className="py-3.5 px-4">Items Count</th>
+                    <th className="py-3.5 px-4 font-mono">Grand Total (Inc. 18% GST)</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">PDF, DOCX & Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {quotations.map((q) => (
+                    <tr key={q._id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-[#0F254B]">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{q.quotationNumber}</span>
+                          {q.isNegotiated && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                              🤝 Negotiated
+                            </span>
+                          )}
+                        </div>
+                        <span className="block text-[10px] text-slate-400 font-normal">
+                          Rev #{q.revisionNumber} • {new Date(q.createdAt).toLocaleDateString('en-IN')}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <strong className="text-slate-900 block">{q.projectTitle}</strong>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-slate-500 text-[11px]">
+                            {q.clientCompany || q.clientName}
+                          </span>
+                          {(q.clientGstin || q.clientId?.billingAddress?.gstin || q.clientId?.gstin) && (
+                            <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-900 border border-blue-200 font-mono text-[9px] font-bold">
+                              GST: {q.clientGstin || q.clientId?.billingAddress?.gstin || q.clientId?.gstin}
+                            </span>
+                          )}
+                        </div>
+                        {q.projectId ? (
+                          <Link
+                            to={`/admin/projects/${q.projectId?._id || q.projectId}?tab=quotations`}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline mt-0.5"
+                          >
+                            <span>Open Project Workspace</span>
+                            <ArrowRight className="w-2.5 h-2.5" />
+                          </Link>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Standalone / Unlinked</span>
+                        )}
+                        {q.subject && (
+                          <span className="text-[10px] text-slate-400 italic line-clamp-1 mt-0.5">
+                            "{q.subject}"
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-slate-600 font-semibold">
+                        {q.items?.length || 0} scope items
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono font-bold text-sm text-[#0F254B]">
+                        {formatINR(q.totalAmountPaise)}
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${
+                            q.status === 'approved'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {q.status}
+                        </span>
+                        {q.convertedToBudget && (
+                          <span className="block text-[10px] text-emerald-600 font-semibold mt-0.5">
+                            ✓ Linked to Project
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Live Preview Button */}
+                          <button
+                            onClick={() => {
+                              setSelectedQuotation(q);
+                              setShowPreviewModal(true);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-100"
+                            title="Live Preview GKA Format"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Edit Quotation Button */}
+                          <button
+                            onClick={() => handleOpenEditQuotation(q)}
+                            className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-100"
+                            title="Edit Quotation Parameters & Line Items"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* PDF Download */}
+                          <a
+                            href={getFileUrl(`/api/v1/quotations/${q._id}/pdf`)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-lg text-[#0F254B] hover:bg-slate-100 font-bold"
+                            title="Download Official PDF"
+                          >
+                            <FileDown className="w-3.5 h-3.5" />
+                          </a>
+
+                          {/* DOCX Download */}
+                          <a
+                            href={getFileUrl(`/api/v1/quotations/${q._id}/docx`)}
+                            className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 font-bold"
+                            title="Download Editable DOCX"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                          </a>
+
+                          {/* Share via WhatsApp & Mail */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShareQuotation(q);
+                              setShowShareModal(true);
+                            }}
+                            className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-bold"
+                            title="Share via WhatsApp & Mail"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Approve or Convert */}
+                          {q.status !== 'approved' ? (
+                            <button
+                              onClick={() => handleApproveQuotation(q._id)}
+                              disabled={approvingId === q._id}
+                              className="px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                            >
+                              {approvingId === q._id ? 'Approving...' : 'Approve'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleConvertToInvoice(q._id)}
+                              disabled={convertingId === q._id}
+                              className="px-2.5 py-1 rounded text-[11px] font-bold bg-[#0F254B] hover:bg-[#1E3A8A] text-white shadow-sm flex items-center gap-1"
+                              title="Convert approved quotation to sequential tax invoice"
+                            >
+                              <ArrowRight className="w-3 h-3 text-[#D6A21D]" />
+                              <span>{convertingId === q._id ? 'Converting...' : 'To Invoice'}</span>
+                            </button>
+                          )}
+
+                          {/* Delete to Recycle Bin */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuotation(q)}
+                            disabled={deletingId === q._id}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Move to Recycle Bin (Stored safely for 30 days before auto-purge)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Recycle Bin Notice Banner */}
+          <div className="p-4 bg-gradient-to-r from-rose-50 to-orange-50 border border-rose-200 rounded-2xl flex items-start justify-between gap-3 text-xs">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-rose-100 rounded-xl text-rose-700 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <strong className="text-rose-950 block font-heading text-sm">
+                  Quotation Recycle Bin (30-Day Auto Purge Policy)
+                </strong>
+                <p className="text-rose-800 mt-0.5 leading-relaxed">
+                  Quotations moved to the Recycle Bin are safely stored here for <strong>30 days</strong>. If not restored within 30 days, they will be <strong>automatically and permanently erased</strong> by the database scheduler. You can restore them anytime or erase them immediately.
+                </p>
+              </div>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-rose-200 text-rose-900 font-bold font-mono text-[11px] shrink-0 border border-rose-300">
+              {recycleQuotations.length} in bin
+            </span>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
+            {loading ? (
+              <div className="p-12 text-center text-xs text-slate-400">Loading recycle bin...</div>
+            ) : recycleQuotations.length === 0 ? (
+              <div className="p-12 text-center text-xs text-slate-400">
+                Recycle Bin is empty. No deleted quotations.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="py-3.5 px-4">Quotation #</th>
+                      <th className="py-3.5 px-4">Client & Work Scope</th>
+                      <th className="py-3.5 px-4 font-mono">Amount</th>
+                      <th className="py-3.5 px-4 text-center">Auto-Purge Timeline</th>
+                      <th className="py-3.5 px-4 text-right">Recycle Bin Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {recycleQuotations.map((q) => {
+                      const deletedTime = new Date(q.deletedAt || q.updatedAt).getTime();
+                      const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - deletedTime) / (1000 * 60 * 60 * 24)));
+                      return (
+                        <tr key={q._id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3.5 px-4 font-mono font-bold text-[#0F254B]">
+                            <span>{q.quotationNumber}</span>
+                            <span className="block text-[10px] text-slate-400 font-normal">
+                              Deleted: {new Date(q.deletedAt || q.updatedAt).toLocaleDateString('en-IN')}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <strong className="text-slate-900 block">{q.projectTitle}</strong>
+                            <span className="text-slate-500 text-[11px] block">{q.clientCompany || q.clientName}</span>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-sm text-[#0F254B]">
+                            {formatINR(q.totalAmountPaise)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border ${
+                                daysLeft <= 5
+                                  ? 'bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
+                                  : 'bg-amber-100 text-amber-800 border-amber-300'
+                              }`}
+                            >
+                              ⏳ Purges in {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleRestoreQuotation(q._id)}
+                                disabled={restoringId === q._id}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5"
+                                title="Restore quotation back to active list"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>{restoringId === q._id ? 'Restoring...' : 'Restore'}</span>
+                              </button>
+                              <button
+                                onClick={() => handlePermanentDeleteQuotation(q)}
+                                disabled={permanentDeletingId === q._id}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5"
+                                title="Permanently erase from database immediately"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>{permanentDeletingId === q._id ? 'Erasing...' : 'Delete Permanently'}</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Live Visual Preview Modal */}
       {showPreviewModal && selectedQuotation && (

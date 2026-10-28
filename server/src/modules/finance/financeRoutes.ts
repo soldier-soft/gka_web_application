@@ -4,6 +4,9 @@ import {
   createInvoice,
   updateInvoice,
   toggleInvoiceGst,
+  deleteInvoice,
+  restoreInvoice,
+  permanentDeleteInvoice,
   downloadInvoicePDF,
   downloadInvoiceDOCX,
   getExpenses,
@@ -35,6 +38,9 @@ router.post('/invoices', requireRoles('super_admin', 'accounts'), createInvoice)
 router.put('/invoices/:id', requireRoles('super_admin', 'accounts'), updateInvoice);
 router.patch('/invoices/:id', requireRoles('super_admin', 'accounts'), updateInvoice);
 router.patch('/invoices/:id/gst-toggle', requireRoles('super_admin', 'accounts'), toggleInvoiceGst);
+router.delete('/invoices/:id', requireRoles('super_admin', 'accounts'), deleteInvoice);
+router.post('/invoices/:id/restore', requireRoles('super_admin', 'accounts'), restoreInvoice);
+router.delete('/invoices/:id/permanent', requireRoles('super_admin'), permanentDeleteInvoice);
 
 router.get('/expenses', requireRoles('super_admin', 'project_manager', 'accounts', 'site_supervisor'), getExpenses);
 router.post('/expenses', requireRoles('super_admin', 'project_manager', 'accounts', 'site_supervisor'), createExpense);

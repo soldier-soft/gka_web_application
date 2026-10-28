@@ -37,6 +37,8 @@ export interface IQuotationDocument extends Document {
   approvedBy?: mongoose.Types.ObjectId;
   convertedToBudget: boolean;
   notes?: string;
+  isDeleted?: boolean;
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -109,8 +111,19 @@ const QuotationSchema = new Schema<IQuotationDocument>(
     approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     convertedToBudget: { type: Boolean, default: false },
     notes: { type: String },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null, index: true },
   },
   { timestamps: true }
+);
+
+// Auto-purge soft-deleted quotations after 30 days (30 * 24 * 60 * 60 = 2,592,000 seconds)
+QuotationSchema.index(
+  { deletedAt: 1 },
+  {
+    expireAfterSeconds: 30 * 24 * 60 * 60,
+    partialFilterExpression: { isDeleted: true },
+  }
 );
 
 export const Quotation = mongoose.model<IQuotationDocument>('Quotation', QuotationSchema);
