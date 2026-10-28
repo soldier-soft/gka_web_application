@@ -391,6 +391,7 @@ export const InvoicesPage: React.FC = () => {
       if (res.success) {
         setShowEditModal(false);
         fetchInvoiceData();
+        triggerAutoDownloads(selectedInvoice._id, editInvoiceNumber);
       }
     } catch (err: any) {
       alert(err.message || 'Error updating invoice');
@@ -1081,9 +1082,9 @@ export const InvoicesPage: React.FC = () => {
                       <input
                         type="number"
                         min="0"
-                        step="100"
-                        value={invNegotiatedDiscountRupees}
-                        onChange={(e) => setInvNegotiatedDiscountRupees(Number(e.target.value) || 0)}
+                        step="any"
+                        value={invNegotiatedDiscountRupees === 0 ? '' : invNegotiatedDiscountRupees}
+                        onChange={(e) => setInvNegotiatedDiscountRupees(e.target.value === '' ? 0 : Number(e.target.value))}
                         placeholder="e.g. 50000"
                         className="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-mono font-bold text-slate-900"
                       />
@@ -1483,8 +1484,9 @@ export const InvoicesPage: React.FC = () => {
                   <input
                     type="number"
                     min="0"
-                    value={editPaidAmountRupees}
-                    onChange={(e) => setEditPaidAmountRupees(Number(e.target.value) || 0)}
+                    step="any"
+                    value={editPaidAmountRupees === 0 ? '' : editPaidAmountRupees}
+                    onChange={(e) => setEditPaidAmountRupees(e.target.value === '' ? 0 : Number(e.target.value))}
                     className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-emerald-800"
                   />
                   <span className="block text-[9px] text-slate-400 mt-0.5">
@@ -1543,9 +1545,9 @@ export const InvoicesPage: React.FC = () => {
                       <input
                         type="number"
                         min="0"
-                        step="100"
-                        value={editNegotiatedDiscountRupees}
-                        onChange={(e) => setEditNegotiatedDiscountRupees(Number(e.target.value) || 0)}
+                        step="any"
+                        value={editNegotiatedDiscountRupees === 0 ? '' : editNegotiatedDiscountRupees}
+                        onChange={(e) => setEditNegotiatedDiscountRupees(e.target.value === '' ? 0 : Number(e.target.value))}
                         placeholder="e.g. 50000"
                         className="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-mono font-bold text-slate-900"
                       />

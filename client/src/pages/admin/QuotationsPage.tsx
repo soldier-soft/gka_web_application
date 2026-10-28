@@ -870,8 +870,9 @@ export const QuotationsPage: React.FC = () => {
                       <input
                         type="number"
                         min="0"
-                        value={negotiatedDiscountRupees}
-                        onChange={(e) => setNegotiatedDiscountRupees(Number(e.target.value) || 0)}
+                        step="any"
+                        value={negotiatedDiscountRupees === 0 ? '' : negotiatedDiscountRupees}
+                        onChange={(e) => setNegotiatedDiscountRupees(e.target.value === '' ? 0 : Number(e.target.value))}
                         placeholder="e.g. 25000"
                         className="w-full px-2.5 py-1.5 rounded border border-amber-300 bg-white font-mono font-bold text-slate-900 focus:ring-1 focus:ring-amber-500"
                       />
@@ -1212,8 +1213,9 @@ export const QuotationsPage: React.FC = () => {
                       <input
                         type="number"
                         min="0"
-                        value={editNegotiatedDiscountRupees}
-                        onChange={(e) => setEditNegotiatedDiscountRupees(Number(e.target.value) || 0)}
+                        step="any"
+                        value={editNegotiatedDiscountRupees === 0 ? '' : editNegotiatedDiscountRupees}
+                        onChange={(e) => setEditNegotiatedDiscountRupees(e.target.value === '' ? 0 : Number(e.target.value))}
                         placeholder="e.g. 25000"
                         className="w-full px-2.5 py-1.5 rounded border border-amber-300 bg-white font-mono font-bold text-slate-900 focus:ring-1 focus:ring-amber-500"
                       />
