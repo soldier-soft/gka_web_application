@@ -347,6 +347,14 @@ export const convertToInvoice = async (req: Request, res: Response, next: NextFu
       invoiceTerms.push(`Agreed Special Terms: ${negotiatedNotes}`);
     }
 
+    let clientGstin = (quotation as any).clientGstin;
+    if (!clientGstin && (quotation.clientId || project.clientId)) {
+      const clientDoc = await Client.findById(quotation.clientId || project.clientId);
+      if (clientDoc) {
+        clientGstin = clientDoc.billingAddress?.gstin;
+      }
+    }
+
     const invoice = await Invoice.create({
       invoiceNumber,
       projectId: project._id,
@@ -355,6 +363,7 @@ export const convertToInvoice = async (req: Request, res: Response, next: NextFu
       clientName: quotation.clientName,
       clientContactPerson: quotation.clientContactPerson,
       clientCompany: quotation.clientCompany,
+      clientGstin,
       billingAddress: quotation.clientAddress || project.siteAddress.street,
       subject: `Tax Invoice for Construction Works - ${project.title}`,
       items: invoiceItems,

@@ -100,6 +100,7 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
   const clientContact = data.clientContactPerson || 'THE CHIEF ENGINEER';
   const clientCompany = data.clientCompany || data.clientName || 'VIVANTHA HOTEL';
   const clientAddress = data.clientAddress || data.billingAddress || data.siteLocation || 'SHOLINGANALUR, CHENNAI.';
+  const clientGstin = data.clientGstin || data.clientId?.billingAddress?.gstin || data.clientId?.gstin;
   const senderName = data.senderName || 'HARI A';
   const senderCompany = data.senderCompany || 'GKA CONSTRUCTION';
   const subject =
@@ -293,6 +294,12 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
             <p className="text-slate-600 text-[11px] leading-relaxed whitespace-pre-line">
               {clientAddress}
             </p>
+            {clientGstin && (
+              <p className="font-bold text-[#0F254B] text-[11px] pt-1">
+                <span className="text-slate-500 font-semibold">GSTIN : </span>
+                <span className="font-mono tracking-wider">{clientGstin}</span>
+              </p>
+            )}
           </div>
 
           {/* FROM Column */}
@@ -428,32 +435,34 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
         </div>
 
         {/* 8.5 CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS */}
-        <div className="bg-[#EFF6FF] border border-[#93C5FD] rounded-xl overflow-hidden mb-6 text-xs">
+        <div className="bg-[#EFF6FF] border border-[#93C5FD] rounded-xl overflow-hidden mb-6 text-xs shadow-xs">
           <div className="bg-[#1E40AF] text-white px-3.5 py-1.5 font-heading font-bold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-[#93C5FD]" />
             <span>CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS</span>
           </div>
-          <div className="p-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-[11px] items-center">
-            <div>
-              <span className="text-[#1E40AF] font-bold block text-[10px]">PORTAL LINK:</span>
+          <div className="p-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-[11px]">
+            <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 flex flex-col justify-center">
+              <span className="text-[#1E40AF] font-bold block text-[10px] uppercase tracking-wider mb-0.5">PORTAL LINK:</span>
               <a
                 href="https://www.gkaconstruction.com/login"
                 target="_blank"
                 rel="noreferrer"
-                className="text-[#0F254B] font-bold underline hover:text-[#D6A21D]"
+                className="text-[#0F254B] font-bold underline hover:text-[#D6A21D] truncate"
               >
                 gkaconstruction.com/login
               </a>
             </div>
-            <div>
-              <span className="text-[#1E40AF] font-bold block text-[10px]">LOGIN USERNAME:</span>
-              <span className="text-[#0F254B] font-bold">{clientPortalUsername}</span>
+            <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 flex flex-col justify-center min-w-0">
+              <span className="text-[#1E40AF] font-bold block text-[10px] uppercase tracking-wider mb-0.5">LOGIN USERNAME:</span>
+              <span className="text-[#0F254B] font-bold break-all select-all">{clientPortalUsername}</span>
             </div>
-            <div>
-              <span className="text-[#1E40AF] font-bold block text-[10px]">ACCESS PASSWORD:</span>
-              <span className="bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B] px-2.5 py-0.5 rounded font-bold inline-block">
-                {clientPortalPassword}
-              </span>
+            <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 flex flex-col justify-center">
+              <span className="text-[#1E40AF] font-bold block text-[10px] uppercase tracking-wider mb-0.5">ACCESS PASSWORD:</span>
+              <div>
+                <span className="bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B] px-2.5 py-0.5 rounded font-bold inline-block select-all">
+                  {clientPortalPassword}
+                </span>
+              </div>
             </div>
           </div>
         </div>

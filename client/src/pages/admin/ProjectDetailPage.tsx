@@ -475,6 +475,14 @@ export const ProjectDetailPage: React.FC = () => {
                   <strong className="text-slate-900 block">{project.clientId?.name}</strong>
                   <span className="text-slate-600">{project.clientId?.phone}</span>
                 </div>
+                {(project.clientId?.billingAddress?.gstin || (project.clientId as any)?.gstin) && (
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Client GSTIN</span>
+                    <span className="text-blue-900 font-mono font-bold bg-blue-50 border border-blue-200 px-2 py-0.5 rounded block w-fit mt-0.5">
+                      {project.clientId?.billingAddress?.gstin || (project.clientId as any)?.gstin}
+                    </span>
+                  </div>
+                )}
                 <div>
                   <span className="text-slate-400 block text-[11px]">Portal Login Username</span>
                   <span className="text-slate-800 font-mono font-bold bg-slate-100 px-2 py-0.5 rounded block w-fit mt-0.5">

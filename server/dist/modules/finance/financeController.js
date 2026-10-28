@@ -43,7 +43,7 @@ const getInvoices = async (req, res, next) => {
 exports.getInvoices = getInvoices;
 const createInvoice = async (req, res, next) => {
     try {
-        const { projectId, clientId, clientName, clientContactPerson, clientCompany, billingAddress, subject, items, issueDate, dueDate, notes, isNegotiated, negotiatedDiscountPaise, negotiatedNotes, termsAndConditions, } = req.body;
+        const { projectId, clientId, clientName, clientContactPerson, clientCompany, clientGstin, billingAddress, subject, items, issueDate, dueDate, notes, isNegotiated, negotiatedDiscountPaise, negotiatedNotes, termsAndConditions, } = req.body;
         const project = await Project_1.Project.findById(projectId);
         if (!project) {
             res.status(404).json({ success: false, message: 'Project not found' });
@@ -85,10 +85,14 @@ const createInvoice = async (req, res, next) => {
             parsedTerms.push(`Agreed Special Terms: ${negotiatedNotes}`);
         }
         let defaultClientName = clientName;
-        if (!defaultClientName && project.clientId) {
+        let defaultClientGstin = clientGstin;
+        if (project.clientId) {
             const clientObj = await Client_1.Client.findById(project.clientId);
             if (clientObj) {
-                defaultClientName = clientObj.name;
+                if (!defaultClientName)
+                    defaultClientName = clientObj.name;
+                if (!defaultClientGstin)
+                    defaultClientGstin = clientObj.billingAddress?.gstin;
             }
         }
         const count = await Invoice_1.Invoice.countDocuments();
@@ -102,6 +106,7 @@ const createInvoice = async (req, res, next) => {
             clientName: defaultClientName || 'Valued Client',
             clientContactPerson: clientContactPerson || defaultClientName || 'Chief Engineer',
             clientCompany: clientCompany,
+            clientGstin: defaultClientGstin,
             billingAddress: billingAddress || project.siteAddress.street,
             subject: subject || `Tax Invoice for Construction Works - ${project.title}`,
             items: calculatedItems,
@@ -237,7 +242,7 @@ exports.downloadInvoiceDOCX = downloadInvoiceDOCX;
 const updateInvoice = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { invoiceNumber, clientName, items, billingAddress, dueDate, issueDate, notes, subject, clientContactPerson, clientCompany, status, paidAmountPaise, } = req.body;
+        const { invoiceNumber, clientName, clientGstin, items, billingAddress, dueDate, issueDate, notes, subject, clientContactPerson, clientCompany, status, paidAmountPaise, } = req.body;
         const invoice = await Invoice_1.Invoice.findById(id);
         if (!invoice) {
             res.status(404).json({ success: false, message: 'Invoice not found' });
@@ -301,6 +306,8 @@ const updateInvoice = async (req, res, next) => {
             invoice.invoiceNumber = invoiceNumber;
         if (clientName)
             invoice.clientName = clientName;
+        if (clientGstin !== undefined)
+            invoice.clientGstin = clientGstin;
         if (billingAddress !== undefined)
             invoice.billingAddress = billingAddress;
         if (dueDate)

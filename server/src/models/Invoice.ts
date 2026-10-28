@@ -32,6 +32,7 @@ export interface IInvoiceDocument extends Document {
   subject?: string;
   clientContactPerson?: string;
   clientCompany?: string;
+  clientGstin?: string;
   senderName?: string;
   senderCompany?: string;
   notes?: string;
@@ -94,6 +95,7 @@ const InvoiceSchema = new Schema<IInvoiceDocument>(
     subject: { type: String, default: 'Tax Invoice for Construction Works & Allied Services' },
     clientContactPerson: { type: String },
     clientCompany: { type: String },
+    clientGstin: { type: String, trim: true },
     senderName: { type: String, default: 'HARI A' },
     senderCompany: { type: String, default: 'GKA CONSTRUCTION' },
     notes: { type: String },

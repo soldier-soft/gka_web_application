@@ -45,6 +45,7 @@ export const createInvoice = async (req: Request, res: Response, next: NextFunct
       clientName,
       clientContactPerson,
       clientCompany,
+      clientGstin,
       billingAddress,
       subject,
       items,
@@ -102,10 +103,12 @@ export const createInvoice = async (req: Request, res: Response, next: NextFunct
     }
 
     let defaultClientName = clientName;
-    if (!defaultClientName && project.clientId) {
+    let defaultClientGstin = clientGstin;
+    if (project.clientId) {
       const clientObj = await Client.findById(project.clientId);
       if (clientObj) {
-        defaultClientName = clientObj.name;
+        if (!defaultClientName) defaultClientName = clientObj.name;
+        if (!defaultClientGstin) defaultClientGstin = clientObj.billingAddress?.gstin;
       }
     }
 
@@ -121,6 +124,7 @@ export const createInvoice = async (req: Request, res: Response, next: NextFunct
       clientName: defaultClientName || 'Valued Client',
       clientContactPerson: clientContactPerson || defaultClientName || 'Chief Engineer',
       clientCompany: clientCompany,
+      clientGstin: defaultClientGstin,
       billingAddress: billingAddress || project.siteAddress.street,
       subject: subject || `Tax Invoice for Construction Works - ${project.title}`,
       items: calculatedItems,
@@ -263,6 +267,7 @@ export const updateInvoice = async (req: Request, res: Response, next: NextFunct
     const {
       invoiceNumber,
       clientName,
+      clientGstin,
       items,
       billingAddress,
       dueDate,
@@ -342,6 +347,7 @@ export const updateInvoice = async (req: Request, res: Response, next: NextFunct
 
     if (invoiceNumber) invoice.invoiceNumber = invoiceNumber;
     if (clientName) invoice.clientName = clientName;
+    if (clientGstin !== undefined) invoice.clientGstin = clientGstin;
     if (billingAddress !== undefined) invoice.billingAddress = billingAddress;
     if (dueDate) invoice.dueDate = new Date(dueDate);
     if (issueDate) invoice.issueDate = new Date(issueDate);

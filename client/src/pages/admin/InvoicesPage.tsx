@@ -66,6 +66,7 @@ export const InvoicesPage: React.FC = () => {
   const [invClientName, setInvClientName] = useState('');
   const [invContactPerson, setInvContactPerson] = useState('');
   const [invClientCompany, setInvClientCompany] = useState('');
+  const [invClientGstin, setInvClientGstin] = useState('');
   const [invBillingAddress, setInvBillingAddress] = useState('');
   const [invSubject, setInvSubject] = useState('');
   const [invDueDate, setInvDueDate] = useState(
@@ -93,6 +94,7 @@ export const InvoicesPage: React.FC = () => {
   const [editProjectId, setEditProjectId] = useState('');
   const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
   const [editClientName, setEditClientName] = useState('');
+  const [editClientGstin, setEditClientGstin] = useState('');
   const [editBillingAddress, setEditBillingAddress] = useState('');
   const [editIssueDate, setEditIssueDate] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
@@ -262,6 +264,7 @@ export const InvoicesPage: React.FC = () => {
         clientName: invClientName,
         clientContactPerson: invContactPerson,
         clientCompany: invClientCompany,
+        clientGstin: invClientGstin.trim() || undefined,
         billingAddress: invBillingAddress,
         subject: invSubject,
         items: convertedItems,
@@ -311,6 +314,7 @@ export const InvoicesPage: React.FC = () => {
     );
     setEditInvoiceNumber(inv.invoiceNumber || '');
     setEditClientName(inv.clientName || '');
+    setEditClientGstin(inv.clientGstin || (inv.clientId as any)?.billingAddress?.gstin || (inv.clientId as any)?.gstin || '');
     setEditBillingAddress(inv.billingAddress || '');
     setEditIssueDate(
       inv.issueDate ? new Date(inv.issueDate).toISOString().split('T')[0] : ''
@@ -373,6 +377,7 @@ export const InvoicesPage: React.FC = () => {
         invoiceNumber: editInvoiceNumber,
         projectId: editProjectId || null,
         clientName: editClientName,
+        clientGstin: editClientGstin.trim() || undefined,
         billingAddress: editBillingAddress,
         issueDate: editIssueDate,
         dueDate: editDueDate,
@@ -621,7 +626,14 @@ export const InvoicesPage: React.FC = () => {
                       {/* Client & Project with direct workspace link */}
                       <td className="py-3.5 px-4">
                         <strong className="text-slate-900 block">{inv.projectTitle}</strong>
-                        <span className="text-slate-500 text-[11px] block">{inv.clientName}</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-slate-500 text-[11px]">{inv.clientName}</span>
+                          {(inv.clientGstin || inv.clientId?.billingAddress?.gstin || inv.clientId?.gstin) && (
+                            <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-900 border border-blue-200 font-mono text-[9px] font-bold">
+                              GST: {inv.clientGstin || inv.clientId?.billingAddress?.gstin || inv.clientId?.gstin}
+                            </span>
+                          )}
+                        </div>
                         {projectId && (
                           <Link
                             to={`/admin/projects/${projectId}?tab=invoices_receipts`}
@@ -888,11 +900,15 @@ export const InvoicesPage: React.FC = () => {
                 <select
                   value={invProject}
                   onChange={(e) => {
-                    setInvProject(e.target.value);
-                    const p = projects.find((proj) => proj._id === e.target.value);
+                    const pid = e.target.value;
+                    setInvProject(pid);
+                    const p = projects.find((proj) => proj._id === pid);
                     if (p) {
                       setInvClientName(p.clientName || 'Valued Client');
                       setInvBillingAddress(p.siteAddress?.street || 'Kelambakkam, Chennai');
+                      if (p.clientId && typeof p.clientId === 'object') {
+                        setInvClientGstin(p.clientId.billingAddress?.gstin || p.clientId.gstin || '');
+                      }
                     }
                   }}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
@@ -928,15 +944,29 @@ export const InvoicesPage: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Site / Billing Address</label>
-                <input
-                  type="text"
-                  required
-                  value={invBillingAddress}
-                  onChange={(e) => setInvBillingAddress(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Site / Billing Address</label>
+                  <input
+                    type="text"
+                    required
+                    value={invBillingAddress}
+                    onChange={(e) => setInvBillingAddress(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Client GSTIN (Tax Identification)
+                  </label>
+                  <input
+                    type="text"
+                    value={invClientGstin}
+                    onChange={(e) => setInvClientGstin(e.target.value)}
+                    placeholder="e.g. 33AAAAA0000A1Z5"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono uppercase font-bold text-[#0F254B]"
+                  />
+                </div>
               </div>
 
               <div>
@@ -1340,8 +1370,8 @@ export const InvoicesPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
                   <label className="block text-[10px] text-slate-500 font-semibold mb-1">Site / Billing Address</label>
                   <input
                     type="text"
@@ -1351,14 +1381,25 @@ export const InvoicesPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Subject Scope</label>
+                  <label className="block text-[10px] text-slate-500 font-semibold mb-1">Client GSTIN</label>
                   <input
                     type="text"
-                    value={editSubject}
-                    onChange={(e) => setEditSubject(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium"
+                    value={editClientGstin}
+                    onChange={(e) => setEditClientGstin(e.target.value)}
+                    placeholder="33AAAAA0000A1Z5"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono uppercase font-bold text-[#0F254B]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-slate-500 font-semibold mb-1">Subject Scope</label>
+                <input
+                  type="text"
+                  value={editSubject}
+                  onChange={(e) => setEditSubject(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium"
+                />
               </div>
 
               {/* Items Section */}

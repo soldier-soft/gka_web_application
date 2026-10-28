@@ -341,8 +341,12 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
     to_company = str(client_data.get("company") or data.get("clientCompany") or "VIVANTHA HOTEL")
     to_addr1 = str(client_data.get("address_line1") or data.get("siteLocation") or "SHOLINGANALUR,")
     to_addr2 = str(client_data.get("address_line2") or "CHENNAI.")
+    client_gstin = str(client_data.get("gstin") or data.get("clientGstin") or data.get("gstin") or "")
 
-    r_to_body = p_to.add_run(f"{to_name}\n{to_company}\n{to_addr1}\n{to_addr2}")
+    addr_runs = f"{to_name}\n{to_company}\n{to_addr1}\n{to_addr2}"
+    if client_gstin and client_gstin.strip():
+        addr_runs += f"\nGSTIN: {client_gstin.strip().upper()}"
+    r_to_body = p_to.add_run(addr_runs)
     r_to_body.font.size = Pt(8.5)
     r_to_body.font.bold = True
     r_to_body.font.color.rgb = RGBColor(15, 37, 75)

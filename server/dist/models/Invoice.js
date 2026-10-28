@@ -78,6 +78,7 @@ const InvoiceSchema = new mongoose_1.Schema({
     subject: { type: String, default: 'Tax Invoice for Construction Works & Allied Services' },
     clientContactPerson: { type: String },
     clientCompany: { type: String },
+    clientGstin: { type: String, trim: true },
     senderName: { type: String, default: 'HARI A' },
     senderCompany: { type: String, default: 'GKA CONSTRUCTION' },
     notes: { type: String },

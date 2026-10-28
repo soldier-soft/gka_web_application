@@ -489,6 +489,29 @@ export const ClientsPage: React.FC = () => {
                       </span>
                     )}
                   </div>
+
+                  {client.billingAddress?.street && (
+                    <p className="text-[11px] text-slate-500 mt-1 flex items-start gap-1">
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                      <span className="truncate">
+                        {client.billingAddress.street}
+                        {client.billingAddress.city ? `, ${client.billingAddress.city}` : ''}
+                      </span>
+                    </p>
+                  )}
+
+                  {client.billingAddress?.gstin ? (
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 font-mono text-[10px] font-bold flex items-center gap-1">
+                        <span className="text-slate-500 font-normal">GSTIN:</span>
+                        <span>{client.billingAddress.gstin}</span>
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-1.5 text-[10px] text-slate-400 italic">
+                      No GSTIN registered
+                    </div>
+                  )}
                 </div>
 
                 {/* Body: Portal Credentials Box */}
@@ -769,6 +792,32 @@ export const ClientsPage: React.FC = () => {
                     className="px-2.5 py-1.5 rounded-lg border border-slate-300"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-700 mb-0.5">
+                      Client GSTIN
+                    </label>
+                    <input
+                      type="text"
+                      value={gstin}
+                      onChange={(e) => setGstin(e.target.value)}
+                      placeholder="e.g. 33AAAAA0000A1Z5"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 font-mono uppercase font-bold text-[#0F254B]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-700 mb-0.5">
+                      Client PAN Number
+                    </label>
+                    <input
+                      type="text"
+                      value={pan}
+                      onChange={(e) => setPan(e.target.value)}
+                      placeholder="e.g. AAAAA0000A"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 font-mono uppercase"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Link Existing Projects */}
@@ -966,6 +1015,32 @@ export const ClientsPage: React.FC = () => {
                     onChange={(e) => setEditPincode(e.target.value)}
                     className="px-2.5 py-1.5 rounded-lg border border-slate-300"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-700 mb-0.5">
+                      Client GSTIN
+                    </label>
+                    <input
+                      type="text"
+                      value={editGstin}
+                      onChange={(e) => setEditGstin(e.target.value)}
+                      placeholder="e.g. 33AAAAA0000A1Z5"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 font-mono uppercase font-bold text-[#0F254B]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-700 mb-0.5">
+                      Client PAN Number
+                    </label>
+                    <input
+                      type="text"
+                      value={editPan}
+                      onChange={(e) => setEditPan(e.target.value)}
+                      placeholder="e.g. AAAAA0000A"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 font-mono uppercase"
+                    />
+                  </div>
                 </div>
               </div>
 
