@@ -458,4 +458,26 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // Document Management
+  getDocuments: (params?: Record<string, string>) => {
+    const q = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request<{ success: boolean; count: number; documents: any[] }>(`/documents${q}`);
+  },
+  getDocumentById: (id: string) =>
+    request<{ success: boolean; document: any }>(`/documents/${id}`),
+  createDocument: (data: any) =>
+    request<{ success: boolean; message: string; document: any }>('/documents', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateDocument: (id: string, data: any) =>
+    request<{ success: boolean; message: string; document: any }>(`/documents/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteDocument: (id: string) =>
+    request<{ success: boolean; message: string }>(`/documents/${id}`, {
+      method: 'DELETE',
+    }),
 };

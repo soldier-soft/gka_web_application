@@ -81,6 +81,7 @@ export const InvoicesPage: React.FC = () => {
   ]);
 
   // Edit Invoice form state
+  const [editProjectId, setEditProjectId] = useState('');
   const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
   const [editClientName, setEditClientName] = useState('');
   const [editBillingAddress, setEditBillingAddress] = useState('');
@@ -137,7 +138,17 @@ export const InvoicesPage: React.FC = () => {
         handleOpenEdit(target);
       }
     }
-  }, [searchParams, invoices]);
+    const projIdParam = searchParams.get('projectId');
+    if (projIdParam && projects.length > 0) {
+      setInvProject(projIdParam);
+      const matched = projects.find((p) => p._id === projIdParam);
+      if (matched) {
+        setInvClientName(matched.clientName || 'Valued Client');
+        setInvBillingAddress(matched.siteAddress?.street || 'Kelambakkam, Chennai');
+      }
+      setShowCreateModal(true);
+    }
+  }, [searchParams, invoices, projects]);
 
   // Filtered invoices
   const filteredInvoices = invoices.filter((inv) => {
@@ -263,9 +274,11 @@ export const InvoicesPage: React.FC = () => {
   };
 
   // Open Edit Modal
-  // Open Edit Modal
   const handleOpenEdit = (inv: any) => {
     setSelectedInvoice(inv);
+    setEditProjectId(
+      inv.projectId?._id || (typeof inv.projectId === 'string' ? inv.projectId : '')
+    );
     setEditInvoiceNumber(inv.invoiceNumber || '');
     setEditClientName(inv.clientName || '');
     setEditBillingAddress(inv.billingAddress || '');
@@ -318,6 +331,7 @@ export const InvoicesPage: React.FC = () => {
 
       const res = await api.updateInvoice(selectedInvoice._id, {
         invoiceNumber: editInvoiceNumber,
+        projectId: editProjectId || null,
         clientName: editClientName,
         billingAddress: editBillingAddress,
         issueDate: editIssueDate,
@@ -1068,6 +1082,37 @@ export const InvoicesPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveEditInvoice} className="space-y-4">
+              <div>
+                <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                  Link to Project Workspace
+                </label>
+                <select
+                  value={editProjectId}
+                  onChange={(e) => {
+                    const pid = e.target.value;
+                    setEditProjectId(pid);
+                    if (pid) {
+                      const match = projects.find((p) => p._id === pid);
+                      if (match) {
+                        if (match.siteAddress?.street) {
+                          setEditBillingAddress(
+                            `${match.siteAddress.street}, ${match.siteAddress.city || ''}`.trim()
+                          );
+                        }
+                      }
+                    }
+                  }}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-bold text-slate-900"
+                >
+                  <option value="">-- Unlinked / Standalone Invoice --</option>
+                  {projects.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.projectId} — {p.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-[10px] text-slate-500 font-semibold mb-1">Invoice #</label>

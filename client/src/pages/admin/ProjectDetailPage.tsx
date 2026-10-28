@@ -32,12 +32,16 @@ import {
   Key,
   Share2,
   Edit,
+  Link2,
+  Unlink,
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toRupees } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
 import { ShareDocumentModal, ShareDocumentData } from '../../components/common/ShareDocumentModal';
 import { EditProjectModal } from '../../components/projects/EditProjectModal';
+import { LinkQuotationModal } from '../../components/projects/LinkQuotationModal';
+import { LinkInvoiceModal } from '../../components/projects/LinkInvoiceModal';
 
 type WorkspaceTab =
   | 'overview'
@@ -70,6 +74,10 @@ export const ProjectDetailPage: React.FC = () => {
 
   // Edit Project Modal State
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Link Quotation and Link Invoice Modal States
+  const [showLinkQuoModal, setShowLinkQuoModal] = useState(false);
+  const [showLinkInvModal, setShowLinkInvModal] = useState(false);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
@@ -172,6 +180,32 @@ export const ProjectDetailPage: React.FC = () => {
       }
     } catch (err: any) {
       alert(err.message || 'Error verifying payment');
+    }
+  };
+
+  const handleUnlinkQuotation = async (quotationId: string, quoNumber: string) => {
+    if (!confirm(`Are you sure you want to unlink Quotation ${quoNumber} from this project?`)) return;
+    try {
+      const res = await api.updateQuotation(quotationId, { projectId: null });
+      if (res.success) {
+        showNotification(`Quotation ${quoNumber} unlinked from this project.`);
+        fetchProjectDetails();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to unlink quotation');
+    }
+  };
+
+  const handleUnlinkInvoice = async (invoiceId: string, invNumber: string) => {
+    if (!confirm(`Are you sure you want to unlink Invoice / Bill ${invNumber} from this project?`)) return;
+    try {
+      const res = await api.updateInvoice(invoiceId, { projectId: null });
+      if (res.success) {
+        showNotification(`Invoice ${invNumber} unlinked from this project.`);
+        fetchProjectDetails();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to unlink invoice');
     }
   };
 
@@ -701,12 +735,24 @@ export const ProjectDetailPage: React.FC = () => {
                 Convert approved quotations into invoices with line items and tax treatment preserved.
               </p>
             </div>
-            <Link
-              to="/admin/quotations"
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#10203A] text-white hover:bg-slate-800 transition-colors"
-            >
-              + New Quotation
-            </Link>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowLinkQuoModal(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="Link existing or unlinked quotation to this project"
+              >
+                <Link2 className="w-3.5 h-3.5 text-[#D6A21D]" />
+                <span>Link Quotation</span>
+              </button>
+              <Link
+                to={`/admin/quotations?projectId=${project._id}`}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#10203A] text-white hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Quotation</span>
+              </Link>
+            </div>
           </div>
 
           {quotations.length === 0 ? (
@@ -733,6 +779,15 @@ export const ProjectDetailPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <Link
+                      to={`/admin/quotations?edit=${q._id}`}
+                      className="px-3 py-1.5 rounded-lg border bg-white text-slate-700 hover:bg-slate-50 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
+                      title="Edit Quotation"
+                    >
+                      <Edit className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Edit</span>
+                    </Link>
+
                     <button
                       onClick={() => downloadFile(`/quotations/${q._id}/pdf`, `GKA_Quotation_${q.quotationNumber}.pdf`)}
                       className="px-3 py-1.5 rounded-lg border bg-white text-slate-700 hover:bg-slate-50 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
@@ -776,6 +831,16 @@ export const ProjectDetailPage: React.FC = () => {
                       <span>Share</span>
                     </button>
 
+                    <button
+                      type="button"
+                      onClick={() => handleUnlinkQuotation(q._id, q.quotationNumber)}
+                      className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
+                      title="Unlink from this Project"
+                    >
+                      <Unlink className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Unlink</span>
+                    </button>
+
                     {q.status === 'approved' && (
                       <button
                         onClick={() => handleConvertQuotation(q._id)}
@@ -801,9 +866,34 @@ export const ProjectDetailPage: React.FC = () => {
         <div className="space-y-6">
           {/* Invoices List */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle space-y-4">
-            <h3 className="font-heading font-bold text-base text-brand-navy-950 border-b border-slate-100 pb-3">
-              Tax Invoices Issued
-            </h3>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-heading font-bold text-base text-brand-navy-950">
+                  Tax Invoices & Bills Issued
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Manage commercial billing, client milestones, tax compliance, and linked project bills.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLinkInvModal(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  title="Link existing or unlinked invoice/bill to this project"
+                >
+                  <Link2 className="w-3.5 h-3.5 text-[#D6A21D]" />
+                  <span>Link Bill / Invoice</span>
+                </button>
+                <Link
+                  to={`/admin/invoices?projectId=${project._id}`}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#10203A] text-white hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Bill</span>
+                </Link>
+              </div>
+            </div>
 
             {invoices.length === 0 ? (
               <p className="text-xs text-slate-400 py-4 text-center">No invoices issued for this project.</p>
@@ -829,6 +919,14 @@ export const ProjectDetailPage: React.FC = () => {
                       }`}>
                         {inv.status?.replace('_', ' ')}
                       </span>
+                      <Link
+                        to={`/admin/invoices?edit=${inv._id}`}
+                        className="px-3 py-1.5 rounded-lg border bg-white text-slate-700 hover:bg-slate-50 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
+                        title="Edit Bill / Invoice"
+                      >
+                        <Edit className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Edit</span>
+                      </Link>
                       <button
                         onClick={() => downloadFile(`/finance/invoices/${inv._id}/pdf`, `GKA_Invoice_${inv.invoiceNumber}.pdf`)}
                         className="px-3 py-1.5 rounded-lg border bg-white text-slate-700 hover:bg-slate-50 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
@@ -870,6 +968,16 @@ export const ProjectDetailPage: React.FC = () => {
                       >
                         <Share2 className="w-3.5 h-3.5 text-emerald-600" />
                         <span>Share</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleUnlinkInvoice(inv._id, inv.invoiceNumber)}
+                        className="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors inline-flex items-center gap-1 font-semibold cursor-pointer"
+                        title="Unlink from this Project"
+                      >
+                        <Unlink className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Unlink</span>
                       </button>
                     </div>
                   </div>
@@ -1229,6 +1337,34 @@ export const ProjectDetailPage: React.FC = () => {
           onProjectUpdated={(updated) => {
             setProject(updated);
             showNotification(`Project "${updated.title}" workspace updated successfully.`);
+            fetchProjectDetails();
+          }}
+        />
+      )}
+
+      {/* Link Quotation Modal */}
+      {showLinkQuoModal && project && (
+        <LinkQuotationModal
+          isOpen={showLinkQuoModal}
+          onClose={() => setShowLinkQuoModal(false)}
+          projectId={project._id}
+          projectTitle={project.title}
+          onLinked={() => {
+            showNotification('Quotation successfully linked to project workspace.');
+            fetchProjectDetails();
+          }}
+        />
+      )}
+
+      {/* Link Bill / Invoice Modal */}
+      {showLinkInvModal && project && (
+        <LinkInvoiceModal
+          isOpen={showLinkInvModal}
+          onClose={() => setShowLinkInvModal(false)}
+          projectId={project._id}
+          projectTitle={project.title}
+          onLinked={() => {
+            showNotification('Bill / Invoice successfully linked to project workspace.');
             fetchProjectDetails();
           }}
         />

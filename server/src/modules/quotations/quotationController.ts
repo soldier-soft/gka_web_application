@@ -431,9 +431,21 @@ export const updateQuotation = async (req: Request, res: Response, next: NextFun
     if (subject !== undefined) quotation.subject = subject;
     if (senderName !== undefined) quotation.senderName = senderName;
     if (senderCompany !== undefined) quotation.senderCompany = senderCompany;
-    if (termsAndConditions !== undefined) quotation.termsAndConditions = termsAndConditions;
     if (status !== undefined) quotation.status = status;
     if (validUntil) quotation.validUntil = new Date(validUntil);
+
+    if (req.body.projectId !== undefined) {
+      quotation.projectId = req.body.projectId || undefined;
+      if (req.body.projectId) {
+        const proj = await Project.findById(req.body.projectId);
+        if (proj) {
+          quotation.projectTitle = proj.title;
+          if (proj.siteAddress) {
+            quotation.siteLocation = `${proj.siteAddress.street || ''}, ${proj.siteAddress.city || ''}`.trim().replace(/^,/, '');
+          }
+        }
+      }
+    }
 
     await quotation.save();
     res.json({ success: true, message: 'Quotation updated successfully', quotation });

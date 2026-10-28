@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Calculator,
   Plus,
@@ -23,7 +24,9 @@ import { DocumentVisualView } from '../../components/documents/DocumentVisualVie
 import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
 export const QuotationsPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [quotations, setQuotations] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -35,6 +38,7 @@ export const QuotationsPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // New Quotation form state (clean live application default)
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [quotationNumber, setQuotationNumber] = useState('GKA-QUO-2026-001');
   const [clientName, setClientName] = useState('');
   const [clientCompany, setClientCompany] = useState('');
@@ -50,6 +54,7 @@ export const QuotationsPage: React.FC = () => {
   // Edit Quotation form state
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<any>(null);
+  const [editProjectId, setEditProjectId] = useState<string>('');
   const [editQuotationNumber, setEditQuotationNumber] = useState('');
   const [editClientName, setEditClientName] = useState('');
   const [editClientCompany, setEditClientCompany] = useState('');
@@ -73,23 +78,52 @@ export const QuotationsPage: React.FC = () => {
     },
   ]);
 
-  const fetchQuotations = async () => {
+  const fetchQuotationsAndProjects = async () => {
     try {
       setLoading(true);
-      const res = await api.getQuotations();
-      if (res.success) {
-        setQuotations(res.quotations);
+      const [quoRes, projRes] = await Promise.all([
+        api.getQuotations(),
+        api.getProjects().catch(() => ({ success: false, projects: [] })),
+      ]);
+      if (quoRes.success) {
+        setQuotations(quoRes.quotations);
+      }
+      if (projRes.success && Array.isArray(projRes.projects)) {
+        setProjects(projRes.projects);
       }
     } catch (error) {
-      console.error('Error fetching quotations:', error);
+      console.error('Error fetching quotations & projects:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchQuotations();
+    fetchQuotationsAndProjects();
   }, []);
+
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && quotations.length > 0) {
+      const target = quotations.find((q) => q._id === editId);
+      if (target) {
+        handleOpenEditQuotation(target);
+      }
+    }
+    const projIdParam = searchParams.get('projectId');
+    if (projIdParam && projects.length > 0) {
+      setSelectedProjectId(projIdParam);
+      const matched = projects.find((p) => p._id === projIdParam);
+      if (matched) {
+        setProjectTitle(matched.title || '');
+        setSiteLocation(
+          `${matched.siteAddress?.street || ''}, ${matched.siteAddress?.city || ''}`.trim()
+        );
+        if (matched.clientName) setClientName(matched.clientName);
+      }
+      setShowModal(true);
+    }
+  }, [searchParams, quotations, projects]);
 
   const handleAddItem = (preset?: any) => {
     if (preset) {
@@ -172,6 +206,7 @@ export const QuotationsPage: React.FC = () => {
 
       const res = await api.createQuotation({
         quotationNumber,
+        projectId: selectedProjectId || undefined,
         clientId: enquiry.leadId,
         clientName,
         clientContactPerson: clientName,
@@ -191,7 +226,7 @@ export const QuotationsPage: React.FC = () => {
 
       if (res.success && res.quotation) {
         setShowModal(false);
-        fetchQuotations();
+        fetchQuotationsAndProjects();
         triggerAutoDownloads(res.quotation._id, res.quotation.quotationNumber);
       }
     } catch (err: any) {
@@ -235,6 +270,9 @@ export const QuotationsPage: React.FC = () => {
   // Open Edit Quotation Modal
   const handleOpenEditQuotation = (q: any) => {
     setEditingQuotation(q);
+    setEditProjectId(
+      q.projectId?._id || (typeof q.projectId === 'string' ? q.projectId : '')
+    );
     setEditQuotationNumber(q.quotationNumber || '');
     setEditClientName(q.clientName || '');
     setEditClientCompany(q.clientCompany || '');
@@ -324,6 +362,7 @@ export const QuotationsPage: React.FC = () => {
 
       const res = await api.updateQuotation(editingQuotation._id, {
         quotationNumber: editQuotationNumber,
+        projectId: editProjectId || null,
         clientName: editClientName,
         clientContactPerson: editClientName,
         clientCompany: editClientCompany,
@@ -344,7 +383,7 @@ export const QuotationsPage: React.FC = () => {
       if (res.success) {
         setShowEditModal(false);
         setEditingQuotation(null);
-        fetchQuotations();
+        fetchQuotationsAndProjects();
       }
     } catch (err: any) {
       alert(err.message || 'Error updating quotation');
@@ -419,8 +458,19 @@ export const QuotationsPage: React.FC = () => {
                       <span className="text-slate-500 text-[11px] block">
                         {q.clientCompany || q.clientName}
                       </span>
+                      {q.projectId ? (
+                        <Link
+                          to={`/admin/projects/${q.projectId?._id || q.projectId}?tab=quotations`}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline mt-0.5"
+                        >
+                          <span>Open Project Workspace</span>
+                          <ArrowRight className="w-2.5 h-2.5" />
+                        </Link>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Standalone / Unlinked</span>
+                      )}
                       {q.subject && (
-                        <span className="text-[10px] text-slate-400 italic line-clamp-1">
+                        <span className="text-[10px] text-slate-400 italic line-clamp-1 mt-0.5">
                           "{q.subject}"
                         </span>
                       )}
@@ -584,6 +634,37 @@ export const QuotationsPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateQuotation} className="space-y-4">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Link to Project Workspace
+                </label>
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => {
+                    const pid = e.target.value;
+                    setSelectedProjectId(pid);
+                    if (pid) {
+                      const match = projects.find((p) => p._id === pid);
+                      if (match) {
+                        setProjectTitle(match.title || '');
+                        setSiteLocation(
+                          `${match.siteAddress?.street || ''}, ${match.siteAddress?.city || ''}`.trim()
+                        );
+                        if (match.clientName) setClientName(match.clientName);
+                      }
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900"
+                >
+                  <option value="">-- Unlinked / Standalone Quotation --</option>
+                  {projects.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.projectId} — {p.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Quotation Number *</label>
@@ -870,6 +951,38 @@ export const QuotationsPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveEditQuotation} className="space-y-4">
+              <div>
+                <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                  Link to Project Workspace
+                </label>
+                <select
+                  value={editProjectId}
+                  onChange={(e) => {
+                    const pid = e.target.value;
+                    setEditProjectId(pid);
+                    if (pid) {
+                      const match = projects.find((p) => p._id === pid);
+                      if (match) {
+                        setEditProjectTitle(match.title || '');
+                        if (match.siteAddress?.street) {
+                          setEditSiteLocation(
+                            `${match.siteAddress.street}, ${match.siteAddress.city || ''}`.trim()
+                          );
+                        }
+                      }
+                    }
+                  }}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-bold text-slate-900"
+                >
+                  <option value="">-- Unlinked / Standalone Quotation --</option>
+                  {projects.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.projectId} — {p.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[10px] text-slate-500 font-semibold mb-1">

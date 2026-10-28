@@ -20,6 +20,7 @@ import inventoryRoutes from './modules/inventory/inventoryRoutes';
 import financeRoutes from './modules/finance/financeRoutes';
 import clientPortalRoutes from './modules/clientPortal/clientPortalRoutes';
 import mailRoutes from './modules/mail/mailRoutes';
+import documentRoutes from './modules/documents/documentRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 export const createApp = (): express.Application => {
@@ -121,6 +122,7 @@ export const createApp = (): express.Application => {
   apiRouter.use('/finance', financeRoutes);
   apiRouter.use('/client-portal', clientPortalRoutes);
   apiRouter.use('/mail', mailRoutes);
+  apiRouter.use('/documents', documentRoutes);
 
   app.use('/api/v1', apiRouter);
 

@@ -224,6 +224,13 @@ const updateInvoice = async (req, res, next) => {
             invoice.paidAmountPaise = Number(paidAmountPaise) || 0;
             invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
         }
+        if (req.body.projectId) {
+            invoice.projectId = req.body.projectId;
+            const proj = await Project_1.Project.findById(req.body.projectId);
+            if (proj) {
+                invoice.projectTitle = proj.title;
+            }
+        }
         await invoice.save();
         res.json({ success: true, message: 'Invoice updated successfully', invoice });
     }
