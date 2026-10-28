@@ -138,13 +138,16 @@ export const ClientPortalPage: React.FC = () => {
   }, [selectedProjectId]);
 
   const handleCopyBankDetails = () => {
-    const text = `GKA CONSTRUCTION - Bank Transfer Details:
-Beneficiary: ${GKA_COMPANY.bankDetails.beneficiary}
-Bank: ${GKA_COMPANY.bankDetails.bankName}
-Account Number: ${GKA_COMPANY.bankDetails.accountNumber}
-IFSC Code: ${GKA_COMPANY.bankDetails.ifscCode}
-MICR: ${GKA_COMPANY.bankDetails.micr}
-Mobile: ${GKA_COMPANY.bankDetails.contactMobile}`;
+    const text = `GKA CONSTRUCTION - Official Bank Transfer Details:
+BENEFICIARY NAME: ${GKA_COMPANY.bankDetails.beneficiary}
+ACCOUNT NUMBER: ${GKA_COMPANY.bankDetails.accountNumber}
+BANK NAME: ${GKA_COMPANY.bankDetails.bankName}
+BANK IFSC CODE: ${GKA_COMPANY.bankDetails.ifscCode}
+MOBILE NUMBER: ${GKA_COMPANY.bankDetails.contactMobile}
+ALTERNATE NUMBER: ${GKA_COMPANY.bankDetails.alternateMobile || '8940455917'}
+MICR CODE: ${GKA_COMPANY.bankDetails.micr}
+MAIL ID: ${(GKA_COMPANY.bankDetails.email || GKA_COMPANY.email).toUpperCase()}
+WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase()}`;
     navigator.clipboard.writeText(text);
     setCopiedBank(true);
     setTimeout(() => setCopiedBank(false), 3000);
@@ -765,38 +768,52 @@ Mobile: ${GKA_COMPANY.bankDetails.contactMobile}`;
                     </button>
                   </div>
 
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5 text-xs">
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Beneficiary</span>
-                      <strong className="text-slate-900 text-sm">{GKA_COMPANY.bankDetails.beneficiary}</strong>
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5 text-xs font-mono">
+                    <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">BENEFICIARY NAME:</span>
+                      <strong className="text-slate-900 text-xs font-bold">{GKA_COMPANY.bankDetails.beneficiary}</strong>
                     </div>
 
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Bank Name</span>
-                      <strong className="text-slate-900">{GKA_COMPANY.bankDetails.bankName}</strong>
-                    </div>
-
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Account Number</span>
-                      <strong className="text-slate-900 font-mono text-sm tracking-wide">
+                    <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">ACCOUNT NUMBER:</span>
+                      <strong className="text-slate-900 text-xs font-bold tracking-wider">
                         {GKA_COMPANY.bankDetails.accountNumber}
                       </strong>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-slate-400 block text-[10px] uppercase font-bold">IFSC Code</span>
-                        <strong className="text-slate-900 font-mono">{GKA_COMPANY.bankDetails.ifscCode}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 block text-[10px] uppercase font-bold">MICR Code</span>
-                        <strong className="text-slate-900 font-mono">{GKA_COMPANY.bankDetails.micr}</strong>
-                      </div>
+                    <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">BANK NAME:</span>
+                      <strong className="text-slate-900 text-xs">{GKA_COMPANY.bankDetails.bankName}</strong>
                     </div>
 
-                    <div>
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Contact Mobile</span>
-                      <strong className="text-slate-900">{GKA_COMPANY.bankDetails.contactMobile}</strong>
+                    <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">BANK IFSC CODE:</span>
+                      <strong className="text-slate-900 text-xs font-bold">{GKA_COMPANY.bankDetails.ifscCode}</strong>
+                    </div>
+
+                    <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">MOBILE NUMBER:</span>
+                      <strong className="text-slate-900 text-xs">{GKA_COMPANY.bankDetails.contactMobile}</strong>
+                    </div>
+
+                    <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">ALTERNATE NUMBER:</span>
+                      <strong className="text-slate-900 text-xs">{GKA_COMPANY.bankDetails.alternateMobile || '8940455917'}</strong>
+                    </div>
+
+                    <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">MICR CODE:</span>
+                      <strong className="text-slate-900 text-xs">{GKA_COMPANY.bankDetails.micr}</strong>
+                    </div>
+
+                    <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">MAIL ID:</span>
+                      <strong className="text-slate-900 text-xs uppercase">{GKA_COMPANY.bankDetails.email || GKA_COMPANY.email}</strong>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">WEBSITE:</span>
+                      <strong className="text-slate-900 text-xs uppercase">{GKA_COMPANY.bankDetails.website || GKA_COMPANY.website}</strong>
                     </div>
                   </div>
 

@@ -602,7 +602,7 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
     bank_info = (
         "BENEFICIARY NAME   : GKA CONSTRUCTION\n"
         "ACCOUNT NUMBER     : 23330200002362\n"
-        "BANK NAME          : FEDERAL BANK\n"
+        "BANK NAME          : FEDERAL BANKS\n"
         "IFSC CODE          : FDRL0002333\n"
         "MICR CODE          : 606049002\n"
         "MOBILE NUMBER      : 8838030917\n"

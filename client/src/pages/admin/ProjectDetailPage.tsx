@@ -529,16 +529,20 @@ export const ProjectDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200 text-xs space-y-1">
-                <span className="font-bold text-amber-900 block">Federal Bank Payment Info:</span>
-                <p className="text-[11px] text-amber-800">
-                  Beneficiary: <strong>{GKA_COMPANY.bankDetails.beneficiary}</strong>
+              <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200 text-xs space-y-1 font-mono">
+                <span className="font-bold text-amber-900 block font-sans">Official Federal Bank Payment Info:</span>
+                <p className="text-[11px] text-amber-900 leading-relaxed">
+                  BENEFICIARY: <strong>{GKA_COMPANY.bankDetails.beneficiary}</strong>
                   <br />
-                  Bank: <strong>{GKA_COMPANY.bankDetails.bankName}</strong>
+                  ACCOUNT NUMBER: <strong>{GKA_COMPANY.bankDetails.accountNumber}</strong>
                   <br />
-                  Account: <strong>{GKA_COMPANY.bankDetails.accountNumber}</strong>
+                  BANK NAME: <strong>{GKA_COMPANY.bankDetails.bankName}</strong>
                   <br />
-                  IFSC: <strong>{GKA_COMPANY.bankDetails.ifscCode}</strong>
+                  IFSC CODE: <strong>{GKA_COMPANY.bankDetails.ifscCode}</strong>
+                  <br />
+                  MOBILE NUMBER: <strong>{GKA_COMPANY.bankDetails.contactMobile}</strong> | ALTERNATE: <strong>8940455917</strong>
+                  <br />
+                  MICR CODE: <strong>{GKA_COMPANY.bankDetails.micr}</strong>
                 </p>
               </div>
 

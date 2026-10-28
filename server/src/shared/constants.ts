@@ -46,11 +46,14 @@ export const GKA_COMPANY = {
   bankDetails: {
     beneficiary: 'GKA CONSTRUCTION',
     accountName: 'GKA CONSTRUCTION',
-    bankName: 'Federal Bank',
+    bankName: 'FEDERAL BANKS',
     accountNumber: '23330200002362',
     ifscCode: 'FDRL0002333',
     micr: '606049002',
     contactMobile: '8838030917',
+    alternateMobile: '8940455917',
+    email: 'gkaconstruction51@gmail.com',
+    website: 'www.gkaconstruction.com',
     branch: 'Chennai Branch',
     upiId: '8838030917@federal'
   },

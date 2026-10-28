@@ -187,8 +187,13 @@ ${fullPdfUrl}
 -----------------------------------------------
 • Beneficiary    : ${GKA_COMPANY.bankDetails.beneficiary}
 • Account Number : ${GKA_COMPANY.bankDetails.accountNumber}
-• Bank & Branch  : ${GKA_COMPANY.bankDetails.bankName.toUpperCase()} (${GKA_COMPANY.bankDetails.branch})
+• Bank Name      : ${GKA_COMPANY.bankDetails.bankName.toUpperCase()}
 • IFSC Code      : ${GKA_COMPANY.bankDetails.ifscCode}
+• MICR Code      : ${GKA_COMPANY.bankDetails.micr}
+• Mobile Number  : ${GKA_COMPANY.bankDetails.contactMobile}
+• Alternate No.  : ${GKA_COMPANY.bankDetails.alternateMobile || '8940455917'}
+• Official Mail  : ${(GKA_COMPANY.bankDetails.email || GKA_COMPANY.email).toUpperCase()}
+• Official Site  : ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase()}
 
 -----------------------------------------------
 🔐 24/7 CLIENT TRACKING PORTAL ACCESS

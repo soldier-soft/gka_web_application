@@ -28,7 +28,10 @@ export const getQuotations = async (req: Request, res: Response, next: NextFunct
       filter.status = { $in: ['sent', 'approved', 'revised'] }; // Drafts hidden from client
     }
 
-    const quotations = await Quotation.find(filter).sort({ createdAt: -1 });
+    const quotations = await Quotation.find(filter)
+      .populate('projectId', 'projectId title siteAddress')
+      .populate('clientId', 'name email phone companyName billingAddress')
+      .sort({ createdAt: -1 });
     res.json({ success: true, count: quotations.length, quotations });
   } catch (error) {
     next(error);
@@ -38,7 +41,9 @@ export const getQuotations = async (req: Request, res: Response, next: NextFunct
 export const getQuotationById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { id } = req.params;
-    const quotation = await Quotation.findById(id);
+    const quotation = await Quotation.findById(id)
+      .populate('projectId', 'projectId title siteAddress')
+      .populate('clientId', 'name email phone companyName billingAddress');
     if (!quotation) {
       res.status(404).json({ success: false, message: 'Quotation not found' });
       return;
@@ -62,9 +67,15 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
       leadId,
       clientId,
       clientName,
+      clientContactPerson,
+      clientCompany,
+      clientGstin,
       clientAddress,
       projectTitle,
       siteLocation,
+      subject,
+      senderName,
+      senderCompany,
       items,
       discountPaise,
       isNegotiated,
@@ -114,15 +125,36 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
     const validUntil = new Date();
     validUntil.setDate(validUntil.getDate() + (Number(validDays) || 30));
 
+    let defaultGstin = clientGstin;
+    if (!defaultGstin && (clientId || projectId)) {
+      const clientDoc = await Client.findById(clientId);
+      if (clientDoc) {
+        defaultGstin = clientDoc.billingAddress?.gstin;
+      }
+      if (!defaultGstin && projectId) {
+        const projDoc = await Project.findById(projectId);
+        if (projDoc?.clientId) {
+          const clientFromProj = await Client.findById(projDoc.clientId);
+          if (clientFromProj) defaultGstin = clientFromProj.billingAddress?.gstin;
+        }
+      }
+    }
+
     const quotation = await Quotation.create({
       quotationNumber,
       projectId,
       leadId,
       clientId,
       clientName,
+      clientContactPerson: clientContactPerson || clientName,
+      clientCompany: clientCompany || 'VIVANTHA HOTEL',
+      clientGstin: defaultGstin,
       clientAddress: clientAddress || '',
       projectTitle,
       siteLocation,
+      subject: subject || `Quotation for Construction Works - ${projectTitle}`,
+      senderName: senderName || 'HARI A',
+      senderCompany: senderCompany || 'GKA CONSTRUCTION',
       items: calculatedItems,
       subtotalPaise,
       discountPaise: disc,
@@ -413,6 +445,7 @@ export const updateQuotation = async (req: Request, res: Response, next: NextFun
       clientName,
       clientCompany,
       clientContactPerson,
+      clientGstin,
       clientAddress,
       clientEmail,
       clientPhone,
@@ -491,6 +524,7 @@ export const updateQuotation = async (req: Request, res: Response, next: NextFun
     if (clientName) quotation.clientName = clientName;
     if (clientCompany !== undefined) quotation.clientCompany = clientCompany;
     if (clientContactPerson !== undefined) quotation.clientContactPerson = clientContactPerson;
+    if (clientGstin !== undefined) quotation.clientGstin = clientGstin;
     if (clientAddress !== undefined) quotation.clientAddress = clientAddress;
     if (clientEmail !== undefined) quotation.clientEmail = clientEmail;
     if (clientPhone !== undefined) quotation.clientPhone = clientPhone;

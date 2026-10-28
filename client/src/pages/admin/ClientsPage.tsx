@@ -311,11 +311,13 @@ export const ClientsPage: React.FC = () => {
 
   // Filter clients
   const filteredClients = clients.filter((c) => {
+    const clientGstin = c.billingAddress?.gstin || c.gstin || '';
     const matchesSearch =
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.companyName && c.companyName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (c.portalUsername && c.portalUsername.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (c.phone && c.phone.includes(searchTerm)) ||
+      (clientGstin && clientGstin.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (c.projects && c.projects.some((p: any) => p.title.toLowerCase().includes(searchTerm.toLowerCase()) || p.projectId.toLowerCase().includes(searchTerm.toLowerCase())));
 
     if (hasProjectsFilter === 'has_projects') {
@@ -500,16 +502,16 @@ export const ClientsPage: React.FC = () => {
                     </p>
                   )}
 
-                  {client.billingAddress?.gstin ? (
+                  {(client.billingAddress?.gstin || client.gstin) ? (
                     <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                      <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 font-mono text-[10px] font-bold flex items-center gap-1">
-                        <span className="text-slate-500 font-normal">GSTIN:</span>
-                        <span>{client.billingAddress.gstin}</span>
+                      <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 font-mono text-[11px] font-bold flex items-center gap-1.5">
+                        <span className="text-slate-500 font-normal text-[10px]">GST NUMBER:</span>
+                        <span className="select-all">{client.billingAddress?.gstin || client.gstin}</span>
                       </span>
                     </div>
                   ) : (
                     <div className="mt-1.5 text-[10px] text-slate-400 italic">
-                      No GSTIN registered
+                      No GST number registered
                     </div>
                   )}
                 </div>

@@ -29,7 +29,7 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
     }
 
     const projects = await Project.find(filter)
-      .populate('clientId', 'name email phone companyName')
+      .populate('clientId', 'name email phone companyName billingAddress')
       .populate('assignedManagerId', 'name email phone')
       .populate('assignedSupervisorId', 'name email phone')
       .sort({ createdAt: -1 });

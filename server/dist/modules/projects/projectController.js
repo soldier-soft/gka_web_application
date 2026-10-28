@@ -32,7 +32,7 @@ const getProjects = async (req, res, next) => {
             filter.clientId = req.user.clientId;
         }
         const projects = await Project_1.Project.find(filter)
-            .populate('clientId', 'name email phone companyName')
+            .populate('clientId', 'name email phone companyName billingAddress')
             .populate('assignedManagerId', 'name email phone')
             .populate('assignedSupervisorId', 'name email phone')
             .sort({ createdAt: -1 });

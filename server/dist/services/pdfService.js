@@ -197,7 +197,7 @@ class PDFService {
         }
         const bottomY = Math.max(curY + 2, 545);
         // 2. Left Card: BANK DETAILS (Light Blue border, Deep Navy Header)
-        doc.rect(40, bottomY, 252, 98).fill('#F8FAFC').stroke('#B8D5E5').lineWidth(0.8).stroke();
+        doc.rect(40, bottomY, 252, 104).fill('#F8FAFC').stroke('#B8D5E5').lineWidth(0.8).stroke();
         doc.rect(40, bottomY, 252, 16).fill('#0F254B');
         doc.circle(48, bottomY + 8, 2.5).fill('#D6A21D');
         doc.fillColor('#FFFFFF').fontSize(7.2).font('Helvetica-Bold').text('BANK DETAILS', 56, bottomY + 4.5);
@@ -210,15 +210,16 @@ class PDFService {
             ['MOBILE NUMBER', `:  ${constants_1.GKA_COMPANY.bankDetails.contactMobile}`],
             ['ALTERNATE NUMBER', ':  8940455917'],
             ['MAIL ID', `:  ${constants_1.GKA_COMPANY.email.toUpperCase()}`],
+            ['WEBSITE', `:  ${constants_1.GKA_COMPANY.website.toUpperCase()}`],
         ];
-        let bY = bottomY + 20;
+        let bY = bottomY + 19;
         bankDetailsList.forEach(([lbl, val]) => {
-            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#475569').text(lbl, 46, bY, { width: 88 });
-            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#0F254B').text(val, 134, bY, { width: 154 });
-            bY += 9.5;
+            doc.font('Helvetica-Bold').fontSize(6).fillColor('#475569').text(lbl, 46, bY, { width: 88 });
+            doc.font('Helvetica-Bold').fontSize(6).fillColor('#0F254B').text(val, 134, bY, { width: 154 });
+            bY += 9;
         });
         // 3. Right Card: TERMS & CONDITIONS (Clean, dedicated container with ZERO overlap)
-        doc.rect(302, bottomY, 253, 98).fill('#FFFFFF').stroke('#CBD5E1').lineWidth(0.8).stroke();
+        doc.rect(302, bottomY, 253, 104).fill('#FFFFFF').stroke('#CBD5E1').lineWidth(0.8).stroke();
         doc.rect(302, bottomY, 253, 16).fill('#0F254B');
         doc.circle(310, bottomY + 8, 2.5).fill('#D6A21D');
         doc.fillColor('#FFFFFF').fontSize(7.2).font('Helvetica-Bold').text('TERMS & CONDITIONS', 318, bottomY + 4.5);

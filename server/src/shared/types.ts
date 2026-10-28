@@ -313,10 +313,16 @@ export interface IInvoice {
   status: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled';
   notes?: string;
   bankDetails: {
+    beneficiary?: string;
     accountName: string;
     accountNumber: string;
     bankName: string;
     ifscCode: string;
+    micr?: string;
+    contactMobile?: string;
+    alternateMobile?: string;
+    email?: string;
+    website?: string;
     branch: string;
     upiId?: string;
   };

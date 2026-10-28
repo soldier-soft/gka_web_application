@@ -63,6 +63,7 @@ const QuotationSchema = new mongoose_1.Schema({
     clientContactPerson: { type: String, default: 'THE CHIEF ENGINEER' },
     clientCompany: { type: String, default: 'VIVANTHA HOTEL' },
     clientAddress: { type: String, default: 'SHOLINGANALUR, CHENNAI.' },
+    clientGstin: { type: String },
     senderName: { type: String, default: 'HARI A' },
     senderCompany: { type: String, default: 'GKA CONSTRUCTION' },
     subject: {

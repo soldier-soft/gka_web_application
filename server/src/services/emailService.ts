@@ -323,12 +323,32 @@ export const sendDocumentNotificationEmail = async (
                 <td style="font-family: monospace; font-weight: 700;">${GKA_COMPANY.bankDetails.accountNumber}</td>
               </tr>
               <tr>
-                <td style="font-weight: 600;">Bank & Branch:</td>
-                <td>${GKA_COMPANY.bankDetails.bankName.toUpperCase()} (${GKA_COMPANY.bankDetails.branch})</td>
+                <td style="font-weight: 600;">Bank Name:</td>
+                <td>${GKA_COMPANY.bankDetails.bankName.toUpperCase()}</td>
               </tr>
               <tr>
                 <td style="font-weight: 600;">IFSC Code:</td>
                 <td style="font-family: monospace; font-weight: 700;">${GKA_COMPANY.bankDetails.ifscCode}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Mobile Number:</td>
+                <td>${GKA_COMPANY.bankDetails.contactMobile}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Alternate Number:</td>
+                <td>${GKA_COMPANY.bankDetails.alternateMobile || '8940455917'}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">MICR Code:</td>
+                <td style="font-family: monospace;">${GKA_COMPANY.bankDetails.micr}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Mail ID:</td>
+                <td>${(GKA_COMPANY.bankDetails.email || GKA_COMPANY.email).toUpperCase()}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Website:</td>
+                <td>${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase()}</td>
               </tr>
             </table>
           </div>` : ''}

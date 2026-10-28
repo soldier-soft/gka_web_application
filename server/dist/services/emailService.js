@@ -279,12 +279,32 @@ const sendDocumentNotificationEmail = async (payload) => {
                 <td style="font-family: monospace; font-weight: 700;">${constants_1.GKA_COMPANY.bankDetails.accountNumber}</td>
               </tr>
               <tr>
-                <td style="font-weight: 600;">Bank & Branch:</td>
-                <td>${constants_1.GKA_COMPANY.bankDetails.bankName.toUpperCase()} (${constants_1.GKA_COMPANY.bankDetails.branch})</td>
+                <td style="font-weight: 600;">Bank Name:</td>
+                <td>${constants_1.GKA_COMPANY.bankDetails.bankName.toUpperCase()}</td>
               </tr>
               <tr>
                 <td style="font-weight: 600;">IFSC Code:</td>
                 <td style="font-family: monospace; font-weight: 700;">${constants_1.GKA_COMPANY.bankDetails.ifscCode}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Mobile Number:</td>
+                <td>${constants_1.GKA_COMPANY.bankDetails.contactMobile}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Alternate Number:</td>
+                <td>${constants_1.GKA_COMPANY.bankDetails.alternateMobile || '8940455917'}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">MICR Code:</td>
+                <td style="font-family: monospace;">${constants_1.GKA_COMPANY.bankDetails.micr}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Mail ID:</td>
+                <td>${(constants_1.GKA_COMPANY.bankDetails.email || constants_1.GKA_COMPANY.email).toUpperCase()}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Website:</td>
+                <td>${(constants_1.GKA_COMPANY.bankDetails.website || constants_1.GKA_COMPANY.website).toUpperCase()}</td>
               </tr>
             </table>
           </div>` : ''}

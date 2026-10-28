@@ -24,6 +24,7 @@ export interface IQuotationDocument extends Document {
   subject?: string;
   clientContactPerson?: string;
   clientCompany?: string;
+  clientGstin?: string;
   clientEmail?: string;
   clientPhone?: string;
   senderName?: string;
@@ -73,6 +74,7 @@ const QuotationSchema = new Schema<IQuotationDocument>(
     clientContactPerson: { type: String, default: 'THE CHIEF ENGINEER' },
     clientCompany: { type: String, default: 'VIVANTHA HOTEL' },
     clientAddress: { type: String, default: 'SHOLINGANALUR, CHENNAI.' },
+    clientGstin: { type: String },
     senderName: { type: String, default: 'HARI A' },
     senderCompany: { type: String, default: 'GKA CONSTRUCTION' },
     subject: {

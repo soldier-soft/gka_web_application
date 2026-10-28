@@ -42,6 +42,7 @@ export const QuotationsPage: React.FC = () => {
   const [quotationNumber, setQuotationNumber] = useState('GKA-QUO-2026-001');
   const [clientName, setClientName] = useState('');
   const [clientCompany, setClientCompany] = useState('');
+  const [clientGstin, setClientGstin] = useState('');
   const [projectTitle, setProjectTitle] = useState('');
   const [siteLocation, setSiteLocation] = useState('');
   const [subject, setSubject] = useState('');
@@ -58,6 +59,7 @@ export const QuotationsPage: React.FC = () => {
   const [editQuotationNumber, setEditQuotationNumber] = useState('');
   const [editClientName, setEditClientName] = useState('');
   const [editClientCompany, setEditClientCompany] = useState('');
+  const [editClientGstin, setEditClientGstin] = useState('');
   const [editProjectTitle, setEditProjectTitle] = useState('');
   const [editSiteLocation, setEditSiteLocation] = useState('');
   const [editSubject, setEditSubject] = useState('');
@@ -120,6 +122,8 @@ export const QuotationsPage: React.FC = () => {
           `${matched.siteAddress?.street || ''}, ${matched.siteAddress?.city || ''}`.trim()
         );
         if (matched.clientName) setClientName(matched.clientName);
+        const gst = (matched.clientId as any)?.billingAddress?.gstin || (matched.clientId as any)?.gstin || '';
+        if (gst) setClientGstin(gst);
       }
       setShowModal(true);
     }
@@ -211,6 +215,7 @@ export const QuotationsPage: React.FC = () => {
         clientName,
         clientContactPerson: clientName,
         clientCompany,
+        clientGstin: clientGstin.trim() || undefined,
         clientAddress: siteLocation,
         projectTitle,
         siteLocation,
@@ -276,6 +281,7 @@ export const QuotationsPage: React.FC = () => {
     setEditQuotationNumber(q.quotationNumber || '');
     setEditClientName(q.clientName || '');
     setEditClientCompany(q.clientCompany || '');
+    setEditClientGstin(q.clientGstin || (q.clientId as any)?.billingAddress?.gstin || (q.clientId as any)?.gstin || '');
     setEditProjectTitle(q.projectTitle || '');
     setEditSiteLocation(q.siteLocation || q.clientAddress || '');
     setEditSubject(q.subject || '');
@@ -366,6 +372,7 @@ export const QuotationsPage: React.FC = () => {
         clientName: editClientName,
         clientContactPerson: editClientName,
         clientCompany: editClientCompany,
+        clientGstin: editClientGstin.trim() || undefined,
         clientAddress: editSiteLocation,
         projectTitle: editProjectTitle,
         siteLocation: editSiteLocation,
@@ -455,9 +462,16 @@ export const QuotationsPage: React.FC = () => {
 
                     <td className="py-3.5 px-4">
                       <strong className="text-slate-900 block">{q.projectTitle}</strong>
-                      <span className="text-slate-500 text-[11px] block">
-                        {q.clientCompany || q.clientName}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-slate-500 text-[11px]">
+                          {q.clientCompany || q.clientName}
+                        </span>
+                        {(q.clientGstin || q.clientId?.billingAddress?.gstin || q.clientId?.gstin) && (
+                          <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-900 border border-blue-200 font-mono text-[9px] font-bold">
+                            GST: {q.clientGstin || q.clientId?.billingAddress?.gstin || q.clientId?.gstin}
+                          </span>
+                        )}
+                      </div>
                       {q.projectId ? (
                         <Link
                           to={`/admin/projects/${q.projectId?._id || q.projectId}?tab=quotations`}
@@ -651,6 +665,8 @@ export const QuotationsPage: React.FC = () => {
                           `${match.siteAddress?.street || ''}, ${match.siteAddress?.city || ''}`.trim()
                         );
                         if (match.clientName) setClientName(match.clientName);
+                        const gst = (match.clientId as any)?.billingAddress?.gstin || (match.clientId as any)?.gstin || '';
+                        setClientGstin(gst);
                       }
                     }
                   }}
@@ -714,16 +730,30 @@ export const QuotationsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Site Location & City *</label>
-                <input
-                  type="text"
-                  required
-                  value={siteLocation}
-                  onChange={(e) => setSiteLocation(e.target.value)}
-                  placeholder="e.g. SHOLINGANALUR, CHENNAI."
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Site Location & City *</label>
+                  <input
+                    type="text"
+                    required
+                    value={siteLocation}
+                    onChange={(e) => setSiteLocation(e.target.value)}
+                    placeholder="e.g. SHOLINGANALUR, CHENNAI."
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Client GSTIN (Auto-loaded if saved)
+                  </label>
+                  <input
+                    type="text"
+                    value={clientGstin}
+                    onChange={(e) => setClientGstin(e.target.value)}
+                    placeholder="e.g. 33AAAAA0000A1Z5"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono uppercase font-bold text-[#0F254B]"
+                  />
+                </div>
               </div>
 
               <div>
@@ -1053,8 +1083,8 @@ export const QuotationsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
                   <label className="block text-[10px] text-slate-500 font-semibold mb-1">
                     Site Location / Address
                   </label>
@@ -1068,16 +1098,29 @@ export const QuotationsPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[10px] text-slate-500 font-semibold mb-1">
-                    Subject Scope
+                    Client GSTIN
                   </label>
                   <input
                     type="text"
-                    required
-                    value={editSubject}
-                    onChange={(e) => setEditSubject(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium text-slate-900"
+                    value={editClientGstin}
+                    onChange={(e) => setEditClientGstin(e.target.value)}
+                    placeholder="33AAAAA0000A1Z5"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono uppercase font-bold text-[#0F254B]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-slate-500 font-semibold mb-1">
+                  Subject Scope
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editSubject}
+                  onChange={(e) => setEditSubject(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-medium text-slate-900"
+                />
               </div>
 
               {/* Items Section */}

@@ -160,6 +160,8 @@ export const InvoicesPage: React.FC = () => {
       if (matched) {
         setInvClientName(matched.clientName || 'Valued Client');
         setInvBillingAddress(matched.siteAddress?.street || 'Kelambakkam, Chennai');
+        const gst = (matched.clientId as any)?.billingAddress?.gstin || (matched.clientId as any)?.gstin || '';
+        if (gst) setInvClientGstin(gst);
       }
       setShowCreateModal(true);
     }

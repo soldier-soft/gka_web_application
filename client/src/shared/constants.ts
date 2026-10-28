@@ -41,12 +41,18 @@ export const GKA_COMPANY = {
   },
   companyProfilePdfUrl: '/docs/GKA_Construction_Premium_Company_Profile.pdf',
   bankDetails: {
+    beneficiary: 'GKA CONSTRUCTION',
     accountName: 'GKA CONSTRUCTION',
-    accountNumber: '50200088912345',
-    bankName: 'HDFC Bank',
-    branch: 'Kelambakkam Branch, Chennai',
-    ifscCode: 'HDFC0001824',
-    upiId: 'gkaconstruction@hdfcbank'
+    bankName: 'FEDERAL BANKS',
+    accountNumber: '23330200002362',
+    ifscCode: 'FDRL0002333',
+    micr: '606049002',
+    contactMobile: '8838030917',
+    alternateMobile: '8940455917',
+    email: 'gkaconstruction51@gmail.com',
+    website: 'www.gkaconstruction.com',
+    branch: 'Chennai Branch',
+    upiId: '8838030917@federal'
   },
   representativeClients: [
     {

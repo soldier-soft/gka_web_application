@@ -32,7 +32,10 @@ const getQuotations = async (req, res, next) => {
             filter.clientId = req.user.clientId;
             filter.status = { $in: ['sent', 'approved', 'revised'] }; // Drafts hidden from client
         }
-        const quotations = await Quotation_1.Quotation.find(filter).sort({ createdAt: -1 });
+        const quotations = await Quotation_1.Quotation.find(filter)
+            .populate('projectId', 'projectId title siteAddress')
+            .populate('clientId', 'name email phone companyName billingAddress')
+            .sort({ createdAt: -1 });
         res.json({ success: true, count: quotations.length, quotations });
     }
     catch (error) {
@@ -43,7 +46,9 @@ exports.getQuotations = getQuotations;
 const getQuotationById = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const quotation = await Quotation_1.Quotation.findById(id);
+        const quotation = await Quotation_1.Quotation.findById(id)
+            .populate('projectId', 'projectId title siteAddress')
+            .populate('clientId', 'name email phone companyName billingAddress');
         if (!quotation) {
             res.status(404).json({ success: false, message: 'Quotation not found' });
             return;
@@ -61,7 +66,7 @@ const getQuotationById = async (req, res, next) => {
 exports.getQuotationById = getQuotationById;
 const createQuotation = async (req, res, next) => {
     try {
-        const { projectId, leadId, clientId, clientName, clientAddress, projectTitle, siteLocation, items, discountPaise, isNegotiated, negotiatedDiscountPaise, negotiatedNotes, taxRatePercent, termsAndConditions, validDays, } = req.body;
+        const { projectId, leadId, clientId, clientName, clientContactPerson, clientCompany, clientGstin, clientAddress, projectTitle, siteLocation, subject, senderName, senderCompany, items, discountPaise, isNegotiated, negotiatedDiscountPaise, negotiatedNotes, taxRatePercent, termsAndConditions, validDays, } = req.body;
         // Calculate subtotal from items with integer paise accuracy
         let subtotalPaise = 0;
         const calculatedItems = (items || []).map((item, idx) => {
@@ -96,15 +101,36 @@ const createQuotation = async (req, res, next) => {
         const quotationNumber = `GKA-QUO-${currentYear}-${String(count + 1).padStart(3, '0')}`;
         const validUntil = new Date();
         validUntil.setDate(validUntil.getDate() + (Number(validDays) || 30));
+        let defaultGstin = clientGstin;
+        if (!defaultGstin && (clientId || projectId)) {
+            const clientDoc = await Client_1.Client.findById(clientId);
+            if (clientDoc) {
+                defaultGstin = clientDoc.billingAddress?.gstin;
+            }
+            if (!defaultGstin && projectId) {
+                const projDoc = await Project_1.Project.findById(projectId);
+                if (projDoc?.clientId) {
+                    const clientFromProj = await Client_1.Client.findById(projDoc.clientId);
+                    if (clientFromProj)
+                        defaultGstin = clientFromProj.billingAddress?.gstin;
+                }
+            }
+        }
         const quotation = await Quotation_1.Quotation.create({
             quotationNumber,
             projectId,
             leadId,
             clientId,
             clientName,
+            clientContactPerson: clientContactPerson || clientName,
+            clientCompany: clientCompany || 'VIVANTHA HOTEL',
+            clientGstin: defaultGstin,
             clientAddress: clientAddress || '',
             projectTitle,
             siteLocation,
+            subject: subject || `Quotation for Construction Works - ${projectTitle}`,
+            senderName: senderName || 'HARI A',
+            senderCompany: senderCompany || 'GKA CONSTRUCTION',
             items: calculatedItems,
             subtotalPaise,
             discountPaise: disc,
@@ -371,7 +397,7 @@ const updateQuotation = async (req, res, next) => {
             res.status(404).json({ success: false, message: 'Quotation not found' });
             return;
         }
-        const { quotationNumber, clientName, clientCompany, clientContactPerson, clientAddress, clientEmail, clientPhone, projectTitle, siteLocation, subject, senderName, senderCompany, items, discountPaise, isNegotiated, negotiatedDiscountPaise, negotiatedNotes, taxRatePercent, termsAndConditions, status, validUntil, } = req.body;
+        const { quotationNumber, clientName, clientCompany, clientContactPerson, clientGstin, clientAddress, clientEmail, clientPhone, projectTitle, siteLocation, subject, senderName, senderCompany, items, discountPaise, isNegotiated, negotiatedDiscountPaise, negotiatedNotes, taxRatePercent, termsAndConditions, status, validUntil, } = req.body;
         if (items && Array.isArray(items)) {
             let subtotalPaise = 0;
             const calculatedItems = items.map((item, idx) => {
@@ -430,6 +456,8 @@ const updateQuotation = async (req, res, next) => {
             quotation.clientCompany = clientCompany;
         if (clientContactPerson !== undefined)
             quotation.clientContactPerson = clientContactPerson;
+        if (clientGstin !== undefined)
+            quotation.clientGstin = clientGstin;
         if (clientAddress !== undefined)
             quotation.clientAddress = clientAddress;
         if (clientEmail !== undefined)
