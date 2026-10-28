@@ -138,7 +138,7 @@ export class PDFService {
 
     // Quotation / Invoice No. & Date Row
     const metaY = 138;
-    const numLabel = title === 'QUOTATION' ? 'QUOTATION NO.' : 'INVOICE NO.';
+    const numLabel = title.includes('QUOTATION') ? 'QUOTATION NO.' : 'INVOICE NO.';
     doc.fontSize(7).font('Helvetica-Bold').fillColor('#64748B').text(numLabel, 40, metaY);
     doc.fontSize(10.5).font('Helvetica-Bold').fillColor('#0F254B').text(docNumber, 40, metaY + 9);
 
@@ -208,7 +208,9 @@ export class PDFService {
   private static drawBottomAndFooter(
     doc: InstanceType<typeof PDFDocument>,
     startY: number,
-    notes?: string
+    notes?: string,
+    isInvoice: boolean = false,
+    customTerms?: string[]
   ): void {
     const bottomY = Math.max(startY + 8, 565);
 
@@ -242,21 +244,39 @@ export class PDFService {
     doc.rect(314, bottomY + 6, 7, 7).fill('#0F254B');
     doc.fillColor('#0F254B').fontSize(7.5).font('Helvetica-Bold').text('TERMS & CONDITIONS:', 326, bottomY + 6);
 
-    const terms = [
-      '• This quotation is valid for 15 days from the date of issue.',
-      '• Payment terms will be mutually agreed.',
-      '• GST applicable as per government norms.',
-      '• Work executed as per agreed specifications and site conditions.',
-    ];
-    if (notes) {
-      terms.push(`• Negotiated Terms: ${notes}`);
+    let terms: string[] = [];
+    if (customTerms && Array.isArray(customTerms) && customTerms.length > 0) {
+      terms = customTerms.map((t) => (t.startsWith('•') ? t : `• ${t}`));
+    } else if (isInvoice) {
+      terms = [
+        '• Payment is due within 14 calendar days from date of invoice.',
+        '• Please quote Invoice Number when executing bank transfer.',
+        '• Statutory GST (18%) charged as per GSTIN compliance rules.',
+        '• Overdue payments subject to 18% p.a. interest.',
+        '• All billing disputes subject to Chennai jurisdiction only.',
+      ];
+    } else {
+      terms = [
+        '• This quotation is valid for 15 days from the date of issue.',
+        '• Payment terms will be mutually agreed.',
+        '• GST applicable as per government norms.',
+        '• Work executed as per agreed specifications and site conditions.',
+      ];
     }
 
-    let tY = bottomY + 17;
-    doc.font('Helvetica').fontSize(6.2).fillColor('#475569');
-    terms.forEach((t) => {
+    if (notes && !terms.some((t) => t.toLowerCase().includes(notes.toLowerCase()))) {
+      terms.push(`• Notes / Special Terms: ${notes}`);
+    }
+
+    let tY = bottomY + 16;
+    const maxTerms = 6;
+    const itemsToDisplay = terms.slice(0, maxTerms);
+    const lineGap = itemsToDisplay.length > 5 ? 5.8 : 7.0;
+    const fontSize = itemsToDisplay.length > 5 ? 5.5 : 6.2;
+    doc.font('Helvetica').fontSize(fontSize).fillColor('#475569');
+    itemsToDisplay.forEach((t) => {
       doc.text(t, 314, tY, { width: 236 });
-      tY += 7.2;
+      tY += lineGap;
     });
 
     // Signature and Seal Images (Company on top, signature below, proprietor, seal beside)
@@ -480,8 +500,14 @@ export class PDFService {
 
     y += 38;
 
-    // 8. Bottom Sections (Bank Details + Terms + Seal) and Footer Banner
-    this.drawBottomAndFooter(doc, y, quotation.isNegotiated ? quotation.negotiatedNotes : undefined);
+    const quotationNotes = quotation.isNegotiated && quotation.negotiatedNotes ? quotation.negotiatedNotes : quotation.notes;
+    this.drawBottomAndFooter(
+      doc,
+      y,
+      quotationNotes,
+      false,
+      quotation.termsAndConditions
+    );
 
     doc.end();
     return doc;
@@ -494,9 +520,10 @@ export class PDFService {
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
 
     // 1. Header
+    const title = invoice.isNegotiated ? 'NEGOTIATED TAX INVOICE' : 'TAX INVOICE';
     const yAfterHeader = this.drawBrandedHeader(
       doc,
-      'TAX INVOICE',
+      title,
       invoice.invoiceNumber,
       new Date(invoice.issueDate || Date.now())
     );
@@ -567,17 +594,37 @@ export class PDFService {
 
     // 5. Totals Block
     const subtotalRupees = toRupees(invoice.subtotalPaise);
+    const discountRupees = toRupees(invoice.negotiatedDiscountPaise || invoice.discountPaise || 0);
+    const taxableSubtotal = Math.max(0, subtotalRupees - discountRupees);
     const taxRupees = toRupees(invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise);
     const totalRupees = toRupees(invoice.totalAmountPaise);
 
     y += 4;
     doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
-    doc.text('TOTAL AMOUNT', 330, y, { width: 130, align: 'right' });
+    doc.text(invoice.isNegotiated ? 'GROSS BILL AMOUNT' : 'TOTAL AMOUNT', 330, y, { width: 130, align: 'right' });
     doc.fillColor('#0F254B').text(`Rs.  ${subtotalRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
       width: 85,
       align: 'right',
     });
     y += 14;
+
+    if (invoice.isNegotiated && discountRupees > 0) {
+      doc.font('Helvetica-Bold').fontSize(8).fillColor('#059669');
+      doc.text('LESS: NEGOTIATED DISCOUNT', 290, y, { width: 170, align: 'right' });
+      doc.text(`- Rs.  ${discountRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
+        width: 85,
+        align: 'right',
+      });
+      y += 14;
+
+      doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
+      doc.text('TAXABLE BILL VALUE', 330, y, { width: 130, align: 'right' });
+      doc.fillColor('#0F254B').text(`Rs.  ${taxableSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 465, y, {
+        width: 85,
+        align: 'right',
+      });
+      y += 14;
+    }
 
     doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569');
     doc.text('TAXES / GST (18%)', 330, y, { width: 130, align: 'right' });
@@ -594,7 +641,7 @@ export class PDFService {
     doc.restore();
 
     doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF');
-    doc.text('GRAND TOTAL', 350, y + 3, { width: 100, align: 'left' });
+    doc.text(invoice.isNegotiated ? 'NET NEGOTIATED TOTAL' : 'GRAND TOTAL', 350, y + 3, { width: 120, align: 'left' });
     doc.text(`Rs.  ${totalRupees.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 450, y + 3, {
       width: 100,
       align: 'right',
@@ -637,7 +684,20 @@ export class PDFService {
     y += 38;
 
     // 8. Bottom Sections and Footer
-    this.drawBottomAndFooter(doc, y);
+    const invoiceNotes = [
+      invoice.notes,
+      invoice.isNegotiated && invoice.negotiatedNotes ? `Agreed Special Settlement: ${invoice.negotiatedNotes}` : null,
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
+    this.drawBottomAndFooter(
+      doc,
+      y,
+      invoiceNotes,
+      true,
+      invoice.termsAndConditions
+    );
 
     doc.end();
     return doc;

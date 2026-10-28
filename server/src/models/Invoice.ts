@@ -17,6 +17,11 @@ export interface IInvoiceDocument extends Document {
   totalAmountPaise: number;
   paidAmountPaise: number;
   dueAmountPaise: number;
+  isNegotiated?: boolean;
+  negotiatedDiscountPaise?: number;
+  discountPaise?: number;
+  negotiatedNotes?: string;
+  termsAndConditions?: string[];
   issueDate: Date;
   dueDate: Date;
   status: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled';
@@ -77,6 +82,11 @@ const InvoiceSchema = new Schema<IInvoiceDocument>(
       default: 'draft',
       index: true,
     },
+    isNegotiated: { type: Boolean, default: false },
+    negotiatedDiscountPaise: { type: Number, default: 0 },
+    discountPaise: { type: Number, default: 0 },
+    negotiatedNotes: { type: String },
+    termsAndConditions: [{ type: String }],
     gstFiled: { type: Boolean, default: false, index: true },
     gstFilingDate: { type: Date },
     gstFilingArn: { type: String },

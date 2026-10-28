@@ -15,6 +15,7 @@ const Client_1 = require("../../models/Client");
 const User_1 = require("../../models/User");
 const pdfService_1 = require("../../services/pdfService");
 const docxService_1 = require("../../services/docxService");
+const constants_1 = require("../../shared/constants");
 const getInvoices = async (req, res, next) => {
     try {
         const { projectId, clientId, status } = req.query;
@@ -42,7 +43,7 @@ const getInvoices = async (req, res, next) => {
 exports.getInvoices = getInvoices;
 const createInvoice = async (req, res, next) => {
     try {
-        const { projectId, clientId, clientName, billingAddress, items, issueDate, dueDate, notes } = req.body;
+        const { projectId, clientId, clientName, clientContactPerson, clientCompany, billingAddress, subject, items, issueDate, dueDate, notes, isNegotiated, negotiatedDiscountPaise, negotiatedNotes, termsAndConditions, } = req.body;
         const project = await Project_1.Project.findById(projectId);
         if (!project) {
             res.status(404).json({ success: false, message: 'Project not found' });
@@ -62,11 +63,34 @@ const createInvoice = async (req, res, next) => {
                 totalPaise: total,
             };
         });
+        const isNeg = Boolean(isNegotiated);
+        const discPaise = isNeg ? (Number(negotiatedDiscountPaise) || 0) : 0;
+        const taxablePaise = Math.max(0, subtotalPaise - discPaise);
         // 18% GST (9% CGST + 9% SGST)
-        const taxPaise = Math.round(subtotalPaise * 0.18);
+        const taxPaise = Math.round(taxablePaise * 0.18);
         const cgstPaise = Math.round(taxPaise / 2);
         const sgstPaise = taxPaise - cgstPaise;
-        const totalAmountPaise = subtotalPaise + taxPaise;
+        const totalAmountPaise = taxablePaise + taxPaise;
+        let parsedTerms = [];
+        if (Array.isArray(termsAndConditions) && termsAndConditions.length > 0) {
+            parsedTerms = termsAndConditions;
+        }
+        else if (typeof termsAndConditions === 'string' && termsAndConditions.trim()) {
+            parsedTerms = termsAndConditions.split('\n').map((s) => s.trim()).filter(Boolean);
+        }
+        else {
+            parsedTerms = [...constants_1.DEFAULT_INVOICE_TERMS];
+        }
+        if (isNeg && negotiatedNotes && !parsedTerms.some((t) => t.includes(negotiatedNotes))) {
+            parsedTerms.push(`Agreed Special Terms: ${negotiatedNotes}`);
+        }
+        let defaultClientName = clientName;
+        if (!defaultClientName && project.clientId) {
+            const clientObj = await Client_1.Client.findById(project.clientId);
+            if (clientObj) {
+                defaultClientName = clientObj.name;
+            }
+        }
         const count = await Invoice_1.Invoice.countDocuments();
         const currentYear = new Date().getFullYear();
         const invoiceNumber = `GKA-INV-${currentYear}-${String(count + 1).padStart(3, '0')}`;
@@ -75,10 +99,18 @@ const createInvoice = async (req, res, next) => {
             projectId: project._id,
             projectTitle: project.title,
             clientId: clientId || project.clientId,
-            clientName: clientName || 'Client',
+            clientName: defaultClientName || 'Valued Client',
+            clientContactPerson: clientContactPerson || defaultClientName || 'Chief Engineer',
+            clientCompany: clientCompany,
             billingAddress: billingAddress || project.siteAddress.street,
+            subject: subject || `Tax Invoice for Construction Works - ${project.title}`,
             items: calculatedItems,
             subtotalPaise,
+            isNegotiated: isNeg,
+            negotiatedDiscountPaise: discPaise,
+            discountPaise: discPaise,
+            negotiatedNotes: isNeg ? negotiatedNotes : undefined,
+            termsAndConditions: parsedTerms,
             cgstPaise,
             sgstPaise,
             igstPaise: 0,
@@ -172,6 +204,27 @@ const updateInvoice = async (req, res, next) => {
             return;
         }
         const oldTotalPaise = invoice.totalAmountPaise;
+        if (req.body.isNegotiated !== undefined) {
+            invoice.isNegotiated = Boolean(req.body.isNegotiated);
+        }
+        if (req.body.negotiatedDiscountPaise !== undefined) {
+            invoice.negotiatedDiscountPaise = Number(req.body.negotiatedDiscountPaise) || 0;
+            invoice.discountPaise = invoice.negotiatedDiscountPaise;
+        }
+        if (req.body.negotiatedNotes !== undefined) {
+            invoice.negotiatedNotes = req.body.negotiatedNotes;
+        }
+        if (req.body.termsAndConditions !== undefined) {
+            if (Array.isArray(req.body.termsAndConditions)) {
+                invoice.termsAndConditions = req.body.termsAndConditions;
+            }
+            else if (typeof req.body.termsAndConditions === 'string') {
+                invoice.termsAndConditions = req.body.termsAndConditions
+                    .split('\n')
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+            }
+        }
         if (items && Array.isArray(items)) {
             let subtotalPaise = 0;
             invoice.items = items.map((item) => {
@@ -187,18 +240,22 @@ const updateInvoice = async (req, res, next) => {
                     totalPaise: total,
                 };
             });
-            const taxPaise = Math.round(subtotalPaise * 0.18);
             invoice.subtotalPaise = subtotalPaise;
-            invoice.cgstPaise = Math.round(taxPaise / 2);
-            invoice.sgstPaise = taxPaise - invoice.cgstPaise;
-            invoice.totalAmountPaise = subtotalPaise + taxPaise;
-            invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
-            const diffPaise = invoice.totalAmountPaise - oldTotalPaise;
-            if (diffPaise !== 0) {
-                await Project_1.Project.findByIdAndUpdate(invoice.projectId, {
-                    $inc: { invoicedAmountPaise: diffPaise },
-                });
-            }
+        }
+        // Always recalculate taxes and totals taking negotiation into account
+        const isNeg = Boolean(invoice.isNegotiated);
+        const discPaise = isNeg ? (invoice.negotiatedDiscountPaise || invoice.discountPaise || 0) : 0;
+        const taxablePaise = Math.max(0, invoice.subtotalPaise - discPaise);
+        const taxPaise = Math.round(taxablePaise * 0.18);
+        invoice.cgstPaise = Math.round(taxPaise / 2);
+        invoice.sgstPaise = taxPaise - invoice.cgstPaise;
+        invoice.totalAmountPaise = taxablePaise + taxPaise;
+        invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
+        const diffPaise = invoice.totalAmountPaise - oldTotalPaise;
+        if (diffPaise !== 0 && invoice.projectId) {
+            await Project_1.Project.findByIdAndUpdate(invoice.projectId, {
+                $inc: { invoicedAmountPaise: diffPaise },
+            });
         }
         if (invoiceNumber)
             invoice.invoiceNumber = invoiceNumber;

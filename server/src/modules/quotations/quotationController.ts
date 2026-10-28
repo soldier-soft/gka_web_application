@@ -5,7 +5,7 @@ import { Project } from '../../models/Project';
 import { Invoice } from '../../models/Invoice';
 import { Client } from '../../models/Client';
 import { User } from '../../models/User';
-import { STANDARD_RATE_LIBRARY } from '../../shared/constants';
+import { STANDARD_RATE_LIBRARY, DEFAULT_INVOICE_TERMS } from '../../shared/constants';
 import { PDFService } from '../../services/pdfService';
 import { DOCXService } from '../../services/docxService';
 import { toPaise } from '../../shared/types';
@@ -286,15 +286,27 @@ export const convertToInvoice = async (req: Request, res: Response, next: NextFu
       };
     });
 
+    const isNegotiated = Boolean(quotation.isNegotiated);
+    const negotiatedDiscountPaise = isNegotiated
+      ? (quotation.negotiatedDiscountPaise || quotation.discountPaise || 0)
+      : 0;
+    const negotiatedNotes = isNegotiated ? (quotation.negotiatedNotes || '') : '';
+
+    const taxablePaise = Math.max(0, subtotalPaise - negotiatedDiscountPaise);
     const taxRate = quotation.taxRatePercent || 18;
-    const taxPaise = Math.round((subtotalPaise * taxRate) / 100);
+    const taxPaise = Math.round((taxablePaise * taxRate) / 100);
     const cgstPaise = Math.round(taxPaise / 2);
     const sgstPaise = taxPaise - cgstPaise;
-    const totalAmountPaise = subtotalPaise + taxPaise;
+    const totalAmountPaise = taxablePaise + taxPaise;
 
     const count = await Invoice.countDocuments();
     const currentYear = new Date().getFullYear();
     const invoiceNumber = `GKA-INV-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+
+    const invoiceTerms = [...DEFAULT_INVOICE_TERMS];
+    if (isNegotiated && negotiatedNotes) {
+      invoiceTerms.push(`Agreed Special Terms: ${negotiatedNotes}`);
+    }
 
     const invoice = await Invoice.create({
       invoiceNumber,
@@ -302,9 +314,17 @@ export const convertToInvoice = async (req: Request, res: Response, next: NextFu
       projectTitle: project.title,
       clientId: quotation.clientId || project.clientId,
       clientName: quotation.clientName,
+      clientContactPerson: quotation.clientContactPerson,
+      clientCompany: quotation.clientCompany,
       billingAddress: quotation.clientAddress || project.siteAddress.street,
+      subject: `Tax Invoice for Construction Works - ${project.title}`,
       items: invoiceItems,
       subtotalPaise,
+      isNegotiated,
+      negotiatedDiscountPaise,
+      discountPaise: negotiatedDiscountPaise,
+      negotiatedNotes,
+      termsAndConditions: invoiceTerms,
       cgstPaise,
       sgstPaise,
       igstPaise: 0,
@@ -314,7 +334,7 @@ export const convertToInvoice = async (req: Request, res: Response, next: NextFu
       issueDate: new Date(),
       dueDate: new Date(dueDate || Date.now() + 14 * 86400000),
       status: 'issued',
-      notes: `Converted from Approved Quotation ${quotation.quotationNumber}.`,
+      notes: quotation.notes || (isNegotiated && negotiatedNotes ? `Agreed Special Settlement: ${negotiatedNotes}` : `Converted from Approved Quotation ${quotation.quotationNumber}.`),
     });
 
     // Update project invoiced amount

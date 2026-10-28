@@ -119,7 +119,8 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
-            {isQuotation ? 'Official Quotation Preview' : 'Official Tax Invoice Preview'}
+            {data.isNegotiated ? '🤝 Negotiated ' : 'Official '}
+            {isQuotation ? 'Quotation Preview' : 'Tax Invoice Preview'}
           </span>
           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white/10 text-brand-gold-400">
             {docNumber}
@@ -241,7 +242,9 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
             />
             {/* Center Navy Banner */}
             <div className="bg-[#0F254B] text-white px-14 py-2 text-center shadow-lg font-heading font-black tracking-widest text-lg sm:text-xl">
-              {isQuotation ? (data.isNegotiated ? 'NEGOTIATED QUOTATION' : 'QUOTATION') : 'TAX INVOICE'}
+              {isQuotation
+                ? (data.isNegotiated ? 'NEGOTIATED QUOTATION' : 'QUOTATION')
+                : (data.isNegotiated ? 'NEGOTIATED TAX INVOICE' : 'TAX INVOICE')}
             </div>
             {/* Right Gold Angle */}
             <div
@@ -368,19 +371,27 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
         <div className="flex justify-end mb-4">
           <div className="w-full sm:w-80 space-y-1.5 text-xs">
             <div className="flex justify-between py-1 px-3 text-slate-600 font-bold">
-              <span>TOTAL AMOUNT</span>
+              <span>{data.isNegotiated ? (isQuotation ? 'GROSS ESTIMATE' : 'GROSS BILL AMOUNT') : 'TOTAL AMOUNT'}</span>
               <span className="font-mono text-slate-900 font-extrabold">
                 ₹ {toRupees(subtotalPaise).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
             </div>
 
-            {data.isNegotiated && (data.negotiatedDiscountPaise || 0) > 0 && (
-              <div className="flex justify-between py-1 px-3 text-amber-800 font-bold bg-amber-50 rounded border border-amber-200">
-                <span>LESS: NEGOTIATED DISCOUNT</span>
-                <span className="font-mono text-amber-900 font-extrabold">
-                  - ₹ {toRupees(data.negotiatedDiscountPaise).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
+            {data.isNegotiated && (data.negotiatedDiscountPaise || data.discountPaise || 0) > 0 && (
+              <>
+                <div className="flex justify-between py-1 px-3 text-emerald-800 font-bold bg-emerald-50 rounded border border-emerald-200">
+                  <span>LESS: NEGOTIATED DISCOUNT</span>
+                  <span className="font-mono text-emerald-900 font-extrabold">
+                    - ₹ {toRupees(data.negotiatedDiscountPaise || data.discountPaise).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 px-3 text-slate-700 font-bold bg-slate-50 rounded border border-slate-200">
+                  <span>TAXABLE VALUE</span>
+                  <span className="font-mono text-slate-900 font-extrabold">
+                    ₹ {toRupees(Math.max(0, subtotalPaise - (data.negotiatedDiscountPaise || data.discountPaise || 0))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </>
             )}
 
             <div className="flex justify-between py-1 px-3 text-slate-600 font-bold">
@@ -505,11 +516,32 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
                 📋 TERMS & CONDITIONS:
               </span>
               <ul className="text-[10px] text-slate-600 space-y-1 leading-relaxed list-disc list-inside">
-                <li>This quotation is valid for 15 days from the date of issue.</li>
-                <li>Payment terms will be mutually agreed.</li>
-                <li>GST applicable as per government norms.</li>
-                <li>Work will be executed as per agreed specifications and site conditions.</li>
-                {data.isNegotiated && data.negotiatedNotes && (
+                {Array.isArray(data.termsAndConditions) && data.termsAndConditions.length > 0 ? (
+                  data.termsAndConditions.map((term: string, idx: number) => (
+                    <li key={idx}>{term.replace(/^[•\-\*]\s*/, '')}</li>
+                  ))
+                ) : isQuotation ? (
+                  <>
+                    <li>This quotation is valid for 15 days from the date of issue.</li>
+                    <li>Payment terms will be mutually agreed as per milestone schedule.</li>
+                    <li>GST applicable as per statutory government norms.</li>
+                    <li>Work will be executed as per agreed specifications and site conditions.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Payment is due within 14 calendar days from the date of invoice issuance.</li>
+                    <li>Please quote this Invoice Number when executing bank transfers.</li>
+                    <li>Statutory GST (18%) charged as per GSTIN compliance rules.</li>
+                    <li>Late payment charges @ 18% per annum apply on balances overdue past the due date.</li>
+                    <li>All billing disputes and claims subject to Chennai legal jurisdiction only.</li>
+                  </>
+                )}
+                {data.notes && !data.termsAndConditions?.some((t: string) => t.includes(data.notes)) && (
+                  <li className="text-slate-800 font-medium list-none mt-1 p-1.5 bg-slate-100 rounded border border-slate-200">
+                    📝 <strong>Bill Notes:</strong> {data.notes}
+                  </li>
+                )}
+                {data.isNegotiated && data.negotiatedNotes && !data.termsAndConditions?.some((t: string) => t.includes(data.negotiatedNotes)) && (
                   <li className="text-amber-800 font-semibold list-none mt-1 p-1.5 bg-amber-50 rounded border border-amber-200">
                     🤝 <strong>Special Negotiated Terms:</strong> {data.negotiatedNotes}
                   </li>

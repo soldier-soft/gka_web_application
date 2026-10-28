@@ -255,23 +255,41 @@ const convertToInvoice = async (req, res, next) => {
                 totalPaise: item.amountPaise,
             };
         });
+        const isNegotiated = Boolean(quotation.isNegotiated);
+        const negotiatedDiscountPaise = isNegotiated
+            ? (quotation.negotiatedDiscountPaise || quotation.discountPaise || 0)
+            : 0;
+        const negotiatedNotes = isNegotiated ? (quotation.negotiatedNotes || '') : '';
+        const taxablePaise = Math.max(0, subtotalPaise - negotiatedDiscountPaise);
         const taxRate = quotation.taxRatePercent || 18;
-        const taxPaise = Math.round((subtotalPaise * taxRate) / 100);
+        const taxPaise = Math.round((taxablePaise * taxRate) / 100);
         const cgstPaise = Math.round(taxPaise / 2);
         const sgstPaise = taxPaise - cgstPaise;
-        const totalAmountPaise = subtotalPaise + taxPaise;
+        const totalAmountPaise = taxablePaise + taxPaise;
         const count = await Invoice_1.Invoice.countDocuments();
         const currentYear = new Date().getFullYear();
         const invoiceNumber = `GKA-INV-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+        const invoiceTerms = [...constants_1.DEFAULT_INVOICE_TERMS];
+        if (isNegotiated && negotiatedNotes) {
+            invoiceTerms.push(`Agreed Special Terms: ${negotiatedNotes}`);
+        }
         const invoice = await Invoice_1.Invoice.create({
             invoiceNumber,
             projectId: project._id,
             projectTitle: project.title,
             clientId: quotation.clientId || project.clientId,
             clientName: quotation.clientName,
+            clientContactPerson: quotation.clientContactPerson,
+            clientCompany: quotation.clientCompany,
             billingAddress: quotation.clientAddress || project.siteAddress.street,
+            subject: `Tax Invoice for Construction Works - ${project.title}`,
             items: invoiceItems,
             subtotalPaise,
+            isNegotiated,
+            negotiatedDiscountPaise,
+            discountPaise: negotiatedDiscountPaise,
+            negotiatedNotes,
+            termsAndConditions: invoiceTerms,
             cgstPaise,
             sgstPaise,
             igstPaise: 0,
@@ -281,7 +299,7 @@ const convertToInvoice = async (req, res, next) => {
             issueDate: new Date(),
             dueDate: new Date(dueDate || Date.now() + 14 * 86400000),
             status: 'issued',
-            notes: `Converted from Approved Quotation ${quotation.quotationNumber}.`,
+            notes: quotation.notes || (isNegotiated && negotiatedNotes ? `Agreed Special Settlement: ${negotiatedNotes}` : `Converted from Approved Quotation ${quotation.quotationNumber}.`),
         });
         // Update project invoiced amount
         project.invoicedAmountPaise += totalAmountPaise;

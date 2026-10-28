@@ -275,7 +275,11 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
 
     p_ribbon = ribbon_cell.paragraphs[0]
     p_ribbon.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    doc_title = "QUOTATION" if doc_type == "quotation" else "TAX INVOICE"
+    is_neg = bool(data.get("is_negotiated"))
+    if doc_type == "quotation":
+        doc_title = "NEGOTIATED QUOTATION" if is_neg else "QUOTATION"
+    else:
+        doc_title = "NEGOTIATED TAX INVOICE" if is_neg else "TAX INVOICE"
     r_title = p_ribbon.add_run(doc_title)
     r_title.font.name = "Arial Black"
     r_title.font.size = Pt(14)
@@ -443,19 +447,39 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
                 r.font.bold = True
 
     # 7. TOTALS TABLE (Right Aligned)
+    is_neg = bool(data.get("is_negotiated"))
+    disc_val = dec(data.get("negotiated_discount") or data.get("discount") or 0)
+    taxable_subtotal = max(Decimal("0.00"), subtotal - disc_val) if is_neg else subtotal
+
     gst_percent = dec(data.get("gst_percent") or data.get("taxRatePercent") or 18)
-    gst_amount = (subtotal * gst_percent / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    grand_total = subtotal + gst_amount
+    gst_amount = (taxable_subtotal * gst_percent / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    grand_total = taxable_subtotal + gst_amount
 
     p_space = doc.add_paragraph()
     p_space.paragraph_format.space_before = Pt(4)
     p_space.paragraph_format.space_after = Pt(2)
 
-    totals_table = doc.add_table(rows=3, cols=2)
-    totals_table.alignment = WD_TABLE_ALIGNMENT.RIGHT
+    if is_neg and disc_val > 0:
+        labels = [
+            "GROSS ESTIMATE" if doc_type == "quotation" else "GROSS BILL AMOUNT",
+            "LESS: NEGOTIATED DISCOUNT",
+            "TAXABLE VALUE",
+            f"TAXES / GST ({gst_percent:g}%)",
+            "NET NEGOTIATED TOTAL",
+        ]
+        amounts = [
+            f"₹ {money(subtotal)}",
+            f"- ₹ {money(disc_val)}",
+            f"₹ {money(taxable_subtotal)}",
+            f"₹ {money(gst_amount)}",
+            f"₹ {money(grand_total)}",
+        ]
+    else:
+        labels = ["TOTAL AMOUNT", f"TAXES / GST ({gst_percent:g}%)", "GRAND TOTAL"]
+        amounts = [f"₹ {money(subtotal)}", f"₹ {money(gst_amount)}", f"₹ {money(grand_total)}"]
 
-    labels = ["TOTAL AMOUNT", f"TAXES / GST ({gst_percent:g}%)", "GRAND TOTAL"]
-    amounts = [f"₹ {money(subtotal)}", f"₹ {money(gst_amount)}", f"₹ {money(grand_total)}"]
+    totals_table = doc.add_table(rows=len(labels), cols=2)
+    totals_table.alignment = WD_TABLE_ALIGNMENT.RIGHT
 
     for row_idx, (lbl, amt) in enumerate(zip(labels, amounts)):
         row = totals_table.rows[row_idx]
@@ -464,15 +488,15 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
         c0.width = Inches(2.2)
         c1.width = Inches(1.6)
 
-        set_cell_margins(c0, top=60, bottom=60, left=100, right=100)
-        set_cell_margins(c1, top=60, bottom=60, left=100, right=100)
+        set_cell_margins(c0, top=50, bottom=50, left=80, right=80)
+        set_cell_margins(c1, top=50, bottom=50, left=80, right=80)
 
         p0 = c0.paragraphs[0]
         p1 = c1.paragraphs[0]
         p0.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         p1.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
-        if row_idx == 2:
+        if row_idx == len(labels) - 1:
             set_cell_shading(c0, NAVY_HEX)
             set_cell_shading(c1, NAVY_HEX)
             r0 = p0.add_run(lbl)
@@ -484,6 +508,16 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
             r1.font.bold = True
             r1.font.size = Pt(10)
             r1.font.color.rgb = RGBColor(255, 255, 255)
+        elif "DISCOUNT" in lbl:
+            r0 = p0.add_run(lbl)
+            r0.font.bold = True
+            r0.font.size = Pt(8.5)
+            r0.font.color.rgb = RGBColor(5, 150, 105)
+
+            r1 = p1.add_run(amt)
+            r1.font.bold = True
+            r1.font.size = Pt(8.5)
+            r1.font.color.rgb = RGBColor(5, 150, 105)
         else:
             r0 = p0.add_run(lbl)
             r0.font.bold = True
@@ -556,13 +590,30 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
     r_thdr.font.bold = True
     r_thdr.font.color.rgb = RGBColor(15, 37, 75)
 
-    terms_list = [
-        "• This quotation is valid for 15 days from the date of issue.",
-        "• Payment terms will be mutually agreed.",
-        "• GST applicable as per government norms.",
-        "• Work will be executed as per the agreed specifications and site conditions.",
-    ]
-    r_tinfo = p_terms.add_run("\n".join(terms_list) + "\n\n")
+    custom_terms = data.get("terms_and_conditions")
+    if custom_terms and isinstance(custom_terms, list) and len(custom_terms) > 0:
+        terms_list = [t if t.startswith("•") else f"• {t}" for t in custom_terms]
+    elif doc_type == "invoice":
+        terms_list = [
+            "• Payment is due within 14 calendar days from the date of invoice issuance.",
+            "• Please quote this Invoice Number when executing electronic bank transfers.",
+            "• Statutory GST (18%) charged as per GSTIN compliance rules.",
+            "• Late payment charges / interest @ 18% per annum will apply on balances overdue past the due date.",
+            "• All billing disputes and claims subject to Chennai legal jurisdiction only.",
+        ]
+    else:
+        terms_list = [
+            "• This quotation is valid for 15 days from the date of issue.",
+            "• Payment terms will be mutually agreed as per milestone schedule.",
+            "• GST applicable as per government norms.",
+            "• Work will be executed as per the agreed specifications and site conditions.",
+        ]
+
+    user_notes = data.get("negotiated_notes") or data.get("notes")
+    if user_notes and not any(str(user_notes).lower() in t.lower() for t in terms_list):
+        terms_list.append(f"• Notes / Special Terms: {user_notes}")
+
+    r_tinfo = p_terms.add_run("\n".join(terms_list[:6]) + "\n\n")
     r_tinfo.font.size = Pt(7)
     r_tinfo.font.color.rgb = RGBColor(71, 85, 105)
 

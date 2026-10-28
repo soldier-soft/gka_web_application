@@ -1,7 +1,7 @@
 "use strict";
 // GKA Construction Authentic Company Constants & Defaults
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ESTIMATION_DISCLAIMER_TEXT = exports.CONCEPT_TYPE_OPTIONS = exports.ARCHITECTURAL_STYLE_OPTIONS = exports.PROPERTY_TYPE_OPTIONS = exports.BEDROOM_OPTIONS = exports.SQUARE_FOOTAGE_RANGES = exports.PORTFOLIO_PROJECT_FILTERS = exports.STANDARD_RATE_LIBRARY = exports.STANDARD_MILESTONES = exports.GKA_COMPANY = exports.toPaise = exports.toRupees = void 0;
+exports.DEFAULT_QUOTATION_TERMS = exports.DEFAULT_INVOICE_TERMS = exports.ESTIMATION_DISCLAIMER_TEXT = exports.CONCEPT_TYPE_OPTIONS = exports.ARCHITECTURAL_STYLE_OPTIONS = exports.PROPERTY_TYPE_OPTIONS = exports.BEDROOM_OPTIONS = exports.SQUARE_FOOTAGE_RANGES = exports.PORTFOLIO_PROJECT_FILTERS = exports.STANDARD_RATE_LIBRARY = exports.STANDARD_MILESTONES = exports.GKA_COMPANY = exports.toPaise = exports.toRupees = void 0;
 const toRupees = (paise) => (paise || 0) / 100;
 exports.toRupees = toRupees;
 const toPaise = (rupees) => Math.round((rupees || 0) * 100);
@@ -245,3 +245,17 @@ exports.CONCEPT_TYPE_OPTIONS = [
 ];
 // Official Disclaimer for Pricing & Plans
 exports.ESTIMATION_DISCLAIMER_TEXT = 'Every project depends on plot dimensions, soil and site conditions, design requirements, material selection, structural specifications and finishing preferences. The ideas shown are references only. For a project-specific recommendation, detailed specifications and an estimate, please request a site visit or contact our team by phone or email.';
+// Official Distinct Terms & Conditions
+exports.DEFAULT_INVOICE_TERMS = [
+    'Payment is due within 14 calendar days from the date of invoice issuance.',
+    'Please quote this Invoice Number when executing electronic NEFT / RTGS / IMPS bank transfers.',
+    'Statutory GST (18%) charged as per GSTIN compliance rules.',
+    'Late payment charges / interest @ 18% per annum will apply on balances overdue past the due date.',
+    'All billing disputes and claims subject to Chennai legal jurisdiction only.',
+];
+exports.DEFAULT_QUOTATION_TERMS = [
+    'This quotation is valid for 15 days from the date of issue.',
+    'Payment terms will be mutually agreed as per construction milestone schedule.',
+    'GST applicable as per statutory government norms.',
+    'Work will be executed as per agreed specifications and site conditions.',
+];

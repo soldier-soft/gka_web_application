@@ -47,6 +47,11 @@ export class DOCXService {
         amount: toRupees(it.amountPaise),
       })),
       gst_percent: quotation.taxRatePercent || 18,
+      is_negotiated: Boolean(quotation.isNegotiated),
+      negotiated_discount: toRupees(quotation.negotiatedDiscountPaise || quotation.discountPaise || 0),
+      negotiated_notes: quotation.negotiatedNotes || '',
+      notes: quotation.notes || '',
+      terms_and_conditions: quotation.termsAndConditions || [],
     };
 
     fs.writeFileSync(tempJsonPath, JSON.stringify(payload, null, 2), 'utf-8');
@@ -110,6 +115,11 @@ export class DOCXService {
         amount: toRupees(it.totalPaise),
       })),
       gst_percent: 18,
+      is_negotiated: Boolean(invoice.isNegotiated),
+      negotiated_discount: toRupees(invoice.negotiatedDiscountPaise || invoice.discountPaise || 0),
+      negotiated_notes: invoice.negotiatedNotes || '',
+      notes: invoice.notes || '',
+      terms_and_conditions: invoice.termsAndConditions || [],
     };
 
     fs.writeFileSync(tempJsonPath, JSON.stringify(payload, null, 2), 'utf-8');

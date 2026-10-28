@@ -253,3 +253,19 @@ export const CONCEPT_TYPE_OPTIONS = [
 export const ESTIMATION_DISCLAIMER_TEXT =
   'Every project depends on plot dimensions, soil and site conditions, design requirements, material selection, structural specifications and finishing preferences. The ideas shown are references only. For a project-specific recommendation, detailed specifications and an estimate, please request a site visit or contact our team by phone or email.';
 
+// Official Distinct Terms & Conditions
+export const DEFAULT_INVOICE_TERMS = [
+  'Payment is due within 14 calendar days from the date of invoice issuance.',
+  'Please quote this Invoice Number when executing electronic NEFT / RTGS / IMPS bank transfers.',
+  'Statutory GST (18%) charged as per GSTIN compliance rules.',
+  'Late payment charges / interest @ 18% per annum will apply on balances overdue past the due date.',
+  'All billing disputes and claims subject to Chennai legal jurisdiction only.',
+];
+
+export const DEFAULT_QUOTATION_TERMS = [
+  'This quotation is valid for 15 days from the date of issue.',
+  'Payment terms will be mutually agreed as per construction milestone schedule.',
+  'GST applicable as per statutory government norms.',
+  'Work will be executed as per agreed specifications and site conditions.',
+];
+

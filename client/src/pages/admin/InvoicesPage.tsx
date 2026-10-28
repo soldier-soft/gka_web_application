@@ -80,6 +80,14 @@ export const InvoicesPage: React.FC = () => {
     },
   ]);
 
+  // Negotiation & terms state for Create Invoice
+  const [invIsNegotiated, setInvIsNegotiated] = useState(false);
+  const [invNegotiatedDiscountRupees, setInvNegotiatedDiscountRupees] = useState<number>(0);
+  const [invNegotiatedNotes, setInvNegotiatedNotes] = useState<string>('');
+  const [invTerms, setInvTerms] = useState<string>(
+    'Payment is due within 14 calendar days from the date of invoice issuance.\nPlease quote this Invoice Number when executing electronic NEFT / RTGS / IMPS bank transfers.\nStatutory GST (18%) charged as per GSTIN compliance rules.\nLate payment charges @ 18% per annum apply on balances overdue past the due date.\nAll billing disputes and claims subject to Chennai legal jurisdiction only.'
+  );
+
   // Edit Invoice form state
   const [editProjectId, setEditProjectId] = useState('');
   const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
@@ -93,6 +101,10 @@ export const InvoicesPage: React.FC = () => {
   const [editSubject, setEditSubject] = useState('');
   const [editContactPerson, setEditContactPerson] = useState('');
   const [editCompany, setEditCompany] = useState('');
+  const [editIsNegotiated, setEditIsNegotiated] = useState(false);
+  const [editNegotiatedDiscountRupees, setEditNegotiatedDiscountRupees] = useState<number>(0);
+  const [editNegotiatedNotes, setEditNegotiatedNotes] = useState<string>('');
+  const [editTerms, setEditTerms] = useState<string>('');
   const [editItems, setEditItems] = useState<any[]>([]);
 
   const fetchInvoiceData = async () => {
@@ -219,6 +231,19 @@ export const InvoicesPage: React.FC = () => {
     }
   };
 
+  // Live calculation for Create Invoice
+  const calculateInvSubtotal = () => {
+    return invItems.reduce(
+      (acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.unitRateRupees) || 0),
+      0
+    );
+  };
+  const invSubtotal = calculateInvSubtotal();
+  const invDiscount = invIsNegotiated ? Math.max(0, Number(invNegotiatedDiscountRupees) || 0) : 0;
+  const invTaxable = Math.max(0, invSubtotal - invDiscount);
+  const invTax = Math.round(invTaxable * 0.18);
+  const invTotal = invTaxable + invTax;
+
   // Submit new invoice
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,6 +266,10 @@ export const InvoicesPage: React.FC = () => {
         items: convertedItems,
         dueDate: invDueDate,
         notes: invNotes,
+        isNegotiated: invIsNegotiated,
+        negotiatedDiscountPaise: invIsNegotiated ? toPaise(Number(invNegotiatedDiscountRupees) || 0) : 0,
+        negotiatedNotes: invIsNegotiated ? invNegotiatedNotes : undefined,
+        termsAndConditions: invTerms ? invTerms.split('\n').map((s) => s.trim()).filter(Boolean) : undefined,
       });
 
       if (res.success && res.invoice) {
@@ -294,6 +323,14 @@ export const InvoicesPage: React.FC = () => {
     setEditSubject(inv.subject || '');
     setEditContactPerson(inv.clientContactPerson || '');
     setEditCompany(inv.clientCompany || '');
+    setEditIsNegotiated(Boolean(inv.isNegotiated));
+    setEditNegotiatedDiscountRupees(toRupees(inv.negotiatedDiscountPaise || inv.discountPaise || 0));
+    setEditNegotiatedNotes(inv.negotiatedNotes || '');
+    setEditTerms(
+      Array.isArray(inv.termsAndConditions) && inv.termsAndConditions.length > 0
+        ? inv.termsAndConditions.join('\n')
+        : 'Payment is due within 14 calendar days from the date of invoice issuance.\nPlease quote this Invoice Number when executing electronic NEFT / RTGS / IMPS bank transfers.\nStatutory GST (18%) charged as per GSTIN compliance rules.\nLate payment charges @ 18% per annum apply on balances overdue past the due date.\nAll billing disputes and claims subject to Chennai legal jurisdiction only.'
+    );
     setEditItems(
       (inv.items || []).map((it: any) => ({
         description: it.description,
@@ -313,8 +350,10 @@ export const InvoicesPage: React.FC = () => {
   };
 
   const editInvSubtotal = calculateEditInvSubtotal();
-  const editInvTax = Math.round(editInvSubtotal * 0.18);
-  const editInvTotal = editInvSubtotal + editInvTax;
+  const editInvDiscount = editIsNegotiated ? Math.max(0, Number(editNegotiatedDiscountRupees) || 0) : 0;
+  const editInvTaxable = Math.max(0, editInvSubtotal - editInvDiscount);
+  const editInvTax = Math.round(editInvTaxable * 0.18);
+  const editInvTotal = editInvTaxable + editInvTax;
 
   // Save Edited Invoice
   const handleSaveEditInvoice = async (e: React.FormEvent) => {
@@ -343,6 +382,10 @@ export const InvoicesPage: React.FC = () => {
         clientCompany: editCompany,
         paidAmountPaise: toPaise(Number(editPaidAmountRupees) || 0),
         items: convertedItems,
+        isNegotiated: editIsNegotiated,
+        negotiatedDiscountPaise: editIsNegotiated ? toPaise(Number(editNegotiatedDiscountRupees) || 0) : 0,
+        negotiatedNotes: editIsNegotiated ? editNegotiatedNotes : '',
+        termsAndConditions: editTerms ? editTerms.split('\n').map((s) => s.trim()).filter(Boolean) : undefined,
       });
 
       if (res.success) {
@@ -560,7 +603,14 @@ export const InvoicesPage: React.FC = () => {
                     <tr key={inv._id} className="hover:bg-slate-50/70 transition-colors">
                       {/* Invoice # & Date */}
                       <td className="py-3.5 px-4 font-mono font-bold text-[#0F254B]">
-                        {inv.invoiceNumber}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{inv.invoiceNumber}</span>
+                          {inv.isNegotiated && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                              🤝 Negotiated
+                            </span>
+                          )}
+                        </div>
                         <span className="block text-[10px] text-slate-400 font-normal">
                           Issued: {new Date(inv.issueDate).toLocaleDateString('en-IN')}
                         </span>
@@ -992,6 +1042,103 @@ export const InvoicesPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Negotiated Terms Option in Create Invoice */}
+              <div className="p-3.5 bg-gradient-to-r from-amber-50/80 to-orange-50/50 rounded-xl border border-amber-200">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={invIsNegotiated}
+                      onChange={(e) => {
+                        setInvIsNegotiated(e.target.checked);
+                        if (!e.target.checked) {
+                          setInvNegotiatedDiscountRupees(0);
+                          setInvNegotiatedNotes('');
+                        }
+                      }}
+                      className="w-4 h-4 text-[#0F254B] rounded border-slate-300 focus:ring-[#0F254B]"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span>🤝 Negotiated Bill / Agreed Special Settlement</span>
+                        <span className="px-1.5 py-0.2 rounded text-[9px] bg-amber-200 text-amber-900 font-extrabold uppercase">
+                          Discount Option
+                        </span>
+                      </span>
+                      <span className="block text-[10px] text-slate-500">
+                        Enable if a special discounted rate or commercial settlement was agreed for this invoice.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {invIsNegotiated && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-amber-200/80">
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-semibold mb-1">
+                        Negotiated Discount Amount (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="100"
+                        value={invNegotiatedDiscountRupees}
+                        onChange={(e) => setInvNegotiatedDiscountRupees(Number(e.target.value) || 0)}
+                        placeholder="e.g. 50000"
+                        className="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-mono font-bold text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-semibold mb-1">
+                        Negotiation Notes / Settlement Agreement
+                      </label>
+                      <input
+                        type="text"
+                        value={invNegotiatedNotes}
+                        onChange={(e) => setInvNegotiatedNotes(e.target.value)}
+                        placeholder="e.g. Special client settlement agreed per site meeting"
+                        className="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-medium text-slate-900"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Distinct Bill Terms & Conditions */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Bill Terms & Conditions (Distinct from Quotation — will appear on formal Tax Invoice & PDF/DOCX)
+                </label>
+                <textarea
+                  rows={4}
+                  value={invTerms}
+                  onChange={(e) => setInvTerms(e.target.value)}
+                  placeholder="One term per line..."
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono text-[11px] leading-relaxed"
+                />
+              </div>
+
+              {/* Live Calculation Display */}
+              <div className="p-3 bg-slate-100 rounded-xl space-y-1 text-right font-mono text-xs">
+                <div className="text-slate-600">
+                  Gross Subtotal: <strong className="text-slate-900">₹ {invSubtotal.toLocaleString('en-IN')}</strong>
+                </div>
+                {invIsNegotiated && invDiscount > 0 && (
+                  <div className="text-emerald-700 font-bold">
+                    Less Negotiated Discount: -₹ {invDiscount.toLocaleString('en-IN')}
+                  </div>
+                )}
+                <div className="text-slate-700 font-semibold">
+                  Taxable Amount: ₹ {invTaxable.toLocaleString('en-IN')}
+                </div>
+                <div className="text-slate-600">
+                  18% GST (9% CGST + 9% SGST): <strong className="text-slate-900">₹ {invTax.toLocaleString('en-IN')}</strong>
+                </div>
+                <div className="text-sm font-bold text-[#0F254B] pt-1 border-t border-slate-200">
+                  Grand Total: <strong>₹ {invTotal.toLocaleString('en-IN')}</strong>
+                </div>
+              </div>
+
               <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
@@ -1357,15 +1504,99 @@ export const InvoicesPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Negotiated Terms Option in Edit Invoice */}
+              <div className="p-3.5 bg-gradient-to-r from-amber-50/80 to-orange-50/50 rounded-xl border border-amber-200">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editIsNegotiated}
+                      onChange={(e) => {
+                        setEditIsNegotiated(e.target.checked);
+                        if (!e.target.checked) {
+                          setEditNegotiatedDiscountRupees(0);
+                          setEditNegotiatedNotes('');
+                        }
+                      }}
+                      className="w-4 h-4 text-[#0F254B] rounded border-slate-300 focus:ring-[#0F254B]"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span>🤝 Negotiated Bill / Special Agreed Settlement</span>
+                        <span className="px-1.5 py-0.2 rounded text-[9px] bg-amber-200 text-amber-900 font-extrabold uppercase">
+                          Discount Option
+                        </span>
+                      </span>
+                      <span className="block text-[10px] text-slate-500">
+                        Enable if a special discounted rate or commercial settlement was agreed for this bill.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {editIsNegotiated && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-amber-200/80">
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-semibold mb-1">
+                        Negotiated Discount Amount (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="100"
+                        value={editNegotiatedDiscountRupees}
+                        onChange={(e) => setEditNegotiatedDiscountRupees(Number(e.target.value) || 0)}
+                        placeholder="e.g. 50000"
+                        className="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-mono font-bold text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-600 font-semibold mb-1">
+                        Negotiation Notes / Settlement Agreement
+                      </label>
+                      <input
+                        type="text"
+                        value={editNegotiatedNotes}
+                        onChange={(e) => setEditNegotiatedNotes(e.target.value)}
+                        placeholder="e.g. Special client settlement agreed per site meeting"
+                        className="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-medium text-slate-900"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Distinct Bill Terms & Conditions in Edit */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Bill Terms & Conditions (Distinct from Quotation — will appear on formal Tax Invoice & PDF/DOCX)
+                </label>
+                <textarea
+                  rows={4}
+                  value={editTerms}
+                  onChange={(e) => setEditTerms(e.target.value)}
+                  placeholder="One term per line..."
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono text-[11px] leading-relaxed"
+                />
+              </div>
+
               {/* Live Calculation Display */}
               <div className="p-3 bg-slate-100 rounded-xl space-y-1 text-right font-mono text-xs">
                 <div className="text-slate-600">
-                  Subtotal: <strong className="text-slate-900">₹ {editInvSubtotal.toLocaleString('en-IN')}</strong>
+                  Gross Subtotal: <strong className="text-slate-900">₹ {editInvSubtotal.toLocaleString('en-IN')}</strong>
+                </div>
+                {editIsNegotiated && editInvDiscount > 0 && (
+                  <div className="text-emerald-700 font-bold">
+                    Less Negotiated Discount: -₹ {editInvDiscount.toLocaleString('en-IN')}
+                  </div>
+                )}
+                <div className="text-slate-700 font-semibold">
+                  Taxable Amount: ₹ {editInvTaxable.toLocaleString('en-IN')}
                 </div>
                 <div className="text-slate-600">
-                  18% GST: <strong className="text-slate-900">₹ {editInvTax.toLocaleString('en-IN')}</strong>
+                  18% GST (9% CGST + 9% SGST): <strong className="text-slate-900">₹ {editInvTax.toLocaleString('en-IN')}</strong>
                 </div>
-                <div className="text-sm font-bold text-[#0F254B]">
+                <div className="text-sm font-bold text-[#0F254B] pt-1 border-t border-slate-200">
                   Grand Total (Inc. 18% GST): <strong>₹ {editInvTotal.toLocaleString('en-IN')}</strong>
                 </div>
               </div>

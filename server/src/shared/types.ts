@@ -303,6 +303,11 @@ export interface IInvoice {
   totalAmountPaise: number;
   paidAmountPaise: number;
   dueAmountPaise: number;
+  isNegotiated?: boolean;
+  negotiatedDiscountPaise?: number;
+  discountPaise?: number;
+  negotiatedNotes?: string;
+  termsAndConditions?: string[];
   issueDate: string;
   dueDate: string;
   status: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled';
