@@ -104,3 +104,52 @@ export const togglePublishReport = async (req: Request, res: Response, next: Nex
     next(error);
   }
 };
+
+export const uploadSitePhoto = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { projectId, caption, category, imageBase64, fileName: customFileName } = req.body;
+    let fileBuffer: Buffer | null = null;
+    let fileName = customFileName || `site_photo_${Date.now()}.jpg`;
+
+    if (req.file) {
+      fileBuffer = req.file.buffer;
+      fileName = req.file.originalname || fileName;
+    } else if (imageBase64) {
+      const matches = imageBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        fileBuffer = Buffer.from(matches[2], 'base64');
+      } else {
+        fileBuffer = Buffer.from(imageBase64, 'base64');
+      }
+    }
+
+    if (!fileBuffer) {
+      res.status(400).json({ success: false, message: 'No photo file or image data provided.' });
+      return;
+    }
+
+    const { GoogleDriveService } = await import('../../services/googleDriveService');
+    const syncResult = await GoogleDriveService.syncSiteDiaryPhoto(
+      projectId,
+      fileName,
+      fileBuffer,
+      caption,
+      category
+    );
+
+    res.status(201).json({
+      success: true,
+      url: syncResult.fileUrl,
+      fileName: syncResult.fileName,
+      caption: caption || '',
+      category: category || 'site_condition',
+      folderUrl: syncResult.folderUrl,
+      driveSubfolder: syncResult.driveSubfolder,
+      driveNote: syncResult.driveNote,
+      message: syncResult.message,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

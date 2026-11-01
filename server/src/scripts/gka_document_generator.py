@@ -345,7 +345,7 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
 
     addr_runs = f"{to_name}\n{to_company}\n{to_addr1}\n{to_addr2}"
     if client_gstin and client_gstin.strip():
-        addr_runs += f"\nGSTIN: {client_gstin.strip().upper()}"
+        addr_runs += f"\n\nGSTIN: {client_gstin.strip().upper()}"
     r_to_body = p_to.add_run(addr_runs)
     r_to_body.font.size = Pt(8.5)
     r_to_body.font.bold = True

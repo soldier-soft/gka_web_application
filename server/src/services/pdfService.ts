@@ -165,7 +165,32 @@ export class PDFService {
   ): number {
     const hasGstin = Boolean(client.gstin && client.gstin.trim());
     const boxY = startY;
-    const boxHeight = hasGstin ? 76 : 64;
+
+    // Clean address format
+    const cleanAddr = (client.address || 'Chennai, Tamil Nadu')
+      .replace(/\r\n/g, ', ')
+      .replace(/\n/g, ', ')
+      .replace(/,\s*,/g, ', ')
+      .trim();
+
+    const contactText = (client.contactPerson || client.name || 'THE CHIEF ENGINEER').toUpperCase();
+    const companyText = client.company ? client.company.toUpperCase() : '';
+
+    // Measure heights accurately
+    doc.fontSize(8.5).font('Helvetica-Bold');
+    const contactH = doc.heightOfString(contactText, { width: 245 });
+
+    doc.fontSize(7.5).font('Helvetica-Bold');
+    const compH = companyText ? doc.heightOfString(companyText, { width: 245 }) + 2 : 0;
+
+    doc.fontSize(7.5).font('Helvetica');
+    const addrH = doc.heightOfString(cleanAddr, { width: 245 });
+
+    const gstinH = hasGstin ? 14 : 0;
+
+    // Compute dynamic box height needed so content NEVER clips or overlaps
+    const totalNeeded = 22 + contactH + compH + addrH + gstinH + 10;
+    const boxHeight = Math.max(76, Math.ceil(totalNeeded));
     const boxWidth = 515;
 
     // Draw light-blue bordered box
@@ -177,19 +202,30 @@ export class PDFService {
     // TO Column (Left)
     doc.circle(48, boxY + 12, 3.5).fill('#D6A21D');
     doc.fillColor('#D6A21D').fontSize(8).font('Helvetica-Bold').text('TO:', 56, boxY + 8);
-    doc.fillColor('#0F254B').fontSize(8.5).font('Helvetica-Bold');
-    doc.text(client.contactPerson || client.name.toUpperCase(), 48, boxY + 20, { width: 250 });
-    doc.fontSize(7.5).font('Helvetica');
-    if (client.company) {
-      doc.text(client.company.toUpperCase(), 48, boxY + 31, { width: 250 });
-    }
-    const cleanAddr = (client.address || 'Chennai, Tamil Nadu').replace(/\n/g, ', ');
-    const addrY = boxY + (client.company ? 42 : 31);
-    doc.text(cleanAddr, 48, addrY, { width: 250 });
 
+    let curY = boxY + 20;
+
+    // 1. Contact Person
+    doc.fillColor('#0F254B').fontSize(8.5).font('Helvetica-Bold');
+    doc.text(contactText, 48, curY, { width: 245 });
+    curY += contactH + 2;
+
+    // 2. Company Name
+    if (companyText) {
+      doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#334155');
+      doc.text(companyText, 48, curY, { width: 245 });
+      curY += compH;
+    }
+
+    // 3. Address
+    doc.fontSize(7.5).font('Helvetica').fillColor('#475569');
+    doc.text(cleanAddr, 48, curY, { width: 245 });
+    curY += addrH + 4;
+
+    // 4. GSTIN (Cleanly aligned below address with clear spacing & bold label)
     if (hasGstin) {
       doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B');
-      doc.text(`GSTIN : ${client.gstin!.trim().toUpperCase()}`, 48, addrY + 11, { width: 250 });
+      doc.text(`GSTIN : ${client.gstin!.trim().toUpperCase()}`, 48, curY, { width: 245 });
     }
 
     // FROM Column (Right)

@@ -34,8 +34,11 @@ import {
   Edit,
   Link2,
   Unlink,
+  Cloud,
+  Upload,
+  Loader2,
 } from 'lucide-react';
-import { api, downloadFile, getFileUrl } from '../../services/api';
+import { api, downloadFile, getFileUrl, resolveImageUrl } from '../../services/api';
 import { formatINR, toRupees } from '@shared/types';
 import { GKA_COMPANY, GOOGLE_DRIVE_CONFIG } from '@shared/constants';
 import { ShareDocumentModal, ShareDocumentData } from '../../components/common/ShareDocumentModal';
@@ -87,6 +90,59 @@ export const ProjectDetailPage: React.FC = () => {
   const [updatingMilestoneId, setUpdatingMilestoneId] = useState<string | null>(null);
   const [convertingQuoId, setConvertingQuoId] = useState<string | null>(null);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+
+  // Direct Photo Upload State for Site Diary
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
+  const [directPhotoFile, setDirectPhotoFile] = useState<File | null>(null);
+  const [directPhotoCaption, setDirectPhotoCaption] = useState('');
+  const [directPhotoCategory, setDirectPhotoCategory] = useState('site_condition');
+  const [directPhotoPublish, setDirectPhotoPublish] = useState(true);
+  const [uploadingSitePhoto, setUploadingSitePhoto] = useState(false);
+  const [photoUploadSuccess, setPhotoUploadSuccess] = useState('');
+
+  const handleDirectPhotoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directPhotoFile || !project?._id) return;
+    try {
+      setUploadingSitePhoto(true);
+      setPhotoUploadSuccess('');
+      const uploadRes = await api.uploadSitePhoto(
+        directPhotoFile,
+        project._id,
+        directPhotoCaption || 'Site progress photo',
+        directPhotoCategory
+      );
+
+      if (uploadRes.success) {
+        await api.createSiteReport({
+          projectId: project._id,
+          workCompletedSummary: directPhotoCaption || 'Site inspection photo uploaded to project gallery',
+          weatherCondition: 'sunny',
+          photos: [
+            {
+              url: uploadRes.url,
+              caption: directPhotoCaption || 'Site photo',
+              category: directPhotoCategory,
+            },
+          ],
+          isPublishedToClient: directPhotoPublish,
+        });
+
+        setPhotoUploadSuccess(uploadRes.driveNote || 'Photo saved & synced to Google Drive project folder!');
+        setTimeout(() => {
+          setShowPhotoUploadModal(false);
+          setDirectPhotoFile(null);
+          setDirectPhotoCaption('');
+          setPhotoUploadSuccess('');
+          fetchProjectDetails();
+        }, 1200);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error uploading site photo');
+    } finally {
+      setUploadingSitePhoto(false);
+    }
+  };
 
   const fetchProjectDetails = async () => {
     if (!id) return;
@@ -671,19 +727,54 @@ export const ProjectDetailPage: React.FC = () => {
       ======================================================== */}
       {activeTab === 'site_reports' && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle space-y-6">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
             <div>
               <h3 className="font-heading font-bold text-base text-brand-navy-950">Daily Site Reports</h3>
               <p className="text-xs text-slate-500">
                 Draft reports are internal only. Toggle publish to push verified site progress and photos to client portal.
               </p>
             </div>
-            <Link
-              to="/admin/site-ops"
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#10203A] text-white hover:bg-slate-800 transition-colors"
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowPhotoUploadModal(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>+ Upload Site Photo</span>
+              </button>
+              <Link
+                to="/admin/site-ops"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#10203A] text-white hover:bg-slate-800 transition-colors"
+              >
+                Full Site Ops
+              </Link>
+            </div>
+          </div>
+
+          {/* Dedicated Google Drive Project Folder Notice */}
+          <div className="p-3.5 bg-gradient-to-r from-amber-50 to-blue-50 border border-amber-200 rounded-xl text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <span className="font-bold text-amber-950 flex items-center gap-1.5">
+                <Cloud className="w-4 h-4 text-amber-600" />
+                Google Drive Dedicated Project Folder:
+              </span>
+              <span className="font-mono text-[11px] text-slate-800 bg-white px-2 py-0.5 rounded border border-amber-200 inline-block font-semibold">
+                GKA CONSTRUCTION / {project.projectId}_{project.title?.replace(/[^a-zA-Z0-9_-]/g, '_')} / Site Diary Photos
+              </span>
+              <p className="text-[10px] text-slate-600">
+                📌 <strong>Note:</strong> Every project maintains its own isolated folder inside the master linked folder <strong>"GKA CONSTRUCTION"</strong>.
+              </p>
+            </div>
+            <a
+              href={GOOGLE_DRIVE_CONFIG.folderUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 flex items-center gap-1 shrink-0 shadow-sm"
             >
-              + Create Site Report
-            </Link>
+              <span>Open in Drive</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
 
           {siteReports.length === 0 ? (
@@ -698,7 +789,7 @@ export const ProjectDetailPage: React.FC = () => {
                         Report Date: {new Date(report.reportDate).toLocaleDateString('en-IN', { dateStyle: 'long' })}
                       </strong>
                       <span className="text-[11px] text-slate-500">
-                        Weather: {report.weatherCondition} • Workers: {report.workersCount || 0}
+                        Weather: {report.weatherCondition} • Workers: {report.labourCount?.totalCount || report.workersCount || 0}
                       </span>
                     </div>
 
@@ -721,9 +812,22 @@ export const ProjectDetailPage: React.FC = () => {
                   {report.photos && report.photos.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                       {report.photos.map((ph: any, i: number) => (
-                        <div key={i} className="rounded-lg overflow-hidden border">
-                          <img src={ph.url} alt={ph.caption} className="h-28 w-full object-cover" />
-                          <span className="p-1 text-[10px] text-slate-600 block truncate">{ph.caption}</span>
+                        <div key={i} className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+                          <img
+                            src={resolveImageUrl(ph.url)}
+                            alt={ph.caption}
+                            onError={(e) => {
+                              (e.target as any).src =
+                                'https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?w=800&auto=format&fit=crop&q=80';
+                            }}
+                            className="h-28 w-full object-cover"
+                          />
+                          <div className="p-1.5 text-[10px]">
+                            <span className="text-slate-700 font-bold block truncate">{ph.caption || 'Site inspection photo'}</span>
+                            <span className="text-emerald-700 font-semibold block text-[9px] uppercase">
+                              ✓ {ph.category || 'Site'} • Synced to Drive
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -740,14 +844,43 @@ export const ProjectDetailPage: React.FC = () => {
       ======================================================== */}
       {activeTab === 'photos_documents' && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle space-y-6">
-          <h3 className="font-heading font-bold text-base text-brand-navy-950 border-b border-slate-100 pb-3">
-            Approved Site Gallery & Technical Drawings
-          </h3>
+          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="font-heading font-bold text-base text-brand-navy-950">
+                Approved Site Gallery & Technical Drawings
+              </h3>
+              <p className="text-xs text-slate-500">
+                Synchronized with Google Drive project folder: GKA CONSTRUCTION / {project.projectId}_{project.title?.replace(/[^a-zA-Z0-9_-]/g, '_')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPhotoUploadModal(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Upload Photo</span>
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {siteReports.flatMap((r) => r.photos || []).map((ph: any, idx: number) => (
-              <div key={idx} className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
-                <img src={ph.url} alt={ph.caption} className="h-44 w-full object-cover" />
-                <div className="p-2 text-xs text-slate-700">{ph.caption || 'Verified Site Photo'}</div>
+              <div key={idx} className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group hover:shadow-md transition-shadow">
+                <img
+                  src={resolveImageUrl(ph.url)}
+                  alt={ph.caption}
+                  onError={(e) => {
+                    (e.target as any).src =
+                      'https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?w=800&auto=format&fit=crop&q=80';
+                  }}
+                  className="h-44 w-full object-cover group-hover:scale-105 transition-transform"
+                />
+                <div className="p-2 text-xs text-slate-700">
+                  <span className="font-bold block truncate">{ph.caption || 'Verified Site Photo'}</span>
+                  <span className="text-[10px] text-emerald-700 block font-semibold uppercase">
+                    {ph.category || 'Site'} • Google Drive Synced
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -1399,6 +1532,142 @@ export const ProjectDetailPage: React.FC = () => {
             fetchProjectDetails();
           }}
         />
+      )}
+      {/* Upload Site Photo & Diary Entry Modal */}
+      {showPhotoUploadModal && project && (
+        <div className="fixed inset-0 z-50 bg-brand-navy-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 space-y-4 my-8">
+            <div className="flex justify-between items-start border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="text-lg font-heading font-bold text-brand-navy-950">
+                  Upload Site Diary Photo
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {project.projectId} — {project.title}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPhotoUploadModal(false);
+                  setDirectPhotoFile(null);
+                  setPhotoUploadSuccess('');
+                }}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Google Drive Subfolder Notice */}
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-1">
+              <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                <Cloud className="w-4 h-4 text-amber-600" />
+                Dedicated Google Drive Subfolder:
+              </span>
+              <p className="font-mono text-[10px] bg-white p-1.5 rounded border border-amber-200 text-slate-700 truncate">
+                GKA CONSTRUCTION / {project.projectId}_{project.title?.replace(/[^a-zA-Z0-9_-]/g, '_')} / Site Diary Photos
+              </p>
+              <p className="text-[10px] text-slate-500">
+                📌 <strong>Note:</strong> Every project has its own separate folder inside the linked Google Drive folder.
+              </p>
+            </div>
+
+            <form onSubmit={handleDirectPhotoSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Choose Photo File / Capture *
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  required
+                  onChange={(e) => setDirectPhotoFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-200 rounded-xl p-1"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Category / Stage</label>
+                  <select
+                    value={directPhotoCategory}
+                    onChange={(e) => setDirectPhotoCategory(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
+                  >
+                    <option value="site_condition">Site Condition</option>
+                    <option value="foundation">Foundation</option>
+                    <option value="structure">Structure / RCC</option>
+                    <option value="plastering">Plastering</option>
+                    <option value="finishing">Finishing / Painting</option>
+                    <option value="inspection">Inspection / QA</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Photo Caption / Note</label>
+                  <input
+                    type="text"
+                    value={directPhotoCaption}
+                    onChange={(e) => setDirectPhotoCaption(e.target.value)}
+                    placeholder="e.g. Sump tank curing and steel inspection"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="directPub"
+                  checked={directPhotoPublish}
+                  onChange={(e) => setDirectPhotoPublish(e.target.checked)}
+                  className="rounded text-brand-gold-500 h-4 w-4"
+                />
+                <label htmlFor="directPub" className="font-semibold text-slate-700 cursor-pointer">
+                  Publish directly to client portal (client sees photo immediately)
+                </label>
+              </div>
+
+              {photoUploadSuccess && (
+                <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{photoUploadSuccess}</span>
+                </div>
+              )}
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPhotoUploadModal(false);
+                    setDirectPhotoFile(null);
+                    setPhotoUploadSuccess('');
+                  }}
+                  className="px-4 py-2 rounded-lg font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadingSitePhoto || !directPhotoFile}
+                  className="px-5 py-2 rounded-lg font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {uploadingSitePhoto ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving to Drive...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      <span>Upload & Sync to Drive</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

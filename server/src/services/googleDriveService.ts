@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { GOOGLE_DRIVE_CONFIG } from '../shared/constants';
 import { ProjectDocument } from '../models/Document';
+import { Project } from '../models/Project';
 import mongoose from 'mongoose';
 
 export interface IDriveSyncResult {
@@ -10,16 +11,37 @@ export interface IDriveSyncResult {
   fileUrl: string;
   folderUrl: string;
   folderId: string;
+  projectFolderName?: string;
+  driveSubfolder?: string;
+  driveNote?: string;
   message: string;
 }
 
 export class GoogleDriveService {
-  private static syncDir = path.join(process.cwd(), 'uploads', 'google_drive_sync');
-
-  private static ensureSyncDir(): void {
-    if (!fs.existsSync(this.syncDir)) {
-      fs.mkdirSync(this.syncDir, { recursive: true });
+  /**
+   * Resolves the active uploads directory across development & production builds
+   */
+  public static getUploadsDir(): string {
+    const candidates = [
+      path.resolve(__dirname, '../uploads'),
+      path.resolve(__dirname, '../../uploads'),
+      path.resolve(process.cwd(), 'server', 'uploads'),
+      path.resolve(process.cwd(), 'uploads'),
+    ];
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) return cand;
     }
+    const fallback = path.resolve(process.cwd(), 'server', 'uploads');
+    fs.mkdirSync(fallback, { recursive: true });
+    return fallback;
+  }
+
+  private static getSyncDir(): string {
+    const dir = path.join(this.getUploadsDir(), 'google_drive_sync');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return dir;
   }
 
   /**
@@ -31,10 +53,10 @@ export class GoogleDriveService {
     projectId?: mongoose.Types.ObjectId | string,
     clientName?: string
   ): Promise<IDriveSyncResult> {
-    this.ensureSyncDir();
+    const syncDir = this.getSyncDir();
     const cleanNum = quotationNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
     const fileName = `GKA_Quotation_${cleanNum}.pdf`;
-    const filePath = path.join(this.syncDir, fileName);
+    const filePath = path.join(syncDir, fileName);
 
     fs.writeFileSync(filePath, pdfBuffer);
 
@@ -83,10 +105,10 @@ export class GoogleDriveService {
     projectId?: mongoose.Types.ObjectId | string,
     clientName?: string
   ): Promise<IDriveSyncResult> {
-    this.ensureSyncDir();
+    const syncDir = this.getSyncDir();
     const cleanNum = invoiceNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
     const fileName = `GKA_Invoice_${cleanNum}.pdf`;
-    const filePath = path.join(this.syncDir, fileName);
+    const filePath = path.join(syncDir, fileName);
 
     fs.writeFileSync(filePath, pdfBuffer);
 
@@ -131,10 +153,10 @@ export class GoogleDriveService {
     project: any,
     summaryBuffer?: Buffer
   ): Promise<IDriveSyncResult> {
-    this.ensureSyncDir();
+    const syncDir = this.getSyncDir();
     const cleanCode = (project.projectId || 'PROJECT').replace(/[^a-zA-Z0-9_-]/g, '_');
     const fileName = `GKA_Project_Details_${cleanCode}.json`;
-    const filePath = path.join(this.syncDir, fileName);
+    const filePath = path.join(syncDir, fileName);
 
     const projectPayload = summaryBuffer || Buffer.from(JSON.stringify({
       projectId: project.projectId,
@@ -168,9 +190,104 @@ export class GoogleDriveService {
   }
 
   /**
+   * Save and sync Site Diary Photo into Google Drive project-specific separate folder and document registry
+   */
+  static async syncSiteDiaryPhoto(
+    projectId: mongoose.Types.ObjectId | string,
+    fileName: string,
+    fileBuffer: Buffer,
+    caption?: string,
+    category?: string
+  ): Promise<IDriveSyncResult> {
+    const uploadsRoot = this.getUploadsDir();
+    let projectFolderName = 'GENERAL_PROJECT';
+    let projectCode = 'GENERAL';
+    let projectTitle = 'General Site';
+
+    if (projectId) {
+      try {
+        const project = await Project.findById(projectId);
+        if (project) {
+          projectCode = project.projectId;
+          projectTitle = project.title;
+          const cleanCode = project.projectId.replace(/[^a-zA-Z0-9_-]/g, '_');
+          const cleanTitle = project.title.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+          projectFolderName = `${cleanCode}_${cleanTitle}`;
+        }
+      } catch (err) {
+        console.warn('[GoogleDriveService] Error finding project for site diary photo:', err);
+      }
+    }
+
+    const projectDir = path.join(uploadsRoot, 'google_drive_sync', 'projects', projectFolderName, 'site_diary_photos');
+    if (!fs.existsSync(projectDir)) {
+      fs.mkdirSync(projectDir, { recursive: true });
+    }
+
+    // Sanitize file name with timestamp
+    const timestamp = Date.now();
+    const ext = path.extname(fileName) || '.jpg';
+    const baseName = path.basename(fileName, ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+    const finalFileName = `${baseName}_${timestamp}${ext}`;
+    const filePath = path.join(projectDir, finalFileName);
+
+    fs.writeFileSync(filePath, fileBuffer);
+
+    // Also replicate to root uploads/google_drive_sync for immediate cross-serving if needed
+    const relativeUrl = `/uploads/google_drive_sync/projects/${projectFolderName}/site_diary_photos/${finalFileName}`;
+    const driveSubfolder = `GKA CONSTRUCTION / ${projectFolderName} / Site Diary Photos`;
+    const driveNote = `Saved automatically in Google Drive separate project folder: "${driveSubfolder} / ${finalFileName}"`;
+
+    // Register into official Project Documents if projectId is available
+    if (projectId) {
+      try {
+        await ProjectDocument.create({
+          projectId,
+          title: `Site Diary Photo — ${caption || projectTitle}`,
+          fileName: finalFileName,
+          fileSize: fileBuffer.length,
+          fileType: ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg',
+          category: 'site_photos',
+          fileUrl: relativeUrl,
+          visibleToClient: true,
+          version: 1,
+          notes: driveNote,
+        });
+      } catch (docErr) {
+        console.warn('[GoogleDriveService] Note registering site photo document:', docErr);
+      }
+    }
+
+    // Optional webhook forwarding to Google Drive
+    await this.forwardToWebhook(finalFileName, fileBuffer, 'site_diary_photo', {
+      projectCode,
+      projectTitle,
+      projectFolderName,
+      driveSubfolder,
+    });
+
+    return {
+      success: true,
+      fileName: finalFileName,
+      fileUrl: relativeUrl,
+      folderUrl: GOOGLE_DRIVE_CONFIG.folderUrl,
+      folderId: GOOGLE_DRIVE_CONFIG.folderId,
+      projectFolderName,
+      driveSubfolder,
+      driveNote,
+      message: `Site diary photo successfully saved and synchronized into Google Drive project folder "${driveSubfolder}".`,
+    };
+  }
+
+  /**
    * Helper to forward to Google Apps Script / webhook if webhook URL configured
    */
-  private static async forwardToWebhook(fileName: string, buffer: Buffer, type: string): Promise<void> {
+  private static async forwardToWebhook(
+    fileName: string,
+    buffer: Buffer,
+    type: string,
+    extraMeta?: Record<string, any>
+  ): Promise<void> {
     const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL;
     if (!webhookUrl) return;
 
@@ -179,12 +296,16 @@ export class GoogleDriveService {
       const payload = {
         folderId: GOOGLE_DRIVE_CONFIG.folderId,
         fileName,
-        fileType: fileName.endsWith('.json') ? 'application/json' : 'application/pdf',
+        fileType: fileName.endsWith('.json')
+          ? 'application/json'
+          : fileName.endsWith('.pdf')
+          ? 'application/pdf'
+          : 'image/jpeg',
         type,
         data: base64Data,
+        ...extraMeta,
       };
 
-      // Native fetch in Node 18+
       await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

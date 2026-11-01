@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../../middleware/auth");
@@ -112,6 +115,40 @@ router.post('/sync/:type/:id', async (req, res, next) => {
             return;
         }
         res.status(400).json({ success: false, message: 'Invalid sync type. Must be quotation, invoice, or project' });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+const multer_1 = __importDefault(require("multer"));
+const driveUpload = (0, multer_1.default)({
+    storage: multer_1.default.memoryStorage(),
+    limits: { fileSize: 25 * 1024 * 1024 },
+});
+router.post('/upload-site-photo', driveUpload.single('photo'), async (req, res, next) => {
+    try {
+        const { projectId, caption, category, imageBase64, fileName: customFileName } = req.body;
+        let fileBuffer = null;
+        let fileName = customFileName || `site_photo_${Date.now()}.jpg`;
+        if (req.file) {
+            fileBuffer = req.file.buffer;
+            fileName = req.file.originalname || fileName;
+        }
+        else if (imageBase64) {
+            const matches = imageBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                fileBuffer = Buffer.from(matches[2], 'base64');
+            }
+            else {
+                fileBuffer = Buffer.from(imageBase64, 'base64');
+            }
+        }
+        if (!fileBuffer) {
+            res.status(400).json({ success: false, message: 'No photo provided' });
+            return;
+        }
+        const result = await googleDriveService_1.GoogleDriveService.syncSiteDiaryPhoto(projectId, fileName, fileBuffer, caption, category);
+        res.json({ success: true, result, url: result.fileUrl });
     }
     catch (error) {
         next(error);

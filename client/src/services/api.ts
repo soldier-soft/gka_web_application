@@ -81,6 +81,12 @@ export const getFileUrl = (path: string): string => {
   return `${path}${separator}token=${encodeURIComponent(token)}`;
 };
 
+export const resolveImageUrl = (url?: string): string => {
+  if (!url) return 'https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?w=800&auto=format&fit=crop&q=80';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return url;
+};
+
 export const downloadFile = async (
   endpoint: string,
   filename: string,
@@ -336,6 +342,33 @@ export const api = {
     request<{ success: boolean; message: string; report: any }>(`/site-ops/reports/${id}/publish`, {
       method: 'PATCH',
     }),
+  uploadSitePhoto: async (
+    file: File | Blob,
+    projectId: string,
+    caption = '',
+    category = 'site_condition'
+  ) => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('projectId', projectId);
+    formData.append('caption', caption);
+    formData.append('category', category);
+
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${BASE_URL}/site-ops/upload-photo`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ message: 'Failed to upload photo' }));
+      throw new Error(errData.message || 'Failed to upload photo');
+    }
+    return res.json();
+  },
 
   // Inventory
   getSuppliers: () =>

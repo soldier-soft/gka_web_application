@@ -1,6 +1,39 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.togglePublishReport = exports.createSiteReport = exports.getSiteReports = void 0;
+exports.uploadSitePhoto = exports.togglePublishReport = exports.createSiteReport = exports.getSiteReports = void 0;
 const SiteReport_1 = require("../../models/SiteReport");
 const getSiteReports = async (req, res, next) => {
     try {
@@ -86,3 +119,44 @@ const togglePublishReport = async (req, res, next) => {
     }
 };
 exports.togglePublishReport = togglePublishReport;
+const uploadSitePhoto = async (req, res, next) => {
+    try {
+        const { projectId, caption, category, imageBase64, fileName: customFileName } = req.body;
+        let fileBuffer = null;
+        let fileName = customFileName || `site_photo_${Date.now()}.jpg`;
+        if (req.file) {
+            fileBuffer = req.file.buffer;
+            fileName = req.file.originalname || fileName;
+        }
+        else if (imageBase64) {
+            const matches = imageBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                fileBuffer = Buffer.from(matches[2], 'base64');
+            }
+            else {
+                fileBuffer = Buffer.from(imageBase64, 'base64');
+            }
+        }
+        if (!fileBuffer) {
+            res.status(400).json({ success: false, message: 'No photo file or image data provided.' });
+            return;
+        }
+        const { GoogleDriveService } = await Promise.resolve().then(() => __importStar(require('../../services/googleDriveService')));
+        const syncResult = await GoogleDriveService.syncSiteDiaryPhoto(projectId, fileName, fileBuffer, caption, category);
+        res.status(201).json({
+            success: true,
+            url: syncResult.fileUrl,
+            fileName: syncResult.fileName,
+            caption: caption || '',
+            category: category || 'site_condition',
+            folderUrl: syncResult.folderUrl,
+            driveSubfolder: syncResult.driveSubfolder,
+            driveNote: syncResult.driveNote,
+            message: syncResult.message,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.uploadSitePhoto = uploadSitePhoto;

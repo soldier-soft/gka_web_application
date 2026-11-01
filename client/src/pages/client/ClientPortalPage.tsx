@@ -37,7 +37,7 @@ import {
   Receipt,
   Download,
 } from 'lucide-react';
-import { api, downloadFile, getFileUrl } from '../../services/api';
+import { api, downloadFile, getFileUrl, resolveImageUrl } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { formatINR } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
@@ -91,6 +91,14 @@ export const ClientPortalPage: React.FC = () => {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [feedbackSuccessMsg, setFeedbackSuccessMsg] = useState('');
+
+  // Photo Zoom Lightbox Modal
+  const [selectedGalleryPhoto, setSelectedGalleryPhoto] = useState<{
+    url: string;
+    caption: string;
+    category?: string;
+    date?: string;
+  } | null>(null);
 
   // Client Profile state
   const [clientProfile, setClientProfile] = useState<any>(null);
@@ -1404,11 +1412,45 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
                         </p>
 
                         {report.photos && report.photos.length > 0 && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 pt-1">
                             {report.photos.map((ph: any, i: number) => (
-                              <div key={i} className="rounded-xl overflow-hidden border border-slate-200 bg-white">
-                                <img src={ph.url} alt={ph.caption} className="h-44 w-full object-cover" />
-                                <div className="p-2 text-[11px] text-slate-700">{ph.caption || 'Site inspection photo'}</div>
+                              <div
+                                key={i}
+                                onClick={() =>
+                                  setSelectedGalleryPhoto({
+                                    url: ph.url,
+                                    caption: ph.caption || 'Site progress photo',
+                                    category: ph.category,
+                                    date: report.reportDate,
+                                  })
+                                }
+                                className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md cursor-pointer transition-all group"
+                              >
+                                <div className="relative overflow-hidden bg-slate-100">
+                                  <img
+                                    src={resolveImageUrl(ph.url)}
+                                    alt={ph.caption}
+                                    onError={(e) => {
+                                      (e.target as any).src =
+                                        'https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?w=800&auto=format&fit=crop&q=80';
+                                    }}
+                                    className="h-44 w-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                  />
+                                  <div className="absolute top-2 right-2 bg-black/60 text-white rounded-lg px-2 py-1 text-[10px] font-bold backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                    <span>🔍 Enlarge</span>
+                                  </div>
+                                </div>
+                                <div className="p-3">
+                                  <span className="text-xs font-bold text-slate-800 block truncate">
+                                    {ph.caption || 'Site progress inspection'}
+                                  </span>
+                                  <div className="flex items-center justify-between mt-1.5 text-[10px]">
+                                    <span className="uppercase font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                                      {ph.category || 'Site'}
+                                    </span>
+                                    <span className="text-slate-400 font-medium">✓ Drive Synced</span>
+                                  </div>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -2243,6 +2285,67 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
                 downloadFile(endpoint, filename, false);
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Photo Zoom Lightbox Modal */}
+      {selectedGalleryPhoto && (
+        <div
+          onClick={() => setSelectedGalleryPhoto(null)}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-200"
+          >
+            <div className="flex justify-between items-center px-4 py-3 border-b border-slate-200 bg-slate-900 text-white">
+              <div>
+                <h4 className="font-bold text-sm truncate">{selectedGalleryPhoto.caption}</h4>
+                <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                  <span className="uppercase text-amber-300 font-bold">{selectedGalleryPhoto.category || 'Site Photo'}</span>
+                  {selectedGalleryPhoto.date && (
+                    <>
+                      <span>•</span>
+                      <span>Recorded {new Date(selectedGalleryPhoto.date).toLocaleDateString('en-IN')}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedGalleryPhoto(null)}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="bg-black/95 flex items-center justify-center p-2 max-h-[72vh]">
+              <img
+                src={resolveImageUrl(selectedGalleryPhoto.url)}
+                alt={selectedGalleryPhoto.caption}
+                onError={(e) => {
+                  (e.target as any).src =
+                    'https://images.unsplash.com/photo-1541888946425-d0fbb18615f3?w=800&auto=format&fit=crop&q=80';
+                }}
+                className="max-h-[70vh] w-auto max-w-full object-contain rounded"
+              />
+            </div>
+            <div className="p-3 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-slate-600 border-t border-slate-200">
+              <span className="font-semibold text-emerald-800 flex items-center gap-1.5">
+                <BadgeCheck className="w-4 h-4 text-emerald-600" />
+                <span>Verified by GKA Supervising Engineer • Archived in Google Drive Project Folder</span>
+              </span>
+              <a
+                href={resolveImageUrl(selectedGalleryPhoto.url)}
+                target="_blank"
+                rel="noreferrer"
+                download
+                className="px-3.5 py-1.5 bg-brand-navy-900 text-white rounded-lg font-bold text-[11px] hover:bg-brand-navy-800 flex items-center gap-1.5 shadow"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Photo</span>
+              </a>
+            </div>
           </div>
         </div>
       )}

@@ -41,7 +41,17 @@ export const createApp = (): express.Application => {
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   // Static uploads
-  app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+  const uploadCandidates = [
+    path.resolve(__dirname, '../uploads'),
+    path.resolve(__dirname, '../../uploads'),
+    path.resolve(process.cwd(), 'server', 'uploads'),
+    path.resolve(process.cwd(), 'uploads'),
+  ];
+  uploadCandidates.forEach((uPath) => {
+    if (fs.existsSync(uPath)) {
+      app.use('/uploads', express.static(uPath));
+    }
+  });
 
   // Health check
   app.get('/api/health', (req, res) => {

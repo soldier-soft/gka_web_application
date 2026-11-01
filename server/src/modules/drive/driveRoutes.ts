@@ -141,4 +141,40 @@ router.post('/sync/:type/:id', async (req: Request, res: Response, next: NextFun
   }
 });
 
+import multer from 'multer';
+const driveUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+});
+
+router.post('/upload-site-photo', driveUpload.single('photo'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { projectId, caption, category, imageBase64, fileName: customFileName } = req.body;
+    let fileBuffer: Buffer | null = null;
+    let fileName = customFileName || `site_photo_${Date.now()}.jpg`;
+
+    if (req.file) {
+      fileBuffer = req.file.buffer;
+      fileName = req.file.originalname || fileName;
+    } else if (imageBase64) {
+      const matches = imageBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        fileBuffer = Buffer.from(matches[2], 'base64');
+      } else {
+        fileBuffer = Buffer.from(imageBase64, 'base64');
+      }
+    }
+
+    if (!fileBuffer) {
+      res.status(400).json({ success: false, message: 'No photo provided' });
+      return;
+    }
+
+    const result = await GoogleDriveService.syncSiteDiaryPhoto(projectId, fileName, fileBuffer, caption, category);
+    res.json({ success: true, result, url: result.fileUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

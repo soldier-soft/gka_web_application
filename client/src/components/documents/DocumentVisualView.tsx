@@ -315,10 +315,12 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
               {clientAddress}
             </p>
             {clientGstin && (
-              <p className="font-bold text-[#0F254B] text-[11px] pt-1">
-                <span className="text-slate-500 font-semibold">GSTIN : </span>
-                <span className="font-mono tracking-wider">{clientGstin}</span>
-              </p>
+              <div className="pt-2 mt-1.5 border-t border-slate-200/80 flex items-center gap-1.5 text-[11px]">
+                <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">GSTIN:</span>
+                <span className="font-mono font-bold text-[#0F254B] bg-slate-100 px-2 py-0.5 rounded border border-slate-200 tracking-wider">
+                  {clientGstin}
+                </span>
+              </div>
             )}
           </div>
 

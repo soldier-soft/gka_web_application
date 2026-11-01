@@ -39,7 +39,17 @@ const createApp = () => {
     app.use(express_1.default.json({ limit: '10mb' }));
     app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
     // Static uploads
-    app.use('/uploads', express_1.default.static(path_1.default.resolve(__dirname, '../uploads')));
+    const uploadCandidates = [
+        path_1.default.resolve(__dirname, '../uploads'),
+        path_1.default.resolve(__dirname, '../../uploads'),
+        path_1.default.resolve(process.cwd(), 'server', 'uploads'),
+        path_1.default.resolve(process.cwd(), 'uploads'),
+    ];
+    uploadCandidates.forEach((uPath) => {
+        if (fs_1.default.existsSync(uPath)) {
+            app.use('/uploads', express_1.default.static(uPath));
+        }
+    });
     // Health check
     app.get('/api/health', (req, res) => {
         res.json({
