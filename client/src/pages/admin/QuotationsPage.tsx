@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toPaise, toRupees } from '@shared/types';
-import { STANDARD_RATE_LIBRARY } from '@shared/constants';
+import { STANDARD_RATE_LIBRARY, GOOGLE_DRIVE_CONFIG } from '@shared/constants';
 import { DocumentVisualView } from '../../components/documents/DocumentVisualView';
 import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
@@ -243,6 +243,8 @@ export const QuotationsPage: React.FC = () => {
       if (res.success && res.quotation) {
         setShowModal(false);
         fetchQuotationsAndProjects();
+        // Trigger auto Google Drive sync
+        api.syncToGoogleDrive('quotation', res.quotation._id).catch(() => {});
         triggerAutoDownloads(res.quotation._id, res.quotation.quotationNumber);
       }
     } catch (err: any) {
@@ -482,7 +484,17 @@ export const QuotationsPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <a
+            href={GOOGLE_DRIVE_CONFIG.folderUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="px-3.5 py-2 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors shadow-sm flex items-center gap-1.5"
+            title="Open Google Drive folder: GKA CONSTRUCTION"
+          >
+            <span>📁 Google Drive: GKA CONSTRUCTION</span>
+          </a>
+
           <button
             onClick={() => setShowModal(true)}
             className="px-4 py-2 rounded-lg text-xs font-bold bg-[#0F254B] text-white hover:bg-[#1E3A8A] transition-colors shadow-sm flex items-center gap-2"

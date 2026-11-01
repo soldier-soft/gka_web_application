@@ -14,8 +14,8 @@ import {
   Check,
 } from 'lucide-react';
 import { formatINR, toRupees } from '@shared/types';
-import { GKA_COMPANY, formatClientPortalUsername } from '@shared/constants';
-import { getFileUrl } from '../../services/api';
+import { GKA_COMPANY, formatClientPortalUsername, GOOGLE_DRIVE_CONFIG } from '@shared/constants';
+import { getFileUrl, api } from '../../services/api';
 import { ShareDocumentModal, ShareDocumentData } from '../common/ShareDocumentModal';
 
 interface DocumentVisualViewProps {
@@ -173,6 +173,26 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
           >
             <Share2 className="w-3.5 h-3.5" />
             <span>Share (Mail & WhatsApp)</span>
+          </button>
+
+          {/* Save to Google Drive */}
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await api.syncToGoogleDrive(type, data._id);
+                if (res.result?.message) {
+                  alert(res.result.message);
+                } else {
+                  alert('Document successfully saved and synced to Google Drive [GKA CONSTRUCTION] folder!');
+                }
+              } catch (_) {}
+              window.open(GOOGLE_DRIVE_CONFIG.folderUrl, '_blank');
+            }}
+            className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all flex items-center gap-1.5 shadow"
+            title="Save into GKA Construction Google Drive folder"
+          >
+            <span>📁 Save to Google Drive</span>
           </button>
 
           <button
@@ -434,38 +454,63 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
           </strong>
         </div>
 
-        {/* 8.5 CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS */}
-        <div className="bg-[#EFF6FF] border border-[#93C5FD] rounded-xl overflow-hidden mb-6 text-xs shadow-xs">
-          <div className="bg-[#1E40AF] text-white px-3.5 py-1.5 font-heading font-bold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#93C5FD]" />
-            <span>CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS</span>
-          </div>
-          <div className="p-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-[11px]">
-            <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 flex flex-col justify-center">
-              <span className="text-[#1E40AF] font-bold block text-[10px] uppercase tracking-wider mb-0.5">PORTAL LINK:</span>
-              <a
-                href="https://www.gkaconstruction.com/login"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[#0F254B] font-bold underline hover:text-[#D6A21D] truncate"
-              >
-                gkaconstruction.com/login
-              </a>
+        {/* 8.5 CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS (CONDITIONAL) */}
+        {Boolean(data.projectId || data.isLinkedToProject) ? (
+          <div className="bg-[#EFF6FF] border border-[#93C5FD] rounded-xl overflow-hidden mb-6 text-xs shadow-xs">
+            <div className="bg-[#1E40AF] text-white px-3.5 py-1.5 font-heading font-bold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#93C5FD]" />
+              <span>CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS</span>
             </div>
-            <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 flex flex-col justify-center min-w-0">
-              <span className="text-[#1E40AF] font-bold block text-[10px] uppercase tracking-wider mb-0.5">LOGIN USERNAME:</span>
-              <span className="text-[#0F254B] font-bold break-all select-all">{clientPortalUsername}</span>
-            </div>
-            <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 flex flex-col justify-center">
-              <span className="text-[#1E40AF] font-bold block text-[10px] uppercase tracking-wider mb-0.5">ACCESS PASSWORD:</span>
-              <div>
-                <span className="bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B] px-2.5 py-0.5 rounded font-bold inline-block select-all">
-                  {clientPortalPassword}
-                </span>
+            <div className="p-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-[11px]">
+              <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 flex flex-col justify-center">
+                <span className="text-[#1E40AF] font-bold block text-[10px] uppercase tracking-wider mb-0.5">PORTAL LINK:</span>
+                <a
+                  href="https://www.gkaconstruction.com/login"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#0F254B] font-bold underline hover:text-[#D6A21D] truncate"
+                >
+                  gkaconstruction.com/login
+                </a>
+              </div>
+              <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 flex flex-col justify-center min-w-0">
+                <span className="text-[#1E40AF] font-bold block text-[10px] uppercase tracking-wider mb-0.5">LOGIN USERNAME:</span>
+                <span className="text-[#0F254B] font-bold break-all select-all">{clientPortalUsername}</span>
+              </div>
+              <div className="bg-white/80 p-2.5 rounded-lg border border-blue-100 flex flex-col justify-center">
+                <span className="text-[#1E40AF] font-bold block text-[10px] uppercase tracking-wider mb-0.5">ACCESS PASSWORD:</span>
+                <div>
+                  <span className="bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B] px-2.5 py-0.5 rounded font-bold inline-block select-all">
+                    {clientPortalPassword}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl overflow-hidden mb-6 text-xs shadow-xs">
+            <div className="bg-[#0F254B] text-white px-3.5 py-1.5 font-heading font-bold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#D6A21D]" />
+              <span>CLIENT PORTAL WORKSPACE ACCESS</span>
+            </div>
+            <div className="p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px]">
+              <p className="text-slate-600 leading-relaxed max-w-xl">
+                We have a secure GKA ERP client portal. If you need workspace access, please get it directly from our project engineer upon project initiation.
+              </p>
+              <div className="bg-white px-3 py-1.5 rounded-lg border border-slate-200 font-mono text-[11px] whitespace-nowrap">
+                <span className="text-slate-500 font-semibold mr-1.5">PORTAL LINK:</span>
+                <a
+                  href="https://www.gkaconstruction.com/login"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#D6A21D] font-bold underline"
+                >
+                  gkaconstruction.com/login
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 8.8 DEDICATED OFFICIAL BILL NOTES & AGREED SETTLEMENT AGREEMENT */}
         {(data.notes || (data.isNegotiated && data.negotiatedNotes)) && (

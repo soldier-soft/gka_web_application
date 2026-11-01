@@ -241,3 +241,10 @@ export const CONCEPT_TYPE_OPTIONS = [
 export const ESTIMATION_DISCLAIMER_TEXT =
   'Every project depends on plot dimensions, soil and site conditions, design requirements, material selection, structural specifications and finishing preferences. The ideas shown are references only. For a project-specific recommendation, detailed specifications and an estimate, please request a site visit or contact our team by phone or email.';
 
+export const GOOGLE_DRIVE_CONFIG = {
+  folderUrl: 'https://drive.google.com/drive/folders/16V7gzTYIENUzqozF3LAlllBLpvOVWn0Z?usp=sharing',
+  folderId: '16V7gzTYIENUzqozF3LAlllBLpvOVWn0Z',
+  folderName: 'GKA CONSTRUCTION',
+};
+
+

@@ -22,6 +22,7 @@ import clientPortalRoutes from './modules/clientPortal/clientPortalRoutes';
 import mailRoutes from './modules/mail/mailRoutes';
 import documentRoutes from './modules/documents/documentRoutes';
 import clientRoutes from './modules/clients/clientRoutes';
+import driveRoutes from './modules/drive/driveRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 export const createApp = (): express.Application => {
@@ -125,6 +126,7 @@ export const createApp = (): express.Application => {
   apiRouter.use('/mail', mailRoutes);
   apiRouter.use('/documents', documentRoutes);
   apiRouter.use('/clients', clientRoutes);
+  apiRouter.use('/drive', driveRoutes);
 
   app.use('/api/v1', apiRouter);
 

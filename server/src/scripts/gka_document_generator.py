@@ -547,24 +547,36 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
     r_aw_val.font.bold = True
     r_aw_val.font.color.rgb = RGBColor(15, 37, 75)
 
-    # 8.5 CLIENT PORTAL CREDENTIALS BANNER
-    client_name = data.get("client_name") or data.get("client", {}).get("name") or "client"
-    clean_client_uname = "".join(c for c in client_name.lower() if c.isalnum()) or "client"
-    client_username = data.get("client_portal_username") or data.get("clientPortalUsername") or f"{clean_client_uname}@gkaconstruction.com"
-    client_password = data.get("client_portal_password") or data.get("clientPortalPassword") or "GKAclient2026!"
-
+    # 8.5 CLIENT PORTAL CREDENTIALS BANNER (CONDITIONAL)
+    is_linked = bool(data.get("is_linked_to_project") or data.get("isLinkedToProject") or data.get("project_id") or data.get("projectId"))
     portal_p = doc.add_paragraph()
     portal_p.paragraph_format.space_before = Pt(4)
     portal_p.paragraph_format.space_after = Pt(6)
-    r_p_hdr = portal_p.add_run("🔐 CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS:  ")
-    r_p_hdr.font.size = Pt(8)
-    r_p_hdr.font.bold = True
-    r_p_hdr.font.color.rgb = RGBColor(30, 64, 175)
 
-    r_p_info = portal_p.add_run(f"Link: https://www.gkaconstruction.com/client-portal  |  Username: {client_username}  |  Password: {client_password}")
-    r_p_info.font.size = Pt(8)
-    r_p_info.font.bold = True
-    r_p_info.font.color.rgb = RGBColor(15, 37, 75)
+    if is_linked:
+        client_name = data.get("client_name") or data.get("client", {}).get("name") or "client"
+        clean_client_uname = "".join(c for c in client_name.lower() if c.isalnum()) or "client"
+        client_username = data.get("client_portal_username") or data.get("clientPortalUsername") or f"{clean_client_uname}@gkaconstruction.com"
+        client_password = data.get("client_portal_password") or data.get("clientPortalPassword") or "GKAclient2026!"
+
+        r_p_hdr = portal_p.add_run("🔐 CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS:  ")
+        r_p_hdr.font.size = Pt(8)
+        r_p_hdr.font.bold = True
+        r_p_hdr.font.color.rgb = RGBColor(30, 64, 175)
+
+        r_p_info = portal_p.add_run(f"Link: https://www.gkaconstruction.com/client-portal  |  Username: {client_username}  |  Password: {client_password}")
+        r_p_info.font.size = Pt(8)
+        r_p_info.font.bold = True
+        r_p_info.font.color.rgb = RGBColor(15, 37, 75)
+    else:
+        r_p_hdr = portal_p.add_run("🌐 CLIENT PORTAL WORKSPACE ACCESS:  ")
+        r_p_hdr.font.size = Pt(8)
+        r_p_hdr.font.bold = True
+        r_p_hdr.font.color.rgb = RGBColor(15, 37, 75)
+
+        r_p_info = portal_p.add_run("We have a secure GKA ERP client portal. If you need workspace access, please get it directly from our project engineer upon project initiation.  |  Portal Link: https://www.gkaconstruction.com/client-portal")
+        r_p_info.font.size = Pt(7.8)
+        r_p_info.font.color.rgb = RGBColor(71, 85, 105)
 
     # 8.8 DEDICATED OFFICIAL BILL NOTES (IF PRESENT)
     user_notes = data.get("negotiated_notes") or data.get("notes")

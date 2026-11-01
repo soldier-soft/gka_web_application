@@ -19,6 +19,7 @@ import {
   Lock,
   Save,
   RefreshCw,
+  Copy,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
@@ -860,6 +861,28 @@ export const ProfilePage: React.FC = () => {
                           +91 {u.phone}
                         </a>
                       </div>
+                      {u.defaultPassword && (
+                        <div className="flex items-center justify-between bg-amber-50 border border-amber-200/80 px-2.5 py-1.5 rounded-lg text-[11px] mt-1">
+                          <span className="text-amber-900 font-semibold flex items-center gap-1">
+                            <Lock className="w-3 h-3 text-amber-600" />
+                            <span>Password:</span>
+                          </span>
+                          <div className="flex items-center gap-1.5 font-mono font-bold text-amber-950 select-all">
+                            <span>{u.defaultPassword}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(u.defaultPassword);
+                                alert(`Copied password for ${u.name} (${u.email})!`);
+                              }}
+                              className="text-amber-700 hover:text-amber-950 cursor-pointer ml-0.5"
+                              title="Copy password"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

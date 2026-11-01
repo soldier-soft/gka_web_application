@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.recordTaxFiling = exports.recordTaxPayment = exports.updateEligibleItc = exports.getTaxReconciliations = exports.getProfitabilityReport = exports.rejectPayment = exports.reconcilePayment = exports.verifyPayment = exports.recordPayment = exports.getPayments = exports.createExpense = exports.getExpenses = exports.toggleInvoiceGst = exports.updateInvoice = exports.downloadInvoiceDOCX = exports.downloadInvoicePDF = exports.createInvoice = exports.getInvoices = void 0;
+exports.recordTaxFiling = exports.recordTaxPayment = exports.updateEligibleItc = exports.getTaxReconciliations = exports.getProfitabilityReport = exports.rejectPayment = exports.reconcilePayment = exports.verifyPayment = exports.recordPayment = exports.getPayments = exports.createExpense = exports.getExpenses = exports.permanentDeleteInvoice = exports.restoreInvoice = exports.deleteInvoice = exports.toggleInvoiceGst = exports.updateInvoice = exports.downloadInvoiceDOCX = exports.downloadInvoicePDF = exports.createInvoice = exports.getInvoices = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const fs_1 = __importDefault(require("fs"));
 const Invoice_1 = require("../../models/Invoice");
@@ -15,10 +15,14 @@ const Client_1 = require("../../models/Client");
 const User_1 = require("../../models/User");
 const pdfService_1 = require("../../services/pdfService");
 const docxService_1 = require("../../services/docxService");
+const googleDriveService_1 = require("../../services/googleDriveService");
 const constants_1 = require("../../shared/constants");
 const getInvoices = async (req, res, next) => {
     try {
-        const { projectId, clientId, status } = req.query;
+        // Automatic cleanup: permanently purge soft-deleted invoices older than 30 days
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        await Invoice_1.Invoice.deleteMany({ isDeleted: true, deletedAt: { $lte: thirtyDaysAgo } });
+        const { projectId, clientId, status, deleted } = req.query;
         const filter = {};
         if (projectId)
             filter.projectId = projectId;
@@ -26,14 +30,21 @@ const getInvoices = async (req, res, next) => {
             filter.clientId = clientId;
         if (status)
             filter.status = status;
+        if (deleted === 'true') {
+            filter.isDeleted = true;
+        }
+        else {
+            filter.isDeleted = { $ne: true };
+        }
         if (req.user?.role === 'client' && req.user.clientId) {
             filter.clientId = req.user.clientId;
             filter.status = { $ne: 'draft' };
+            filter.isDeleted = { $ne: true };
         }
         const invoices = await Invoice_1.Invoice.find(filter)
             .populate('projectId', 'title projectId')
             .populate('clientId', 'name phone email')
-            .sort({ issueDate: -1 });
+            .sort({ updatedAt: -1, issueDate: -1 });
         res.json({ success: true, count: invoices.length, invoices });
     }
     catch (error) {
@@ -130,6 +141,20 @@ const createInvoice = async (req, res, next) => {
         // Update Project invoiced amount
         project.invoicedAmountPaise += totalAmountPaise;
         await project.save();
+        // Background Google Drive synchronization
+        setTimeout(async () => {
+            try {
+                const stream = pdfService_1.PDFService.generateInvoicePDF(invoice);
+                const chunks = [];
+                stream.on('data', (c) => chunks.push(Buffer.from(c)));
+                stream.on('end', async () => {
+                    await googleDriveService_1.GoogleDriveService.syncInvoicePdf(invoice.invoiceNumber, Buffer.concat(chunks), invoice.projectId, invoice.clientName);
+                });
+            }
+            catch (e) {
+                console.warn('[DriveSync] Invoice creation sync note:', e);
+            }
+        }, 100);
         res.status(201).json({ success: true, invoice });
     }
     catch (error) {
@@ -149,28 +174,38 @@ const downloadInvoicePDF = async (req, res, next) => {
             res.status(403).json({ success: false, message: 'Forbidden. Access not permitted.' });
             return;
         }
+        const isLinkedToProject = Boolean(invoice.projectId);
+        invoice.isLinkedToProject = isLinkedToProject;
         let clientPortalUsername = (0, constants_1.formatClientPortalUsername)(invoice.clientName);
         let clientPortalPassword = 'GKAclient2026!';
-        if (invoice.clientId) {
-            const client = await Client_1.Client.findById(invoice.clientId);
-            if (client) {
-                const clientUser = await User_1.User.findOne({
-                    $or: [
-                        { clientId: client._id },
-                        { _id: client.userId },
-                        { email: client.email.toLowerCase() },
-                    ],
-                });
-                if (clientUser) {
-                    clientPortalUsername = clientUser.email;
-                    if (clientUser.defaultPassword) {
-                        clientPortalPassword = clientUser.defaultPassword;
+        if (isLinkedToProject) {
+            let resolvedClientId = invoice.clientId;
+            if (!resolvedClientId && invoice.projectId) {
+                const proj = await Project_1.Project.findById(invoice.projectId);
+                if (proj?.clientId)
+                    resolvedClientId = proj.clientId;
+            }
+            if (resolvedClientId) {
+                const client = await Client_1.Client.findById(resolvedClientId);
+                if (client) {
+                    const clientUser = await User_1.User.findOne({
+                        $or: [
+                            { clientId: client._id },
+                            { _id: client.userId },
+                            { email: client.email.toLowerCase() },
+                        ],
+                    });
+                    if (clientUser) {
+                        clientPortalUsername = clientUser.email;
+                        if (clientUser.defaultPassword) {
+                            clientPortalPassword = clientUser.defaultPassword;
+                        }
                     }
-                }
-                else if (client.email) {
-                    clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
-                        ? client.email.toLowerCase()
-                        : (0, constants_1.formatClientPortalUsername)(client.name);
+                    else if (client.email) {
+                        clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+                            ? client.email.toLowerCase()
+                            : (0, constants_1.formatClientPortalUsername)(client.name);
+                    }
                 }
             }
         }
@@ -179,6 +214,12 @@ const downloadInvoicePDF = async (req, res, next) => {
         const docStream = pdfService_1.PDFService.generateInvoicePDF(invoice);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${invoice.invoiceNumber}.pdf"`);
+        const chunks = [];
+        docStream.on('data', (c) => chunks.push(Buffer.from(c)));
+        docStream.on('end', () => {
+            const buffer = Buffer.concat(chunks);
+            googleDriveService_1.GoogleDriveService.syncInvoicePdf(invoice.invoiceNumber, buffer, invoice.projectId, invoice.clientName).catch((err) => console.warn('[DriveSync] Auto-sync invoice PDF note:', err));
+        });
         docStream.pipe(res);
     }
     catch (error) {
@@ -198,28 +239,38 @@ const downloadInvoiceDOCX = async (req, res, next) => {
             res.status(403).json({ success: false, message: 'Forbidden. Access not permitted.' });
             return;
         }
+        const isLinkedToProject = Boolean(invoice.projectId);
+        invoice.isLinkedToProject = isLinkedToProject;
         let clientPortalUsername = (0, constants_1.formatClientPortalUsername)(invoice.clientName);
         let clientPortalPassword = 'GKAclient2026!';
-        if (invoice.clientId) {
-            const client = await Client_1.Client.findById(invoice.clientId);
-            if (client) {
-                const clientUser = await User_1.User.findOne({
-                    $or: [
-                        { clientId: client._id },
-                        { _id: client.userId },
-                        { email: client.email.toLowerCase() },
-                    ],
-                });
-                if (clientUser) {
-                    clientPortalUsername = clientUser.email;
-                    if (clientUser.defaultPassword) {
-                        clientPortalPassword = clientUser.defaultPassword;
+        if (isLinkedToProject) {
+            let resolvedClientId = invoice.clientId;
+            if (!resolvedClientId && invoice.projectId) {
+                const proj = await Project_1.Project.findById(invoice.projectId);
+                if (proj?.clientId)
+                    resolvedClientId = proj.clientId;
+            }
+            if (resolvedClientId) {
+                const client = await Client_1.Client.findById(resolvedClientId);
+                if (client) {
+                    const clientUser = await User_1.User.findOne({
+                        $or: [
+                            { clientId: client._id },
+                            { _id: client.userId },
+                            { email: client.email.toLowerCase() },
+                        ],
+                    });
+                    if (clientUser) {
+                        clientPortalUsername = clientUser.email;
+                        if (clientUser.defaultPassword) {
+                            clientPortalPassword = clientUser.defaultPassword;
+                        }
                     }
-                }
-                else if (client.email) {
-                    clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
-                        ? client.email.toLowerCase()
-                        : (0, constants_1.formatClientPortalUsername)(client.name);
+                    else if (client.email) {
+                        clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+                            ? client.email.toLowerCase()
+                            : (0, constants_1.formatClientPortalUsername)(client.name);
+                    }
                 }
             }
         }
@@ -371,6 +422,86 @@ const toggleInvoiceGst = async (req, res, next) => {
     }
 };
 exports.toggleInvoiceGst = toggleInvoiceGst;
+const deleteInvoice = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const invoice = await Invoice_1.Invoice.findById(id);
+        if (!invoice) {
+            res.status(404).json({ success: false, message: 'Invoice not found' });
+            return;
+        }
+        invoice.isDeleted = true;
+        invoice.deletedAt = new Date();
+        await invoice.save();
+        // Recalculate project invoiced amounts
+        if (invoice.projectId) {
+            const activeInvoices = await Invoice_1.Invoice.find({ projectId: invoice.projectId, isDeleted: { $ne: true } });
+            const totalInvoiced = activeInvoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
+            await Project_1.Project.findByIdAndUpdate(invoice.projectId, { invoicedAmountPaise: totalInvoiced });
+        }
+        res.json({
+            success: true,
+            message: 'Bill / Tax Invoice moved to Recycle Bin. It will be automatically removed after 30 days unless restored.',
+            invoice,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.deleteInvoice = deleteInvoice;
+const restoreInvoice = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const invoice = await Invoice_1.Invoice.findById(id);
+        if (!invoice) {
+            res.status(404).json({ success: false, message: 'Invoice not found' });
+            return;
+        }
+        invoice.isDeleted = false;
+        invoice.deletedAt = undefined;
+        await invoice.save();
+        // Recalculate project invoiced amounts
+        if (invoice.projectId) {
+            const activeInvoices = await Invoice_1.Invoice.find({ projectId: invoice.projectId, isDeleted: { $ne: true } });
+            const totalInvoiced = activeInvoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
+            await Project_1.Project.findByIdAndUpdate(invoice.projectId, { invoicedAmountPaise: totalInvoiced });
+        }
+        res.json({
+            success: true,
+            message: 'Bill / Tax Invoice restored from Recycle Bin successfully.',
+            invoice,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.restoreInvoice = restoreInvoice;
+const permanentDeleteInvoice = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const invoice = await Invoice_1.Invoice.findByIdAndDelete(id);
+        if (!invoice) {
+            res.status(404).json({ success: false, message: 'Invoice not found' });
+            return;
+        }
+        // Recalculate project invoiced amounts
+        if (invoice.projectId) {
+            const activeInvoices = await Invoice_1.Invoice.find({ projectId: invoice.projectId, isDeleted: { $ne: true } });
+            const totalInvoiced = activeInvoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
+            await Project_1.Project.findByIdAndUpdate(invoice.projectId, { invoicedAmountPaise: totalInvoiced });
+        }
+        res.json({
+            success: true,
+            message: 'Bill / Tax Invoice permanently removed from database.',
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.permanentDeleteInvoice = permanentDeleteInvoice;
 const getExpenses = async (req, res, next) => {
     try {
         const { projectId, category } = req.query;
@@ -614,7 +745,7 @@ exports.getProfitabilityReport = getProfitabilityReport;
 const getTaxReconciliations = async (req, res, next) => {
     try {
         let records = await TaxReconciliation_1.TaxReconciliation.find().sort({ period: -1 });
-        const allInvoices = await Invoice_1.Invoice.find({ status: { $ne: 'cancelled' } });
+        const allInvoices = await Invoice_1.Invoice.find({ isDeleted: { $ne: true }, status: { $ne: 'cancelled' } });
         let totalTaxableSalesPaise = 0;
         let outputCgstPaise = 0;
         let outputSgstPaise = 0;

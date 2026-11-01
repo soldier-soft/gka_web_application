@@ -98,5 +98,12 @@ const QuotationSchema = new mongoose_1.Schema({
     approvedBy: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
     convertedToBudget: { type: Boolean, default: false },
     notes: { type: String },
+    isDeleted: { type: Boolean, default: false, index: true },
+    deletedAt: { type: Date, default: null, index: true },
 }, { timestamps: true });
+// Auto-purge soft-deleted quotations after 30 days (30 * 24 * 60 * 60 = 2,592,000 seconds)
+QuotationSchema.index({ deletedAt: 1 }, {
+    expireAfterSeconds: 30 * 24 * 60 * 60,
+    partialFilterExpression: { isDeleted: true },
+});
 exports.Quotation = mongoose_1.default.model('Quotation', QuotationSchema);

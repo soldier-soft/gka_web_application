@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toRupees } from '@shared/types';
-import { GKA_COMPANY } from '@shared/constants';
+import { GKA_COMPANY, GOOGLE_DRIVE_CONFIG } from '@shared/constants';
 import { ShareDocumentModal, ShareDocumentData } from '../../components/common/ShareDocumentModal';
 import { EditProjectModal } from '../../components/projects/EditProjectModal';
 import { LinkQuotationModal } from '../../components/projects/LinkQuotationModal';
@@ -66,6 +66,7 @@ export const ProjectDetailPage: React.FC = () => {
   const [quotations, setQuotations] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [clientFeedbacks, setClientFeedbacks] = useState<any[]>([]);
+  const [portalCredentials, setPortalCredentials] = useState<{ username: string; password: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Share Modal State
@@ -101,6 +102,7 @@ export const ProjectDetailPage: React.FC = () => {
         setQuotations((res as any).quotations || []);
         setExpenses((res as any).expenses || []);
         setClientFeedbacks((res as any).clientFeedbacks || []);
+        setPortalCredentials(res.portalCredentials || null);
       }
     } catch (error) {
       console.error('Error fetching project details:', error);
@@ -289,6 +291,23 @@ export const ProjectDetailPage: React.FC = () => {
             >
               <FileDown className="w-4 h-4 text-[#D6A21D]" />
               <span>Download Welcome PDF</span>
+            </button>
+
+            {/* Google Drive Public Folder Sync Button */}
+            <button
+              onClick={async () => {
+                try {
+                  const res = await api.syncToGoogleDrive('project', project._id);
+                  if (res.success) {
+                    showNotification('Project details synchronized with Google Drive [GKA CONSTRUCTION] folder!');
+                  }
+                } catch (_) {}
+                window.open(GOOGLE_DRIVE_CONFIG.folderUrl, '_blank');
+              }}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              title="Open and sync with Google Drive folder: GKA CONSTRUCTION"
+            >
+              <span>📁 Google Drive: GKA CONSTRUCTION</span>
             </button>
 
             {/* Share Welcome Packet (WhatsApp & Mail) */}
@@ -485,19 +504,19 @@ export const ProjectDetailPage: React.FC = () => {
                 )}
                 <div>
                   <span className="text-slate-400 block text-[11px]">Portal Login Username</span>
-                  <span className="text-slate-800 font-mono font-bold bg-slate-100 px-2 py-0.5 rounded block w-fit mt-0.5">
-                    {project.clientId?.email}
+                  <span className="text-slate-800 font-mono font-bold bg-slate-100 px-2 py-0.5 rounded block w-fit mt-0.5 select-all">
+                    {portalCredentials?.username || project.clientId?.email || 'client@gkaconstruction.com'}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[11px]">Default Password for Client</span>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-amber-800 font-mono font-bold bg-amber-50 border border-amber-200 px-2.5 py-1 rounded">
-                      {project.clientId?.phone ? `GKA@${project.clientId.phone.replace(/\D/g, '').slice(-4) || '2026'}` : 'GKAclient2026!'}
+                    <span className="text-amber-800 font-mono font-bold bg-amber-50 border border-amber-200 px-2.5 py-1 rounded select-all">
+                      {portalCredentials?.password || 'GKAclient2026!'}
                     </span>
                     <button
                       onClick={() => {
-                        const pwd = project.clientId?.phone ? `GKA@${project.clientId.phone.replace(/\D/g, '').slice(-4) || '2026'}` : 'GKAclient2026!';
+                        const pwd = portalCredentials?.password || 'GKAclient2026!';
                         navigator.clipboard.writeText(pwd);
                         setActionSuccessMessage('Default password copied to clipboard!');
                         setTimeout(() => setActionSuccessMessage(null), 2500);

@@ -23,6 +23,7 @@ const clientPortalRoutes_1 = __importDefault(require("./modules/clientPortal/cli
 const mailRoutes_1 = __importDefault(require("./modules/mail/mailRoutes"));
 const documentRoutes_1 = __importDefault(require("./modules/documents/documentRoutes"));
 const clientRoutes_1 = __importDefault(require("./modules/clients/clientRoutes"));
+const driveRoutes_1 = __importDefault(require("./modules/drive/driveRoutes"));
 const errorHandler_1 = require("./middleware/errorHandler");
 const createApp = () => {
     const app = (0, express_1.default)();
@@ -108,6 +109,7 @@ const createApp = () => {
     apiRouter.use('/mail', mailRoutes_1.default);
     apiRouter.use('/documents', documentRoutes_1.default);
     apiRouter.use('/clients', clientRoutes_1.default);
+    apiRouter.use('/drive', driveRoutes_1.default);
     app.use('/api/v1', apiRouter);
     // Static Asset 404 Guard: Ensure missing static files return 404, never index.html
     app.use('/assets', (req, res) => {

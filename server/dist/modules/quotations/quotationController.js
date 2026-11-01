@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateQuotation = exports.convertToInvoice = exports.downloadQuotationDOCX = exports.downloadQuotationPDF = exports.approveQuotation = exports.createQuotation = exports.getQuotationById = exports.getQuotations = exports.getRateLibrary = void 0;
+exports.permanentDeleteQuotation = exports.restoreQuotation = exports.deleteQuotation = exports.updateQuotation = exports.convertToInvoice = exports.downloadQuotationDOCX = exports.downloadQuotationPDF = exports.approveQuotation = exports.createQuotation = exports.getQuotationById = exports.getQuotations = exports.getRateLibrary = void 0;
 const fs_1 = __importDefault(require("fs"));
 const Quotation_1 = require("../../models/Quotation");
 const Project_1 = require("../../models/Project");
@@ -13,13 +13,17 @@ const User_1 = require("../../models/User");
 const constants_1 = require("../../shared/constants");
 const pdfService_1 = require("../../services/pdfService");
 const docxService_1 = require("../../services/docxService");
+const googleDriveService_1 = require("../../services/googleDriveService");
 const getRateLibrary = async (req, res) => {
     res.json({ success: true, rates: constants_1.STANDARD_RATE_LIBRARY });
 };
 exports.getRateLibrary = getRateLibrary;
 const getQuotations = async (req, res, next) => {
     try {
-        const { projectId, clientId, status } = req.query;
+        // Automatic cleanup: permanently purge soft-deleted quotations older than 30 days
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        await Quotation_1.Quotation.deleteMany({ isDeleted: true, deletedAt: { $lte: thirtyDaysAgo } });
+        const { projectId, clientId, status, deleted } = req.query;
         const filter = {};
         if (projectId)
             filter.projectId = projectId;
@@ -27,15 +31,22 @@ const getQuotations = async (req, res, next) => {
             filter.clientId = clientId;
         if (status)
             filter.status = status;
-        // For clients, restrict to their client ID
+        if (deleted === 'true') {
+            filter.isDeleted = true;
+        }
+        else {
+            filter.isDeleted = { $ne: true };
+        }
+        // For clients, restrict to their client ID and hide drafts
         if (req.user?.role === 'client' && req.user.clientId) {
             filter.clientId = req.user.clientId;
             filter.status = { $in: ['sent', 'approved', 'revised'] }; // Drafts hidden from client
+            filter.isDeleted = { $ne: true };
         }
         const quotations = await Quotation_1.Quotation.find(filter)
             .populate('projectId', 'projectId title siteAddress')
             .populate('clientId', 'name email phone companyName billingAddress')
-            .sort({ createdAt: -1 });
+            .sort({ updatedAt: -1, createdAt: -1 });
         res.json({ success: true, count: quotations.length, quotations });
     }
     catch (error) {
@@ -116,14 +127,25 @@ const createQuotation = async (req, res, next) => {
                 }
             }
         }
+        let finalClientId = clientId;
+        let finalClientName = clientName;
+        let finalClientCompany = clientCompany;
+        if (projectId) {
+            const projDoc = await Project_1.Project.findById(projectId).populate('clientId');
+            if (projDoc?.clientId) {
+                finalClientId = projDoc.clientId._id || projDoc.clientId;
+                finalClientName = projDoc.clientId.name || clientName;
+                finalClientCompany = projDoc.clientId.companyName || clientCompany;
+            }
+        }
         const quotation = await Quotation_1.Quotation.create({
             quotationNumber,
             projectId,
             leadId,
-            clientId,
-            clientName,
-            clientContactPerson: clientContactPerson || clientName,
-            clientCompany: clientCompany || 'VIVANTHA HOTEL',
+            clientId: finalClientId,
+            clientName: finalClientName,
+            clientContactPerson: clientContactPerson || finalClientName,
+            clientCompany: finalClientCompany || 'VIVANTHA HOTEL',
             clientGstin: defaultGstin,
             clientAddress: clientAddress || '',
             projectTitle,
@@ -152,6 +174,20 @@ const createQuotation = async (req, res, next) => {
             status: 'draft',
             validUntil,
         });
+        // Background Google Drive synchronization
+        setTimeout(async () => {
+            try {
+                const stream = pdfService_1.PDFService.generateQuotationPDF(quotation);
+                const chunks = [];
+                stream.on('data', (c) => chunks.push(Buffer.from(c)));
+                stream.on('end', async () => {
+                    await googleDriveService_1.GoogleDriveService.syncQuotationPdf(quotation.quotationNumber, Buffer.concat(chunks), quotation.projectId, quotation.clientName);
+                });
+            }
+            catch (e) {
+                console.warn('[DriveSync] Quotation creation sync note:', e);
+            }
+        }, 100);
         res.status(201).json({ success: true, quotation });
     }
     catch (error) {
@@ -199,28 +235,38 @@ const downloadQuotationPDF = async (req, res, next) => {
             res.status(404).json({ success: false, message: 'Quotation not found' });
             return;
         }
+        const isLinkedToProject = Boolean(quotation.projectId);
+        quotation.isLinkedToProject = isLinkedToProject;
         let clientPortalUsername = (0, constants_1.formatClientPortalUsername)(quotation.clientName);
         let clientPortalPassword = 'GKAclient2026!';
-        if (quotation.clientId) {
-            const client = await Client_1.Client.findById(quotation.clientId);
-            if (client) {
-                const clientUser = await User_1.User.findOne({
-                    $or: [
-                        { clientId: client._id },
-                        { _id: client.userId },
-                        { email: client.email.toLowerCase() },
-                    ],
-                });
-                if (clientUser) {
-                    clientPortalUsername = clientUser.email;
-                    if (clientUser.defaultPassword) {
-                        clientPortalPassword = clientUser.defaultPassword;
+        if (isLinkedToProject) {
+            let resolvedClientId = quotation.clientId;
+            if (!resolvedClientId && quotation.projectId) {
+                const proj = await Project_1.Project.findById(quotation.projectId);
+                if (proj?.clientId)
+                    resolvedClientId = proj.clientId;
+            }
+            if (resolvedClientId) {
+                const client = await Client_1.Client.findById(resolvedClientId);
+                if (client) {
+                    const clientUser = await User_1.User.findOne({
+                        $or: [
+                            { clientId: client._id },
+                            { _id: client.userId },
+                            { email: client.email.toLowerCase() },
+                        ],
+                    });
+                    if (clientUser) {
+                        clientPortalUsername = clientUser.email;
+                        if (clientUser.defaultPassword) {
+                            clientPortalPassword = clientUser.defaultPassword;
+                        }
                     }
-                }
-                else if (client.email) {
-                    clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
-                        ? client.email.toLowerCase()
-                        : (0, constants_1.formatClientPortalUsername)(client.name);
+                    else if (client.email) {
+                        clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+                            ? client.email.toLowerCase()
+                            : (0, constants_1.formatClientPortalUsername)(client.name);
+                    }
                 }
             }
         }
@@ -229,6 +275,12 @@ const downloadQuotationPDF = async (req, res, next) => {
         const docStream = pdfService_1.PDFService.generateQuotationPDF(quotation);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="${quotation.quotationNumber}.pdf"`);
+        const chunks = [];
+        docStream.on('data', (c) => chunks.push(Buffer.from(c)));
+        docStream.on('end', () => {
+            const buffer = Buffer.concat(chunks);
+            googleDriveService_1.GoogleDriveService.syncQuotationPdf(quotation.quotationNumber, buffer, quotation.projectId, quotation.clientName).catch((err) => console.warn('[DriveSync] Auto-sync quotation PDF note:', err));
+        });
         docStream.pipe(res);
     }
     catch (error) {
@@ -244,28 +296,38 @@ const downloadQuotationDOCX = async (req, res, next) => {
             res.status(404).json({ success: false, message: 'Quotation not found' });
             return;
         }
+        const isLinkedToProject = Boolean(quotation.projectId);
+        quotation.isLinkedToProject = isLinkedToProject;
         let clientPortalUsername = (0, constants_1.formatClientPortalUsername)(quotation.clientName);
         let clientPortalPassword = 'GKAclient2026!';
-        if (quotation.clientId) {
-            const client = await Client_1.Client.findById(quotation.clientId);
-            if (client) {
-                const clientUser = await User_1.User.findOne({
-                    $or: [
-                        { clientId: client._id },
-                        { _id: client.userId },
-                        { email: client.email.toLowerCase() },
-                    ],
-                });
-                if (clientUser) {
-                    clientPortalUsername = clientUser.email;
-                    if (clientUser.defaultPassword) {
-                        clientPortalPassword = clientUser.defaultPassword;
+        if (isLinkedToProject) {
+            let resolvedClientId = quotation.clientId;
+            if (!resolvedClientId && quotation.projectId) {
+                const proj = await Project_1.Project.findById(quotation.projectId);
+                if (proj?.clientId)
+                    resolvedClientId = proj.clientId;
+            }
+            if (resolvedClientId) {
+                const client = await Client_1.Client.findById(resolvedClientId);
+                if (client) {
+                    const clientUser = await User_1.User.findOne({
+                        $or: [
+                            { clientId: client._id },
+                            { _id: client.userId },
+                            { email: client.email.toLowerCase() },
+                        ],
+                    });
+                    if (clientUser) {
+                        clientPortalUsername = clientUser.email;
+                        if (clientUser.defaultPassword) {
+                            clientPortalPassword = clientUser.defaultPassword;
+                        }
                     }
-                }
-                else if (client.email) {
-                    clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
-                        ? client.email.toLowerCase()
-                        : (0, constants_1.formatClientPortalUsername)(client.name);
+                    else if (client.email) {
+                        clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+                            ? client.email.toLowerCase()
+                            : (0, constants_1.formatClientPortalUsername)(client.name);
+                    }
                 }
             }
         }
@@ -498,3 +560,65 @@ const updateQuotation = async (req, res, next) => {
     }
 };
 exports.updateQuotation = updateQuotation;
+const deleteQuotation = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const quotation = await Quotation_1.Quotation.findById(id);
+        if (!quotation) {
+            res.status(404).json({ success: false, message: 'Quotation not found' });
+            return;
+        }
+        quotation.isDeleted = true;
+        quotation.deletedAt = new Date();
+        await quotation.save();
+        res.json({
+            success: true,
+            message: 'Quotation moved to Recycle Bin. It will be automatically removed after 30 days unless restored.',
+            quotation,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.deleteQuotation = deleteQuotation;
+const restoreQuotation = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const quotation = await Quotation_1.Quotation.findById(id);
+        if (!quotation) {
+            res.status(404).json({ success: false, message: 'Quotation not found' });
+            return;
+        }
+        quotation.isDeleted = false;
+        quotation.deletedAt = undefined;
+        await quotation.save();
+        res.json({
+            success: true,
+            message: 'Quotation restored from Recycle Bin successfully.',
+            quotation,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.restoreQuotation = restoreQuotation;
+const permanentDeleteQuotation = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const quotation = await Quotation_1.Quotation.findByIdAndDelete(id);
+        if (!quotation) {
+            res.status(404).json({ success: false, message: 'Quotation not found' });
+            return;
+        }
+        res.json({
+            success: true,
+            message: 'Quotation permanently removed from database.',
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.permanentDeleteQuotation = permanentDeleteQuotation;

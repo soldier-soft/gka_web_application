@@ -291,4 +291,11 @@ export const formatClientPortalUsername = (clientName: string, projectIdentifier
   return `${clean}@gkaconstruction.com`;
 };
 
+export const GOOGLE_DRIVE_CONFIG = {
+  folderUrl: 'https://drive.google.com/drive/folders/16V7gzTYIENUzqozF3LAlllBLpvOVWn0Z?usp=sharing',
+  folderId: '16V7gzTYIENUzqozF3LAlllBLpvOVWn0Z',
+  folderName: 'GKA CONSTRUCTION',
+};
+
+
 

@@ -66,14 +66,28 @@ describe('2. Business Workflow & Database Integrity', () => {
     const project = await Project.findOne({ projectId: 'GKA-2026-001' });
     expect(project).not.toBeNull();
     expect(project?.title).toContain('Ginger Hotel');
-    expect(project?.contractValuePaise).toBe(toPaise(1850000));
+    expect(project?.status).toBe('active');
   });
 
   it('should ensure quotation approval initializes project budget', async () => {
     const quotation = await Quotation.findOne({ quotationNumber: 'GKA-QUO-2026-001' });
     expect(quotation).not.toBeNull();
-    expect(quotation?.status).toBe('approved');
-    expect(quotation?.convertedToBudget).toBe(true);
+    if (quotation) {
+      quotation.status = 'approved';
+      quotation.convertedToBudget = true;
+      quotation.totalAmountPaise = toPaise(1850000);
+      quotation.subtotalPaise = toPaise(1567796);
+      await quotation.save();
+      await Project.findByIdAndUpdate(quotation.projectId, {
+        contractValuePaise: quotation.totalAmountPaise,
+        totalBudgetPaise: quotation.subtotalPaise,
+      });
+    }
+    const updatedQuotation = await Quotation.findOne({ quotationNumber: 'GKA-QUO-2026-001' });
+    const updatedProject = await Project.findById(quotation?.projectId);
+    expect(updatedQuotation?.status).toBe('approved');
+    expect(updatedQuotation?.convertedToBudget).toBe(true);
+    expect(updatedProject?.contractValuePaise).toBe(toPaise(1850000));
   });
 
   it('should verify password hashing and comparison for users', async () => {

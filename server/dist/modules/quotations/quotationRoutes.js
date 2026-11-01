@@ -18,4 +18,7 @@ router.put('/:id', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager
 router.patch('/:id', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager'), quotationController_1.updateQuotation);
 router.post('/:id/approve', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager'), quotationController_1.approveQuotation);
 router.post('/:id/convert-to-invoice', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts'), quotationController_1.convertToInvoice);
+router.delete('/:id', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager'), quotationController_1.deleteQuotation);
+router.post('/:id/restore', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager'), quotationController_1.restoreQuotation);
+router.delete('/:id/permanent', (0, roleCheck_1.requireRoles)('super_admin'), quotationController_1.permanentDeleteQuotation);
 exports.default = router;

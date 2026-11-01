@@ -10,6 +10,7 @@ import { Client } from '../../models/Client';
 import { User } from '../../models/User';
 import { PDFService } from '../../services/pdfService';
 import { DOCXService } from '../../services/docxService';
+import { GoogleDriveService } from '../../services/googleDriveService';
 import { toPaise } from '../../shared/types';
 import { DEFAULT_INVOICE_TERMS, formatClientPortalUsername } from '../../shared/constants';
 
@@ -161,6 +162,25 @@ export const createInvoice = async (req: Request, res: Response, next: NextFunct
     project.invoicedAmountPaise += totalAmountPaise;
     await project.save();
 
+    // Background Google Drive synchronization
+    setTimeout(async () => {
+      try {
+        const stream = PDFService.generateInvoicePDF(invoice);
+        const chunks: Buffer[] = [];
+        stream.on('data', (c) => chunks.push(Buffer.from(c)));
+        stream.on('end', async () => {
+          await GoogleDriveService.syncInvoicePdf(
+            invoice.invoiceNumber,
+            Buffer.concat(chunks),
+            invoice.projectId,
+            invoice.clientName
+          );
+        });
+      } catch (e) {
+        console.warn('[DriveSync] Invoice creation sync note:', e);
+      }
+    }, 100);
+
     res.status(201).json({ success: true, invoice });
   } catch (error) {
     next(error);
@@ -182,30 +202,43 @@ export const downloadInvoicePDF = async (req: Request, res: Response, next: Next
       return;
     }
 
+    const isLinkedToProject = Boolean(invoice.projectId);
+    (invoice as any).isLinkedToProject = isLinkedToProject;
+
     let clientPortalUsername = formatClientPortalUsername(invoice.clientName);
     let clientPortalPassword = 'GKAclient2026!';
-    if (invoice.clientId) {
-      const client = await Client.findById(invoice.clientId);
-      if (client) {
-        const clientUser = await User.findOne({
-          $or: [
-            { clientId: client._id },
-            { _id: client.userId },
-            { email: client.email.toLowerCase() },
-          ],
-        });
-        if (clientUser) {
-          clientPortalUsername = clientUser.email;
-          if (clientUser.defaultPassword) {
-            clientPortalPassword = clientUser.defaultPassword;
+
+    if (isLinkedToProject) {
+      let resolvedClientId = invoice.clientId;
+      if (!resolvedClientId && invoice.projectId) {
+        const proj = await Project.findById(invoice.projectId);
+        if (proj?.clientId) resolvedClientId = proj.clientId;
+      }
+
+      if (resolvedClientId) {
+        const client = await Client.findById(resolvedClientId);
+        if (client) {
+          const clientUser = await User.findOne({
+            $or: [
+              { clientId: client._id },
+              { _id: client.userId },
+              { email: client.email.toLowerCase() },
+            ],
+          });
+          if (clientUser) {
+            clientPortalUsername = clientUser.email;
+            if (clientUser.defaultPassword) {
+              clientPortalPassword = clientUser.defaultPassword;
+            }
+          } else if (client.email) {
+            clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+              ? client.email.toLowerCase()
+              : formatClientPortalUsername(client.name);
           }
-        } else if (client.email) {
-          clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
-            ? client.email.toLowerCase()
-            : formatClientPortalUsername(client.name);
         }
       }
     }
+
     (invoice as any).clientPortalUsername = clientPortalUsername;
     (invoice as any).clientPortalPassword = clientPortalPassword;
 
@@ -213,6 +246,19 @@ export const downloadInvoicePDF = async (req: Request, res: Response, next: Next
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${invoice.invoiceNumber}.pdf"`);
+
+    const chunks: Buffer[] = [];
+    docStream.on('data', (c) => chunks.push(Buffer.from(c)));
+    docStream.on('end', () => {
+      const buffer = Buffer.concat(chunks);
+      GoogleDriveService.syncInvoicePdf(
+        invoice.invoiceNumber,
+        buffer,
+        invoice.projectId,
+        invoice.clientName
+      ).catch((err) => console.warn('[DriveSync] Auto-sync invoice PDF note:', err));
+    });
+
     docStream.pipe(res);
   } catch (error) {
     next(error);
@@ -234,30 +280,43 @@ export const downloadInvoiceDOCX = async (req: Request, res: Response, next: Nex
       return;
     }
 
+    const isLinkedToProject = Boolean(invoice.projectId);
+    (invoice as any).isLinkedToProject = isLinkedToProject;
+
     let clientPortalUsername = formatClientPortalUsername(invoice.clientName);
     let clientPortalPassword = 'GKAclient2026!';
-    if (invoice.clientId) {
-      const client = await Client.findById(invoice.clientId);
-      if (client) {
-        const clientUser = await User.findOne({
-          $or: [
-            { clientId: client._id },
-            { _id: client.userId },
-            { email: client.email.toLowerCase() },
-          ],
-        });
-        if (clientUser) {
-          clientPortalUsername = clientUser.email;
-          if (clientUser.defaultPassword) {
-            clientPortalPassword = clientUser.defaultPassword;
+
+    if (isLinkedToProject) {
+      let resolvedClientId = invoice.clientId;
+      if (!resolvedClientId && invoice.projectId) {
+        const proj = await Project.findById(invoice.projectId);
+        if (proj?.clientId) resolvedClientId = proj.clientId;
+      }
+
+      if (resolvedClientId) {
+        const client = await Client.findById(resolvedClientId);
+        if (client) {
+          const clientUser = await User.findOne({
+            $or: [
+              { clientId: client._id },
+              { _id: client.userId },
+              { email: client.email.toLowerCase() },
+            ],
+          });
+          if (clientUser) {
+            clientPortalUsername = clientUser.email;
+            if (clientUser.defaultPassword) {
+              clientPortalPassword = clientUser.defaultPassword;
+            }
+          } else if (client.email) {
+            clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+              ? client.email.toLowerCase()
+              : formatClientPortalUsername(client.name);
           }
-        } else if (client.email) {
-          clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
-            ? client.email.toLowerCase()
-            : formatClientPortalUsername(client.name);
         }
       }
     }
+
     (invoice as any).clientPortalUsername = clientPortalUsername;
     (invoice as any).clientPortalPassword = clientPortalPassword;
 
@@ -788,7 +847,7 @@ export const getTaxReconciliations = async (req: Request, res: Response, next: N
   try {
     let records = await TaxReconciliation.find().sort({ period: -1 });
 
-    const allInvoices = await Invoice.find({ status: { $ne: 'cancelled' } });
+    const allInvoices = await Invoice.find({ isDeleted: { $ne: true }, status: { $ne: 'cancelled' } });
     let totalTaxableSalesPaise = 0;
     let outputCgstPaise = 0;
     let outputSgstPaise = 0;

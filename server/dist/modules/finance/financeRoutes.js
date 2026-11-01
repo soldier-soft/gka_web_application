@@ -14,6 +14,9 @@ router.post('/invoices', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'
 router.put('/invoices/:id', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.updateInvoice);
 router.patch('/invoices/:id', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.updateInvoice);
 router.patch('/invoices/:id/gst-toggle', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.toggleInvoiceGst);
+router.delete('/invoices/:id', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.deleteInvoice);
+router.post('/invoices/:id/restore', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.restoreInvoice);
+router.delete('/invoices/:id/permanent', (0, roleCheck_1.requireRoles)('super_admin'), financeController_1.permanentDeleteInvoice);
 router.get('/expenses', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts', 'site_supervisor'), financeController_1.getExpenses);
 router.post('/expenses', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts', 'site_supervisor'), financeController_1.createExpense);
 router.get('/payments', financeController_1.getPayments);

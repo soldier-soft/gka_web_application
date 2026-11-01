@@ -540,4 +540,12 @@ export const api = {
     request<{ success: boolean; message: string }>(`/documents/${id}`, {
       method: 'DELETE',
     }),
+
+  // Google Drive Integration
+  getGoogleDriveConfig: () =>
+    request<{ success: boolean; config: { folderUrl: string; folderId: string; folderName: string }; message: string }>('/drive/config'),
+  syncToGoogleDrive: (type: 'quotation' | 'invoice' | 'project', id: string) =>
+    request<{ success: boolean; result: any }>(`/drive/sync/${type}/${id}`, {
+      method: 'POST',
+    }),
 };

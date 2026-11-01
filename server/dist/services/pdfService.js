@@ -420,23 +420,35 @@ class PDFService {
         doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(amountInWords(totalRupees), 168, y + 5, { width: 380 });
         y += 24;
         // 7. CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS
-        const clientUsername = quotation.clientPortalUsername ||
-            quotation.clientEmail ||
-            (0, constants_1.formatClientPortalUsername)(quotation.clientName || quotation.clientContactPerson || 'client');
-        const clientPassword = quotation.clientPortalPassword || quotation.defaultPassword || 'GKAclient2026!';
-        const portalUrl = 'https://www.gkaconstruction.com/login';
-        doc.rect(40, y, 515, 36).fill('#EFF6FF').stroke('#93C5FD').lineWidth(0.8).stroke();
-        doc.rect(40, y, 515, 13).fill('#1E40AF');
-        doc.circle(47, y + 6.5, 2).fill('#93C5FD');
-        doc.fillColor('#FFFFFF').fontSize(6.8).font('Helvetica-Bold').text('CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS', 53, y + 3);
-        // Three Columns: Portal Link (Left) | Login Username (Center) | Access Password (Right)
-        doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('PORTAL LINK:', 48, y + 16);
-        doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text('gkaconstruction.com/login', 48, y + 25, { width: 140 });
-        doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('CLIENT USERNAME:', 195, y + 16);
-        doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(clientUsername, 195, y + 25, { width: 210 });
-        doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('ACCESS PASSWORD:', 415, y + 16);
-        doc.rect(415, y + 22, 85, 14).fill('#FEF3C7').stroke('#F59E0B').lineWidth(0.6).stroke();
-        doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#92400E').text(clientPassword, 415, y + 25.5, { width: 85, align: 'center' });
+        const isLinkedToProject = Boolean(quotation.projectId || quotation.isLinkedToProject);
+        if (isLinkedToProject) {
+            const clientUsername = quotation.clientPortalUsername ||
+                quotation.clientEmail ||
+                (0, constants_1.formatClientPortalUsername)(quotation.clientName || 'client');
+            const clientPassword = quotation.clientPortalPassword || quotation.defaultPassword || 'GKAclient2026!';
+            doc.rect(40, y, 515, 36).fill('#EFF6FF').stroke('#93C5FD').lineWidth(0.8).stroke();
+            doc.rect(40, y, 515, 13).fill('#1E40AF');
+            doc.circle(47, y + 6.5, 2).fill('#93C5FD');
+            doc.fillColor('#FFFFFF').fontSize(6.8).font('Helvetica-Bold').text('CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS', 53, y + 3);
+            // Three Columns: Portal Link (Left) | Login Username (Center) | Access Password (Right)
+            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('PORTAL LINK:', 48, y + 16);
+            doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text('gkaconstruction.com/login', 48, y + 25, { width: 140 });
+            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('CLIENT USERNAME:', 195, y + 16);
+            doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(clientUsername, 195, y + 25, { width: 210 });
+            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('ACCESS PASSWORD:', 415, y + 16);
+            doc.rect(415, y + 22, 85, 14).fill('#FEF3C7').stroke('#F59E0B').lineWidth(0.6).stroke();
+            doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#92400E').text(clientPassword, 415, y + 25.5, { width: 85, align: 'center' });
+        }
+        else {
+            // Unlinked Quotation: Do not expose username/password; instruct client to obtain access from our engineer
+            doc.rect(40, y, 515, 36).fill('#F8FAFC').stroke('#CBD5E1').lineWidth(0.8).stroke();
+            doc.rect(40, y, 515, 13).fill('#0F254B');
+            doc.circle(47, y + 6.5, 2).fill('#D6A21D');
+            doc.fillColor('#FFFFFF').fontSize(6.8).font('Helvetica-Bold').text('CLIENT PORTAL WORKSPACE ACCESS', 53, y + 3);
+            doc.font('Helvetica').fontSize(6.5).fillColor('#334155').text('We have a secure GKA ERP client portal for live project tracking, itemized BOQs, and site logs. If you need workspace access, please get it directly from our project engineer upon project initiation.', 48, y + 16, { width: 340 });
+            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#0F254B').text('PORTAL LINK:', 405, y + 16);
+            doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#D6A21D').text('gkaconstruction.com/login', 405, y + 25, { width: 145 });
+        }
         y += 40;
         const quotationNotes = quotation.isNegotiated && quotation.negotiatedNotes ? quotation.negotiatedNotes : quotation.notes;
         this.drawBottomAndFooter(doc, y, quotationNotes, false, quotation.termsAndConditions);
@@ -562,23 +574,35 @@ class PDFService {
         doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F254B').text(amountInWords(totalRupees), 168, y + 5, { width: 380 });
         y += 24;
         // 7. CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS
-        const clientUsername = invoice.clientPortalUsername ||
-            invoice.clientEmail ||
-            (0, constants_1.formatClientPortalUsername)(invoice.clientName || invoice.clientContactPerson || 'client');
-        const clientPassword = invoice.clientPortalPassword || invoice.defaultPassword || 'GKAclient2026!';
-        const portalUrl = 'https://www.gkaconstruction.com/login';
-        doc.rect(40, y, 515, 36).fill('#EFF6FF').stroke('#93C5FD').lineWidth(0.8).stroke();
-        doc.rect(40, y, 515, 13).fill('#1E40AF');
-        doc.circle(47, y + 6.5, 2).fill('#93C5FD');
-        doc.fillColor('#FFFFFF').fontSize(6.8).font('Helvetica-Bold').text('CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS', 53, y + 3);
-        // Three Columns: Portal Link (Left) | Login Username (Center) | Access Password (Right)
-        doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('PORTAL LINK:', 48, y + 16);
-        doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text('gkaconstruction.com/login', 48, y + 25, { width: 140 });
-        doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('CLIENT USERNAME:', 195, y + 16);
-        doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(clientUsername, 195, y + 25, { width: 210 });
-        doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('ACCESS PASSWORD:', 415, y + 16);
-        doc.rect(415, y + 22, 85, 14).fill('#FEF3C7').stroke('#F59E0B').lineWidth(0.6).stroke();
-        doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#92400E').text(clientPassword, 415, y + 25.5, { width: 85, align: 'center' });
+        const isLinkedToProject = Boolean(invoice.projectId || invoice.isLinkedToProject);
+        if (isLinkedToProject) {
+            const clientUsername = invoice.clientPortalUsername ||
+                invoice.clientEmail ||
+                (0, constants_1.formatClientPortalUsername)(invoice.clientName || 'client');
+            const clientPassword = invoice.clientPortalPassword || invoice.defaultPassword || 'GKAclient2026!';
+            doc.rect(40, y, 515, 36).fill('#EFF6FF').stroke('#93C5FD').lineWidth(0.8).stroke();
+            doc.rect(40, y, 515, 13).fill('#1E40AF');
+            doc.circle(47, y + 6.5, 2).fill('#93C5FD');
+            doc.fillColor('#FFFFFF').fontSize(6.8).font('Helvetica-Bold').text('CLIENT PORTAL WORKSPACE ACCESS CREDENTIALS', 53, y + 3);
+            // Three Columns: Portal Link (Left) | Login Username (Center) | Access Password (Right)
+            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('PORTAL LINK:', 48, y + 16);
+            doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text('gkaconstruction.com/login', 48, y + 25, { width: 140 });
+            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('CLIENT USERNAME:', 195, y + 16);
+            doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#0F254B').text(clientUsername, 195, y + 25, { width: 210 });
+            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#1E40AF').text('ACCESS PASSWORD:', 415, y + 16);
+            doc.rect(415, y + 22, 85, 14).fill('#FEF3C7').stroke('#F59E0B').lineWidth(0.6).stroke();
+            doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#92400E').text(clientPassword, 415, y + 25.5, { width: 85, align: 'center' });
+        }
+        else {
+            // Unlinked Bill / Invoice: Do not expose username/password; instruct client to obtain access from our engineer
+            doc.rect(40, y, 515, 36).fill('#F8FAFC').stroke('#CBD5E1').lineWidth(0.8).stroke();
+            doc.rect(40, y, 515, 13).fill('#0F254B');
+            doc.circle(47, y + 6.5, 2).fill('#D6A21D');
+            doc.fillColor('#FFFFFF').fontSize(6.8).font('Helvetica-Bold').text('CLIENT PORTAL WORKSPACE ACCESS', 53, y + 3);
+            doc.font('Helvetica').fontSize(6.5).fillColor('#334155').text('We have a secure GKA ERP client portal for live billing statements, payment tracking, and project reports. If you need workspace access, please get it directly from our project engineer.', 48, y + 16, { width: 340 });
+            doc.font('Helvetica-Bold').fontSize(6.2).fillColor('#0F254B').text('PORTAL LINK:', 405, y + 16);
+            doc.font('Helvetica-Bold').fontSize(6.8).fillColor('#D6A21D').text('gkaconstruction.com/login', 405, y + 25, { width: 145 });
+        }
         y += 40;
         // 8. Bottom Sections and Footer
         const invoiceNotes = [

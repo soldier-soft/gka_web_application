@@ -14,6 +14,7 @@ import { Quotation } from '../../models/Quotation';
 import { TaxReconciliation } from '../../models/TaxReconciliation';
 import { ClientFeedback } from '../../models/ClientFeedback';
 import { PDFService } from '../../services/pdfService';
+import { GoogleDriveService } from '../../services/googleDriveService';
 import { STANDARD_MILESTONES, formatClientPortalUsername } from '../../shared/constants';
 
 export const getProjects = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -95,9 +96,34 @@ export const getProjectById = async (req: Request, res: Response, next: NextFunc
       ? []
       : await Expense.find({ projectId: project._id }).sort({ expenseDate: -1 });
 
+    // Resolve accurate client portal credentials for dashboards
+    let portalCredentials = {
+      username: (project.clientId as any)?.email || 'client@gkaconstruction.com',
+      password: 'GKAclient2026!',
+    };
+    if (project.clientId) {
+      const clientObj = project.clientId as any;
+      const clientUser = await User.findOne({
+        $or: [
+          { clientId: clientObj._id },
+          { _id: clientObj.userId },
+          { email: clientObj.email?.toLowerCase() },
+        ],
+      });
+      if (clientUser) {
+        portalCredentials = {
+          username: clientUser.email,
+          password: clientUser.defaultPassword || 'GKAclient2026!',
+        };
+      } else {
+        portalCredentials.password = 'GKAclient2026!';
+      }
+    }
+
     res.json({
       success: true,
       project,
+      portalCredentials,
       milestones,
       recentSiteReports: siteReports,
       invoices,
@@ -181,7 +207,7 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
         const portalUsername = clientDoc.email?.endsWith('@gkaconstruction.com')
           ? clientDoc.email.toLowerCase()
           : formatClientPortalUsername(clientDoc.name);
-        const rawTempPassword = `GKA@${(clientDoc.phone || '').replace(/\D/g, '').slice(-4) || '2026'}`;
+        const rawTempPassword = (clientDoc as any).defaultPassword || 'GKAclient2026!';
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(rawTempPassword, salt);
         const activationToken = crypto.randomBytes(24).toString('hex');
@@ -405,7 +431,7 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
 
     // Live Invoices Aggregation (Bills & Receivables Due)
     const invoiceAggregation = await Invoice.aggregate([
-      { $match: { status: { $ne: 'cancelled' } } },
+      { $match: { status: { $ne: 'cancelled' }, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: null,
@@ -432,7 +458,7 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
 
     // Live Quotations Aggregation
     const quotationAggregation = await Quotation.aggregate([
-      { $match: { status: { $ne: 'rejected' } } },
+      { $match: { status: { $ne: 'rejected' }, isDeleted: { $ne: true } } },
       {
         $group: {
           _id: null,
@@ -442,19 +468,21 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
       },
     ]);
 
-    // Live GST liability
+    // Live GST liability (18% output GST strictly calculated)
+    const allExpenses = await Expense.find();
+    const purchases = allExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
+    const eligibleItc = Math.round(purchases * 0.18 * 0.85);
+
     const latestTaxRecord = await TaxReconciliation.findOne().sort({ period: -1 });
     let netGstPayablePaise = 0;
     let gstFilingStatus = 'not_filed';
-    if (latestTaxRecord) {
+    if (latestTaxRecord && latestTaxRecord.returnStatus === 'filed') {
       netGstPayablePaise = latestTaxRecord.netTaxPayablePaise || 0;
-      gstFilingStatus = latestTaxRecord.returnStatus || 'not_filed';
+      gstFilingStatus = 'filed';
     } else {
       const outputTax = invoiceAggregation[0]?.totalOutputTaxPaise || 0;
-      const allExpenses = await Expense.find();
-      const purchases = allExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
-      const eligibleItc = Math.round(purchases * 0.18 * 0.85);
       netGstPayablePaise = Math.max(0, outputTax - eligibleItc);
+      gstFilingStatus = latestTaxRecord?.returnStatus || 'not_filed';
     }
 
     // Consolidated metrics ensuring absolute synchronization

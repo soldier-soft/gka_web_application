@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getClientFeedback = exports.submitFeedback = exports.submitPaymentNotification = exports.getClientProjectDetails = exports.getMyProjects = void 0;
+exports.getClientFeedback = exports.submitFeedback = exports.submitPaymentNotification = exports.getAllClientProjectsWithData = exports.getClientProjectDetails = exports.getMyProjects = void 0;
 const Project_1 = require("../../models/Project");
 const Milestone_1 = require("../../models/Milestone");
 const SiteReport_1 = require("../../models/SiteReport");
@@ -84,19 +84,27 @@ const getClientProjectDetails = async (req, res, next) => {
             projectId: project._id,
             isPublishedToClient: true,
         }).sort({ reportDate: -1 });
-        // Client Invoices (Drafts hidden)
+        // Client Invoices (Drafts hidden and deleted hidden)
         const invoices = await Invoice_1.Invoice.find({
             projectId: project._id,
+            isDeleted: { $ne: true },
             status: { $ne: 'draft' },
         }).sort({ issueDate: -1 });
         // Client Payments (including verification pending)
         const payments = await Payment_1.Payment.find({
             projectId: project._id,
         }).sort({ paymentDate: -1 });
-        // Approved Quotations
+        // Project Quotations (exclude soft-deleted)
+        const quotationConditions = [{ projectId: project._id }];
+        if (project.title) {
+            quotationConditions.push({ projectTitle: project.title });
+        }
+        if (project.projectId) {
+            quotationConditions.push({ projectTitle: { $regex: project.projectId, $options: 'i' } });
+        }
         const quotations = await Quotation_1.Quotation.find({
-            projectId: project._id,
-            status: { $in: ['sent', 'approved'] },
+            $or: quotationConditions,
+            isDeleted: { $ne: true },
         }).sort({ createdAt: -1 });
         // Documents visible to client
         const documents = await Document_1.ProjectDocument.find({
@@ -126,6 +134,92 @@ const getClientProjectDetails = async (req, res, next) => {
     }
 };
 exports.getClientProjectDetails = getClientProjectDetails;
+const getAllClientProjectsWithData = async (req, res, next) => {
+    try {
+        let clientId = req.user?.clientId;
+        let assignedProjects = [];
+        if (req.user?.id) {
+            const dbUser = await User_1.User.findById(req.user.id);
+            if (dbUser) {
+                if (!clientId && dbUser.clientId) {
+                    clientId = dbUser.clientId.toString();
+                }
+                if (dbUser.assignedProjects && dbUser.assignedProjects.length > 0) {
+                    assignedProjects = dbUser.assignedProjects;
+                }
+            }
+        }
+        const conditions = [];
+        if (clientId)
+            conditions.push({ clientId });
+        if (assignedProjects.length > 0)
+            conditions.push({ _id: { $in: assignedProjects } });
+        if (conditions.length === 0) {
+            res.json({ success: true, count: 0, projectsData: [], bankDetails: constants_1.GKA_COMPANY.bankDetails });
+            return;
+        }
+        const isClient = req.user?.role === 'client';
+        const query = isClient ? { $or: conditions } : {};
+        const projects = await Project_1.Project.find(query).sort({ createdAt: -1 });
+        const projectsData = await Promise.all(projects.map(async (project) => {
+            const milestones = await Milestone_1.Milestone.find({
+                projectId: project._id,
+                isPublishedToClient: true,
+            }).sort({ orderIndex: 1 });
+            const publishedReports = await SiteReport_1.SiteReport.find({
+                projectId: project._id,
+                isPublishedToClient: true,
+            }).sort({ reportDate: -1 });
+            const invoices = await Invoice_1.Invoice.find({
+                projectId: project._id,
+                isDeleted: { $ne: true },
+                status: { $ne: 'draft' },
+            }).sort({ issueDate: -1 });
+            const payments = await Payment_1.Payment.find({
+                projectId: project._id,
+            }).sort({ paymentDate: -1 });
+            const quotationConditions = [{ projectId: project._id }];
+            if (project.title) {
+                quotationConditions.push({ projectTitle: project.title });
+            }
+            if (project.projectId) {
+                quotationConditions.push({ projectTitle: { $regex: project.projectId, $options: 'i' } });
+            }
+            const quotations = await Quotation_1.Quotation.find({
+                $or: quotationConditions,
+                isDeleted: { $ne: true },
+            }).sort({ createdAt: -1 });
+            const documents = await Document_1.ProjectDocument.find({
+                projectId: project._id,
+                visibleToClient: true,
+            }).sort({ createdAt: -1 });
+            const feedbackTickets = await ClientFeedback_1.ClientFeedback.find({
+                projectId: project._id,
+                ...(clientId ? { clientId } : {}),
+            }).sort({ createdAt: -1 });
+            return {
+                project,
+                milestones,
+                publishedReports,
+                invoices,
+                payments,
+                quotations,
+                documents,
+                feedbackTickets,
+            };
+        }));
+        res.json({
+            success: true,
+            count: projectsData.length,
+            projectsData,
+            bankDetails: constants_1.GKA_COMPANY.bankDetails,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getAllClientProjectsWithData = getAllClientProjectsWithData;
 const submitPaymentNotification = async (req, res, next) => {
     try {
         const { projectId, invoiceId, amountPaise, paymentDate, paymentMode, transactionReference, proofFileUrl, notes, } = req.body;

@@ -8,6 +8,7 @@ const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
 router.use((0, roleCheck_1.requireRoles)('client', 'super_admin'));
 router.get('/my-projects', clientPortalController_1.getMyProjects);
+router.get('/all-projects-details', clientPortalController_1.getAllClientProjectsWithData);
 router.get('/projects/:id', clientPortalController_1.getClientProjectDetails);
 router.post('/payments/submit-notification', clientPortalController_1.submitPaymentNotification);
 router.post('/feedback', clientPortalController_1.submitFeedback);

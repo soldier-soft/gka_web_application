@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toPaise, toRupees } from '@shared/types';
-import { formatClientPortalUsername } from '@shared/constants';
+import { formatClientPortalUsername, GOOGLE_DRIVE_CONFIG } from '@shared/constants';
 import { DocumentVisualView } from '../../components/documents/DocumentVisualView';
 import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
@@ -290,6 +290,8 @@ export const InvoicesPage: React.FC = () => {
       if (res.success && res.invoice) {
         setShowCreateModal(false);
         fetchInvoiceData();
+        // Trigger auto Google Drive sync
+        api.syncToGoogleDrive('invoice', res.invoice._id).catch(() => {});
         triggerAutoDownloads(res.invoice._id, res.invoice.invoiceNumber);
       }
     } catch (err: any) {
@@ -308,6 +310,8 @@ export const InvoicesPage: React.FC = () => {
       if (res.success && res.invoice) {
         setShowConvertModal(false);
         fetchInvoiceData();
+        // Trigger auto Google Drive sync
+        api.syncToGoogleDrive('invoice', res.invoice._id).catch(() => {});
         triggerAutoDownloads(res.invoice._id, res.invoice.invoiceNumber);
       }
     } catch (err: any) {
@@ -519,7 +523,17 @@ export const InvoicesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <a
+            href={GOOGLE_DRIVE_CONFIG.folderUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="px-3.5 py-2 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-colors shadow-sm flex items-center gap-1.5"
+            title="Open Google Drive folder: GKA CONSTRUCTION"
+          >
+            <span>📁 Google Drive: GKA CONSTRUCTION</span>
+          </a>
+
           {approvedQuotations.length > 0 && (
             <button
               onClick={() => setShowConvertModal(true)}

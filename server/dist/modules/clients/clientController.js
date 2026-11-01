@@ -124,8 +124,8 @@ const getClientById = async (req, res, next) => {
         const projects = await Project_1.Project.find({
             $or: [{ clientId: client._id }, { _id: { $in: user?.assignedProjects || [] } }],
         }).sort({ createdAt: -1 });
-        const invoices = await Invoice_1.Invoice.find({ clientId: client._id }).sort({ issueDate: -1 });
-        const quotations = await Quotation_1.Quotation.find({ clientId: client._id }).sort({ createdAt: -1 });
+        const invoices = await Invoice_1.Invoice.find({ clientId: client._id, isDeleted: { $ne: true } }).sort({ issueDate: -1 });
+        const quotations = await Quotation_1.Quotation.find({ clientId: client._id, isDeleted: { $ne: true } }).sort({ createdAt: -1 });
         res.json({
             success: true,
             client,

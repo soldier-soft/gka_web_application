@@ -52,6 +52,9 @@ class DOCXService {
             negotiated_notes: quotation.negotiatedNotes || '',
             notes: quotation.notes || '',
             terms_and_conditions: quotation.termsAndConditions || [],
+            is_linked_to_project: Boolean(quotation.projectId || quotation.isLinkedToProject),
+            client_portal_username: quotation.clientPortalUsername,
+            client_portal_password: quotation.clientPortalPassword,
         };
         fs_1.default.writeFileSync(tempJsonPath, JSON.stringify(payload, null, 2), 'utf-8');
         return new Promise((resolve, reject) => {
@@ -113,6 +116,9 @@ class DOCXService {
             negotiated_notes: invoice.negotiatedNotes || '',
             notes: invoice.notes || '',
             terms_and_conditions: invoice.termsAndConditions || [],
+            is_linked_to_project: Boolean(invoice.projectId || invoice.isLinkedToProject),
+            client_portal_username: invoice.clientPortalUsername,
+            client_portal_password: invoice.clientPortalPassword,
         };
         fs_1.default.writeFileSync(tempJsonPath, JSON.stringify(payload, null, 2), 'utf-8');
         return new Promise((resolve, reject) => {

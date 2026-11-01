@@ -8,6 +8,7 @@ import { User } from '../../models/User';
 import { STANDARD_RATE_LIBRARY, DEFAULT_INVOICE_TERMS, formatClientPortalUsername } from '../../shared/constants';
 import { PDFService } from '../../services/pdfService';
 import { DOCXService } from '../../services/docxService';
+import { GoogleDriveService } from '../../services/googleDriveService';
 import { toPaise } from '../../shared/types';
 
 export const getRateLibrary = async (req: Request, res: Response): Promise<void> => {
@@ -151,14 +152,26 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
       }
     }
 
+    let finalClientId = clientId;
+    let finalClientName = clientName;
+    let finalClientCompany = clientCompany;
+    if (projectId) {
+      const projDoc = await Project.findById(projectId).populate('clientId');
+      if (projDoc?.clientId) {
+        finalClientId = (projDoc.clientId as any)._id || projDoc.clientId;
+        finalClientName = (projDoc.clientId as any).name || clientName;
+        finalClientCompany = (projDoc.clientId as any).companyName || clientCompany;
+      }
+    }
+
     const quotation = await Quotation.create({
       quotationNumber,
       projectId,
       leadId,
-      clientId,
-      clientName,
-      clientContactPerson: clientContactPerson || clientName,
-      clientCompany: clientCompany || 'VIVANTHA HOTEL',
+      clientId: finalClientId,
+      clientName: finalClientName,
+      clientContactPerson: clientContactPerson || finalClientName,
+      clientCompany: finalClientCompany || 'VIVANTHA HOTEL',
       clientGstin: defaultGstin,
       clientAddress: clientAddress || '',
       projectTitle,
@@ -187,6 +200,25 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
       status: 'draft',
       validUntil,
     });
+
+    // Background Google Drive synchronization
+    setTimeout(async () => {
+      try {
+        const stream = PDFService.generateQuotationPDF(quotation);
+        const chunks: Buffer[] = [];
+        stream.on('data', (c) => chunks.push(Buffer.from(c)));
+        stream.on('end', async () => {
+          await GoogleDriveService.syncQuotationPdf(
+            quotation.quotationNumber,
+            Buffer.concat(chunks),
+            quotation.projectId,
+            quotation.clientName
+          );
+        });
+      } catch (e) {
+        console.warn('[DriveSync] Quotation creation sync note:', e);
+      }
+    }, 100);
 
     res.status(201).json({ success: true, quotation });
   } catch (error) {
@@ -239,30 +271,43 @@ export const downloadQuotationPDF = async (req: Request, res: Response, next: Ne
       return;
     }
 
+    const isLinkedToProject = Boolean(quotation.projectId);
+    (quotation as any).isLinkedToProject = isLinkedToProject;
+
     let clientPortalUsername = formatClientPortalUsername(quotation.clientName);
     let clientPortalPassword = 'GKAclient2026!';
-    if (quotation.clientId) {
-      const client = await Client.findById(quotation.clientId);
-      if (client) {
-        const clientUser = await User.findOne({
-          $or: [
-            { clientId: client._id },
-            { _id: client.userId },
-            { email: client.email.toLowerCase() },
-          ],
-        });
-        if (clientUser) {
-          clientPortalUsername = clientUser.email;
-          if (clientUser.defaultPassword) {
-            clientPortalPassword = clientUser.defaultPassword;
+
+    if (isLinkedToProject) {
+      let resolvedClientId = quotation.clientId;
+      if (!resolvedClientId && quotation.projectId) {
+        const proj = await Project.findById(quotation.projectId);
+        if (proj?.clientId) resolvedClientId = proj.clientId;
+      }
+
+      if (resolvedClientId) {
+        const client = await Client.findById(resolvedClientId);
+        if (client) {
+          const clientUser = await User.findOne({
+            $or: [
+              { clientId: client._id },
+              { _id: client.userId },
+              { email: client.email.toLowerCase() },
+            ],
+          });
+          if (clientUser) {
+            clientPortalUsername = clientUser.email;
+            if (clientUser.defaultPassword) {
+              clientPortalPassword = clientUser.defaultPassword;
+            }
+          } else if (client.email) {
+            clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+              ? client.email.toLowerCase()
+              : formatClientPortalUsername(client.name);
           }
-        } else if (client.email) {
-          clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
-            ? client.email.toLowerCase()
-            : formatClientPortalUsername(client.name);
         }
       }
     }
+
     (quotation as any).clientPortalUsername = clientPortalUsername;
     (quotation as any).clientPortalPassword = clientPortalPassword;
 
@@ -270,6 +315,19 @@ export const downloadQuotationPDF = async (req: Request, res: Response, next: Ne
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${quotation.quotationNumber}.pdf"`);
+
+    const chunks: Buffer[] = [];
+    docStream.on('data', (c) => chunks.push(Buffer.from(c)));
+    docStream.on('end', () => {
+      const buffer = Buffer.concat(chunks);
+      GoogleDriveService.syncQuotationPdf(
+        quotation.quotationNumber,
+        buffer,
+        quotation.projectId,
+        quotation.clientName
+      ).catch((err) => console.warn('[DriveSync] Auto-sync quotation PDF note:', err));
+    });
+
     docStream.pipe(res);
   } catch (error) {
     next(error);
@@ -286,30 +344,43 @@ export const downloadQuotationDOCX = async (req: Request, res: Response, next: N
       return;
     }
 
+    const isLinkedToProject = Boolean(quotation.projectId);
+    (quotation as any).isLinkedToProject = isLinkedToProject;
+
     let clientPortalUsername = formatClientPortalUsername(quotation.clientName);
     let clientPortalPassword = 'GKAclient2026!';
-    if (quotation.clientId) {
-      const client = await Client.findById(quotation.clientId);
-      if (client) {
-        const clientUser = await User.findOne({
-          $or: [
-            { clientId: client._id },
-            { _id: client.userId },
-            { email: client.email.toLowerCase() },
-          ],
-        });
-        if (clientUser) {
-          clientPortalUsername = clientUser.email;
-          if (clientUser.defaultPassword) {
-            clientPortalPassword = clientUser.defaultPassword;
+
+    if (isLinkedToProject) {
+      let resolvedClientId = quotation.clientId;
+      if (!resolvedClientId && quotation.projectId) {
+        const proj = await Project.findById(quotation.projectId);
+        if (proj?.clientId) resolvedClientId = proj.clientId;
+      }
+
+      if (resolvedClientId) {
+        const client = await Client.findById(resolvedClientId);
+        if (client) {
+          const clientUser = await User.findOne({
+            $or: [
+              { clientId: client._id },
+              { _id: client.userId },
+              { email: client.email.toLowerCase() },
+            ],
+          });
+          if (clientUser) {
+            clientPortalUsername = clientUser.email;
+            if (clientUser.defaultPassword) {
+              clientPortalPassword = clientUser.defaultPassword;
+            }
+          } else if (client.email) {
+            clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
+              ? client.email.toLowerCase()
+              : formatClientPortalUsername(client.name);
           }
-        } else if (client.email) {
-          clientPortalUsername = client.email.endsWith('@gkaconstruction.com')
-            ? client.email.toLowerCase()
-            : formatClientPortalUsername(client.name);
         }
       }
     }
+
     (quotation as any).clientPortalUsername = clientPortalUsername;
     (quotation as any).clientPortalPassword = clientPortalPassword;
 

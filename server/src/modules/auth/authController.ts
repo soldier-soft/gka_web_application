@@ -485,7 +485,7 @@ export const getAllUsers = async (req: Request, res: Response, next: NextFunctio
     let users: any[] = [];
     try {
       users = await User.find()
-        .select('-passwordHash -defaultPassword')
+        .select('-passwordHash')
         .populate('assignedProjects', 'title code status')
         .sort({ role: 1, name: 1 })
         .lean();
@@ -500,6 +500,7 @@ export const getAllUsers = async (req: Request, res: Response, next: NextFunctio
         email: cred.email,
         phone: cred.phone,
         role: cred.role,
+        defaultPassword: cred.password,
         isActive: true,
         createdAt: new Date('2024-01-01').toISOString(),
         lastLoginAt: new Date().toISOString(),

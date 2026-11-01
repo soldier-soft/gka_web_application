@@ -70,6 +70,7 @@ const getProjectById = async (req, res, next) => {
         }).sort({ reportDate: -1 });
         const invoices = await Invoice_1.Invoice.find({
             projectId: project._id,
+            isDeleted: { $ne: true },
             ...(isClientRole ? { status: { $ne: 'draft' } } : {}),
         }).sort({ issueDate: -1 });
         const payments = await Payment_1.Payment.find({
@@ -78,6 +79,7 @@ const getProjectById = async (req, res, next) => {
         }).sort({ paymentDate: -1 });
         const quotations = await Quotation_1.Quotation.find({
             projectId: project._id,
+            isDeleted: { $ne: true },
             ...(isClientRole ? { status: { $in: ['sent', 'approved'] } } : {}),
         }).sort({ createdAt: -1 });
         const clientFeedbacks = await ClientFeedback_1.ClientFeedback.find({ projectId: project._id }).sort({ createdAt: -1 });
@@ -85,9 +87,34 @@ const getProjectById = async (req, res, next) => {
         const expenses = isClientRole
             ? []
             : await Expense_1.Expense.find({ projectId: project._id }).sort({ expenseDate: -1 });
+        // Resolve accurate client portal credentials for dashboards
+        let portalCredentials = {
+            username: project.clientId?.email || 'client@gkaconstruction.com',
+            password: 'GKAclient2026!',
+        };
+        if (project.clientId) {
+            const clientObj = project.clientId;
+            const clientUser = await User_1.User.findOne({
+                $or: [
+                    { clientId: clientObj._id },
+                    { _id: clientObj.userId },
+                    { email: clientObj.email?.toLowerCase() },
+                ],
+            });
+            if (clientUser) {
+                portalCredentials = {
+                    username: clientUser.email,
+                    password: clientUser.defaultPassword || 'GKAclient2026!',
+                };
+            }
+            else {
+                portalCredentials.password = 'GKAclient2026!';
+            }
+        }
         res.json({
             success: true,
             project,
+            portalCredentials,
             milestones,
             recentSiteReports: siteReports,
             invoices,
@@ -154,7 +181,7 @@ const createProject = async (req, res, next) => {
                 const portalUsername = clientDoc.email?.endsWith('@gkaconstruction.com')
                     ? clientDoc.email.toLowerCase()
                     : (0, constants_1.formatClientPortalUsername)(clientDoc.name);
-                const rawTempPassword = `GKA@${(clientDoc.phone || '').replace(/\D/g, '').slice(-4) || '2026'}`;
+                const rawTempPassword = clientDoc.defaultPassword || 'GKAclient2026!';
                 const salt = await bcryptjs_1.default.genSalt(10);
                 const passwordHash = await bcryptjs_1.default.hash(rawTempPassword, salt);
                 const activationToken = crypto_1.default.randomBytes(24).toString('hex');
@@ -254,8 +281,8 @@ const downloadProjectWelcomePDF = async (req, res, next) => {
             await user.save();
         }
         // Retrieve attached quotations and invoices for this project
-        const quotations = await Quotation_1.Quotation.find({ projectId: project._id }).sort({ createdAt: -1 });
-        const invoices = await Invoice_1.Invoice.find({ projectId: project._id }).sort({ issueDate: -1 });
+        const quotations = await Quotation_1.Quotation.find({ projectId: project._id, isDeleted: { $ne: true } }).sort({ createdAt: -1 });
+        const invoices = await Invoice_1.Invoice.find({ projectId: project._id, isDeleted: { $ne: true } }).sort({ issueDate: -1 });
         const host = req.get('host') || 'www.gkaconstruction.com';
         const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
         const portalUrl = isLocal ? 'http://localhost:3000/login' : 'https://www.gkaconstruction.com/login';
@@ -353,7 +380,7 @@ const getDashboardStats = async (req, res, next) => {
         };
         // Live Invoices Aggregation (Bills & Receivables Due)
         const invoiceAggregation = await Invoice_1.Invoice.aggregate([
-            { $match: { status: { $ne: 'cancelled' } } },
+            { $match: { status: { $ne: 'cancelled' }, isDeleted: { $ne: true } } },
             {
                 $group: {
                     _id: null,
@@ -378,7 +405,7 @@ const getDashboardStats = async (req, res, next) => {
         ]);
         // Live Quotations Aggregation
         const quotationAggregation = await Quotation_1.Quotation.aggregate([
-            { $match: { status: { $ne: 'rejected' } } },
+            { $match: { status: { $ne: 'rejected' }, isDeleted: { $ne: true } } },
             {
                 $group: {
                     _id: null,
@@ -387,20 +414,21 @@ const getDashboardStats = async (req, res, next) => {
                 },
             },
         ]);
-        // Live GST liability
+        // Live GST liability (18% output GST strictly calculated)
+        const allExpenses = await Expense_1.Expense.find();
+        const purchases = allExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
+        const eligibleItc = Math.round(purchases * 0.18 * 0.85);
         const latestTaxRecord = await TaxReconciliation_1.TaxReconciliation.findOne().sort({ period: -1 });
         let netGstPayablePaise = 0;
         let gstFilingStatus = 'not_filed';
-        if (latestTaxRecord) {
+        if (latestTaxRecord && latestTaxRecord.returnStatus === 'filed') {
             netGstPayablePaise = latestTaxRecord.netTaxPayablePaise || 0;
-            gstFilingStatus = latestTaxRecord.returnStatus || 'not_filed';
+            gstFilingStatus = 'filed';
         }
         else {
             const outputTax = invoiceAggregation[0]?.totalOutputTaxPaise || 0;
-            const allExpenses = await Expense_1.Expense.find();
-            const purchases = allExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
-            const eligibleItc = Math.round(purchases * 0.18 * 0.85);
             netGstPayablePaise = Math.max(0, outputTax - eligibleItc);
+            gstFilingStatus = latestTaxRecord?.returnStatus || 'not_filed';
         }
         // Consolidated metrics ensuring absolute synchronization
         const invoicedPaise = invoiceAggregation[0]?.totalInvoicedPaise ?? projectStats.totalInvoicedPaise;
