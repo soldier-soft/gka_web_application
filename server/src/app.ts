@@ -101,11 +101,88 @@ export const createApp = (): express.Application => {
     );
   });
 
+  // PWA Support: Service Worker, Web App Manifest & Offline Fallback
+  const pwaSearchDirs = [
+    resolvedDist,
+    path.resolve(process.cwd(), 'dist'),
+    path.resolve(process.cwd(), 'client/dist'),
+    path.resolve(process.cwd(), 'client/public'),
+    process.cwd(),
+    path.resolve(__dirname, '../..'),
+    path.resolve(__dirname, '../../client/public'),
+  ].filter((d): d is string => !!d && fs.existsSync(d));
+
+  // 1. Explicit Service Worker endpoint with zero-cache & root scope header
+  app.get('/sw.js', (req, res) => {
+    for (const dir of pwaSearchDirs) {
+      const swPath = path.join(dir, 'sw.js');
+      if (fs.existsSync(swPath)) {
+        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Service-Worker-Allowed', '/');
+        return res.sendFile(swPath);
+      }
+    }
+    res.status(404).type('text/plain').send('Service worker not found');
+  });
+
+  // 2. Web App Manifest with correct MIME type
+  app.get(['/manifest.webmanifest', '/manifest.json'], (req, res) => {
+    const filename = req.path.endsWith('.webmanifest') ? 'manifest.webmanifest' : 'manifest.json';
+    for (const dir of pwaSearchDirs) {
+      const manifestPath = path.join(dir, filename);
+      if (fs.existsSync(manifestPath)) {
+        res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.sendFile(manifestPath);
+      }
+    }
+    // Fallback: check other manifest name
+    const altFilename = filename === 'manifest.webmanifest' ? 'manifest.json' : 'manifest.webmanifest';
+    for (const dir of pwaSearchDirs) {
+      const manifestPath = path.join(dir, altFilename);
+      if (fs.existsSync(manifestPath)) {
+        res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.sendFile(manifestPath);
+      }
+    }
+    res.status(404).type('text/plain').send('Manifest not found');
+  });
+
+  // 3. Offline fallback page
+  app.get('/offline.html', (req, res) => {
+    for (const dir of pwaSearchDirs) {
+      const offPath = path.join(dir, 'offline.html');
+      if (fs.existsSync(offPath)) {
+        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.sendFile(offPath);
+      }
+    }
+    res.status(404).type('text/plain').send('Offline page not found');
+  });
+
+  // 4. PWA Icons directory
+  const candidateIconDirs = [
+    resolvedDist ? path.join(resolvedDist, 'icons') : null,
+    path.resolve(process.cwd(), 'client/dist/icons'),
+    path.resolve(process.cwd(), 'client/public/icons'),
+    path.resolve(process.cwd(), 'dist/icons'),
+    path.resolve(process.cwd(), 'icons'),
+    path.resolve(__dirname, '../../client/public/icons'),
+  ].filter((d): d is string => !!d && fs.existsSync(d));
+
+  Array.from(new Set(candidateIconDirs)).forEach((dir) => {
+    app.use('/icons', express.static(dir, { maxAge: '30d' }));
+  });
+
   // Discover and serve root static files (favicon, logo.png, robots.txt, sitemap.xml)
   const candidateStaticRoots = [
     resolvedDist,
     path.resolve(process.cwd(), 'dist'),
     path.resolve(process.cwd(), 'client/dist'),
+    path.resolve(process.cwd(), 'client/public'),
     process.cwd(),
     path.resolve(__dirname, '../..'),
   ].filter((dir): dir is string => !!dir && fs.existsSync(dir));

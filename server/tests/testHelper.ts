@@ -10,9 +10,11 @@ export async function connectTestDB(): Promise<void> {
     });
   } catch (err) {
     try {
-      await mongoose.connect('mongodb://127.0.0.1:27017/gka_construction_erp');
-    } catch (localErr) {
-      console.warn('Could not connect to test database:', localErr);
+      await mongoose.connect('mongodb://127.0.0.1:27017/gka_construction_erp', {
+        serverSelectionTimeoutMS: 2000,
+      });
+    } catch (localErr: any) {
+      console.warn('Could not connect to test database:', localErr?.message);
     }
   }
 }

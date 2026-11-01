@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Phone, Shield, Menu, X, ArrowRight, HardHat } from 'lucide-react';
 import { GKA_COMPANY } from '@shared/constants';
 import { useAuth } from '../../context/AuthContext';
+import { InstallAppButton } from '../pwa/InstallAppButton';
 
 export const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -86,6 +87,8 @@ export const Navbar: React.FC = () => {
 
           {/* Right Action buttons */}
           <div className="hidden md:flex items-center gap-3">
+            <InstallAppButton variant="navbar" />
+
             <Link
               to="/cost-estimator"
               className="hidden xl:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-white/10 hover:bg-white/20 text-brand-gold-300 border border-brand-gold-400/30 transition-all"
@@ -138,7 +141,8 @@ export const Navbar: React.FC = () => {
               {link.name}
             </Link>
           ))}
-          <div className="pt-4 border-t border-white/10">
+          <div className="pt-4 border-t border-white/10 space-y-2">
+            <InstallAppButton variant="mobile-menu" />
             <Link
               to="/login"
               onClick={() => setMobileMenuOpen(false)}

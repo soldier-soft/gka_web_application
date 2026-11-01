@@ -42,6 +42,7 @@ import { useAuth } from '../../context/AuthContext';
 import { formatINR } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
 import { DocumentVisualView } from '../../components/documents/DocumentVisualView';
+import { InstallAppButton } from '../../components/pwa/InstallAppButton';
 
 export const ClientPortalPage: React.FC = () => {
   const { user, logout, setUser } = useAuth();
@@ -412,6 +413,8 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
           </Link>
 
           <div className="flex items-center gap-3">
+            <InstallAppButton variant="portal" />
+
             <button
               onClick={() => setActivePortalTab('profile')}
               className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all text-left ${

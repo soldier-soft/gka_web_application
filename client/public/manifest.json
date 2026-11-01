@@ -1,0 +1,63 @@
+{
+  "id": "/",
+  "name": "GKA Construction ERP & Client Portal",
+  "short_name": "GKA Construction",
+  "description": "Official mobile application for GKA Construction ERP, site diary tracking, quotations, billing & client portal.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0F254B",
+  "theme_color": "#0F254B",
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Client Portal",
+      "short_name": "Portal",
+      "description": "View live project milestones, verified site photos & invoices",
+      "url": "/client-portal",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Site Diary",
+      "short_name": "Site Diary",
+      "description": "Daily site logs, labour attendance & live photo uploads",
+      "url": "/admin/site-ops",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Commercial Quotations",
+      "short_name": "Quotations",
+      "description": "Commercial quotations and BOQ estimates",
+      "url": "/admin/quotations",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

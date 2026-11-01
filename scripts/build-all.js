@@ -126,13 +126,35 @@ if (fs.existsSync(clientDist)) {
     fs.cpSync(clientAssets, rootAssets, { recursive: true });
   }
 
-  // Also sync essential root static entry points
-  const rootFiles = ['index.html', 'logo.png', 'robots.txt', 'sitemap.xml'];
+  // Also sync essential root static entry points & PWA assets
+  const rootFiles = [
+    'index.html',
+    'logo.png',
+    'robots.txt',
+    'sitemap.xml',
+    'sw.js',
+    'manifest.webmanifest',
+    'manifest.json',
+    'offline.html',
+    'apple-touch-icon.png',
+    'icon-192.png',
+    'icon-512.png',
+  ];
   for (const file of rootFiles) {
     const srcFile = path.join(clientDist, file);
     if (fs.existsSync(srcFile)) {
       fs.copyFileSync(srcFile, path.join(root, file));
     }
+  }
+
+  // Sync PWA icons directory
+  const clientIcons = path.join(clientDist, 'icons');
+  const rootIcons = path.join(root, 'icons');
+  if (fs.existsSync(clientIcons)) {
+    if (fs.existsSync(rootIcons)) {
+      fs.rmSync(rootIcons, { recursive: true, force: true });
+    }
+    fs.cpSync(clientIcons, rootIcons, { recursive: true });
   }
 
   console.log('[Deploy Build] Static output ready at client/dist, root dist, root assets, and project root.');

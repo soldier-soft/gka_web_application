@@ -30,6 +30,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { GKA_COMPANY } from '@shared/constants';
+import { InstallAppButton } from '../pwa/InstallAppButton';
 
 export const AdminLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -180,6 +181,10 @@ export const AdminLayout: React.FC = () => {
             >
               <span>← Back to Public Website</span>
             </Link>
+
+            <div className="mt-2.5">
+              <InstallAppButton variant="admin-sidebar" />
+            </div>
           </div>
         </nav>
 
@@ -232,6 +237,9 @@ export const AdminLayout: React.FC = () => {
 
           {/* User Profile & Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Install PWA App button */}
+            <InstallAppButton variant="admin-header" />
+
             {/* Quick Change Password across all admin pages */}
             <button
               onClick={() => {

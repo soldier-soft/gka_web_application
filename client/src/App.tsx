@@ -40,6 +40,12 @@ import { ClientsPage } from './pages/admin/ClientsPage';
 // Client Portal
 import { ClientPortalPage } from './pages/client/ClientPortalPage';
 
+// PWA Components
+import { PwaProvider } from './context/PwaContext';
+import { PwaInstallModal } from './components/pwa/PwaInstallModal';
+import { PwaUpdateBanner } from './components/pwa/PwaUpdateBanner';
+import { PwaOfflineIndicator } from './components/pwa/PwaOfflineIndicator';
+
 const queryClient = new QueryClient();
 
 // Public Layout wrapper with Navbar and Footer
@@ -89,57 +95,62 @@ const ProtectedClientRoute: React.FC = () => {
   }
   return <ClientPortalPage />;
 };
-
 export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public Website Routes */}
-            <Route element={<PublicLayout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/services" element={<ServicesPage />} />
-              <Route path="/projects" element={<ProjectsPage />} />
-              <Route path="/projects/:slug" element={<ProjectsPage />} />
-              <Route path="/cost-estimator" element={<CostEstimatorPage />} />
-              <Route path="/contact" element={<ContactPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-            </Route>
+        <PwaProvider>
+          <BrowserRouter>
+            <PwaOfflineIndicator />
+            <Routes>
+              {/* Public Website Routes */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/services" element={<ServicesPage />} />
+                <Route path="/projects" element={<ProjectsPage />} />
+                <Route path="/projects/:slug" element={<ProjectsPage />} />
+                <Route path="/cost-estimator" element={<CostEstimatorPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+              </Route>
 
-            {/* Authentication */}
-            <Route path="/login" element={<LoginPage />} />
+              {/* Authentication */}
+              <Route path="/login" element={<LoginPage />} />
 
-            {/* Admin ERP Workspace */}
-            <Route path="/admin" element={<ProtectedAdminRoute />}>
-              <Route index element={<Navigate to="/admin/dashboard" replace />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="crm" element={<CrmPage />} />
-              <Route path="clients" element={<ClientsPage />} />
-              <Route path="projects" element={<AdminProjectsPage />} />
-              <Route path="projects/:id" element={<ProjectDetailPage />} />
-              <Route path="quotations" element={<QuotationsPage />} />
-              <Route path="invoices" element={<InvoicesPage />} />
-              <Route path="site-ops" element={<SiteOpsPage />} />
-              <Route path="inventory" element={<InventoryPage />} />
-              <Route path="finance" element={<FinancePage />} />
-              <Route path="portfolio" element={<PortfolioAdminPage />} />
-              <Route path="profile" element={<ProfilePage />} />
-            </Route>
+              {/* Admin ERP Workspace */}
+              <Route path="/admin" element={<ProtectedAdminRoute />}>
+                <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="crm" element={<CrmPage />} />
+                <Route path="clients" element={<ClientsPage />} />
+                <Route path="projects" element={<AdminProjectsPage />} />
+                <Route path="projects/:id" element={<ProjectDetailPage />} />
+                <Route path="quotations" element={<QuotationsPage />} />
+                <Route path="invoices" element={<InvoicesPage />} />
+                <Route path="site-ops" element={<SiteOpsPage />} />
+                <Route path="inventory" element={<InventoryPage />} />
+                <Route path="finance" element={<FinancePage />} />
+                <Route path="portfolio" element={<PortfolioAdminPage />} />
+                <Route path="profile" element={<ProfilePage />} />
+              </Route>
 
-            {/* Client Portal */}
-            <Route path="/client-portal" element={<ProtectedClientRoute />} />
+              {/* Client Portal */}
+              <Route path="/client-portal" element={<ProtectedClientRoute />} />
 
-            {/* Fallback to Home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          <CookieConsent />
-        </BrowserRouter>
+              {/* Fallback to Home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <PwaInstallModal />
+            <PwaUpdateBanner />
+            <CookieConsent />
+          </BrowserRouter>
+        </PwaProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
 };
 
 export default App;
+
