@@ -43,6 +43,7 @@ import { ClientPortalPage } from './pages/client/ClientPortalPage';
 // PWA Components
 import { PwaProvider } from './context/PwaContext';
 import { PwaInstallModal } from './components/pwa/PwaInstallModal';
+import { PwaDownloadPopup } from './components/pwa/PwaDownloadPopup';
 import { PwaUpdateBanner } from './components/pwa/PwaUpdateBanner';
 import { PwaOfflineIndicator } from './components/pwa/PwaOfflineIndicator';
 
@@ -142,6 +143,7 @@ export const App: React.FC = () => {
               {/* Fallback to Home */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <PwaDownloadPopup />
             <PwaInstallModal />
             <PwaUpdateBanner />
             <CookieConsent />
