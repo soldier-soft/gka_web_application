@@ -17,7 +17,9 @@ const User_1 = require("../../models/User");
 const Quotation_1 = require("../../models/Quotation");
 const TaxReconciliation_1 = require("../../models/TaxReconciliation");
 const ClientFeedback_1 = require("../../models/ClientFeedback");
+const Lead_1 = require("../../models/Lead");
 const pdfService_1 = require("../../services/pdfService");
+const emailService_1 = require("../../services/emailService");
 const constants_1 = require("../../shared/constants");
 const getProjects = async (req, res, next) => {
     try {
@@ -226,6 +228,10 @@ const createProject = async (req, res, next) => {
                 };
             }
         }
+        // Dispatch Company Project Creation Alert Email
+        (0, emailService_1.sendProjectAlertEmail)(project, clientDoc).catch((err) => {
+            console.error('[Project] Failed to dispatch project alert email:', err);
+        });
         res.status(201).json({ success: true, project, clientAccess });
     }
     catch (error) {
@@ -440,16 +446,21 @@ const getDashboardStats = async (req, res, next) => {
         const quotationValuePaise = quotationAggregation[0]?.totalQuotationValuePaise || 0;
         const totalQuotations = quotationAggregation[0]?.count || 0;
         const totalInvoices = invoiceAggregation[0]?.count || 0;
-        // Recent activity
-        const recentSiteReports = await SiteReport_1.SiteReport.find()
-            .populate('projectId', 'title projectId')
-            .populate('supervisorId', 'name')
-            .sort({ createdAt: -1 })
-            .limit(5);
-        const recentExpenses = await Expense_1.Expense.find()
-            .populate('projectId', 'title projectId')
-            .sort({ createdAt: -1 })
-            .limit(5);
+        // Recent activity & Leads with exact timestamps
+        const [recentSiteReports, recentExpenses, recentLeads] = await Promise.all([
+            SiteReport_1.SiteReport.find()
+                .populate('projectId', 'title projectId')
+                .populate('supervisorId', 'name')
+                .sort({ createdAt: -1 })
+                .limit(5),
+            Expense_1.Expense.find()
+                .populate('projectId', 'title projectId')
+                .sort({ createdAt: -1 })
+                .limit(5),
+            Lead_1.Lead.find()
+                .sort({ createdAt: -1 })
+                .limit(6),
+        ]);
         res.json({
             success: true,
             stats: {
@@ -473,6 +484,7 @@ const getDashboardStats = async (req, res, next) => {
             },
             recentSiteReports,
             recentExpenses,
+            recentLeads,
         });
     }
     catch (error) {

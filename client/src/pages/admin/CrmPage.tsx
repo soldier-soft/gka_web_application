@@ -12,6 +12,7 @@ import {
   Sparkles,
   Briefcase,
   AlertCircle,
+  Clock,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { LeadStatus } from '@shared/types';
@@ -80,6 +81,42 @@ export const CrmPage: React.FC = () => {
       l.phone.includes(searchTerm) ||
       l.siteLocation.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const formatTimestamp = (dateStr: string) => {
+    if (!dateStr) return 'Recent';
+    try {
+      const d = new Date(dateStr);
+      const datePart = d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      const timePart = d.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+      return `${datePart}, ${timePart}`;
+    } catch {
+      return String(dateStr);
+    }
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours}h ago`;
+      const diffDays = Math.floor(diffHours / 24);
+      return `${diffDays}d ago`;
+    } catch {
+      return '';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -157,6 +194,7 @@ export const CrmPage: React.FC = () => {
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                 <tr>
                   <th className="py-3.5 px-4">Client / Prospect</th>
+                  <th className="py-3.5 px-4">Submitted (Timestamp)</th>
                   <th className="py-3.5 px-4">Category & Location</th>
                   <th className="py-3.5 px-4">Source & Budget</th>
                   <th className="py-3.5 px-4">Status</th>
@@ -179,6 +217,16 @@ export const CrmPage: React.FC = () => {
                           </>
                         )}
                       </div>
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5 text-brand-navy-950 font-bold">
+                        <Clock className="w-3.5 h-3.5 text-brand-gold-600 shrink-0" />
+                        <span className="font-mono text-[11px]">{formatTimestamp(lead.createdAt)}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+                        {formatTimeAgo(lead.createdAt)}
+                      </span>
                     </td>
 
                     <td className="py-3.5 px-4">

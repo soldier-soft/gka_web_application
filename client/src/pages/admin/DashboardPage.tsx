@@ -23,6 +23,11 @@ import {
   Plus,
   Trash2,
   FileDown,
+  Users,
+  Phone,
+  Mail,
+  MessageCircle,
+  Calendar,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { EditDocumentModal } from '../../components/documents/EditDocumentModal';
@@ -53,6 +58,7 @@ export const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [recentReports, setRecentReports] = useState<any[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
+  const [recentLeads, setRecentLeads] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [editingProject, setEditingProject] = useState<any | null>(null);
@@ -61,18 +67,58 @@ export const DashboardPage: React.FC = () => {
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const formatTimestamp = (dateStr: string) => {
+    if (!dateStr) return 'Just now';
+    try {
+      const d = new Date(dateStr);
+      const datePart = d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      const timePart = d.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+      return `${datePart}, ${timePart}`;
+    } catch {
+      return String(dateStr);
+    }
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours}h ago`;
+      const diffDays = Math.floor(diffHours / 24);
+      return `${diffDays}d ago`;
+    } catch {
+      return '';
+    }
+  };
+
   const fetchDashboard = async () => {
     try {
-      const [statsRes, projectsRes, docsRes] = await Promise.all([
+      const [statsRes, projectsRes, docsRes, leadsRes] = await Promise.all([
         api.getDashboardStats().catch(() => ({ success: false })),
         api.getProjects({ limit: '6' }).catch(() => ({ success: false })),
         api.getDocuments().catch(() => ({ success: false })),
+        api.getLeads().catch(() => ({ success: false })),
       ]);
 
       if (statsRes.success) {
         setStats(statsRes.stats);
         setRecentReports(statsRes.recentSiteReports || []);
         setRecentExpenses(statsRes.recentExpenses || []);
+        setRecentLeads(statsRes.recentLeads || (leadsRes.success ? leadsRes.leads.slice(0, 6) : []));
+      } else if (leadsRes.success) {
+        setRecentLeads(leadsRes.leads.slice(0, 6));
       }
 
       if (projectsRes.success && Array.isArray(projectsRes.projects)) {
@@ -404,6 +450,169 @@ export const DashboardPage: React.FC = () => {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* ========================================================
+          RECENT SITE VISITS & CLIENT INQUIRIES (WITH EXACT TIMESTAMPS)
+      ======================================================== */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-subtle space-y-5">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-gold-500 text-brand-navy-950 flex items-center justify-center shadow-xs">
+              <Clock className="w-4 h-4 font-bold" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-heading font-bold text-base text-brand-navy-950">
+                  Recent Site Visits & Client Inquiries
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-brand-gold-100 text-brand-navy-900 border border-brand-gold-300">
+                  Live Timestamps
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Incoming website enquiries, site visits, and cost calculations with exact submission date & time
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/admin/crm"
+            className="text-xs font-bold text-brand-navy-900 hover:text-brand-gold-600 transition-colors inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200"
+          >
+            <span>Review All in CRM</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {recentLeads.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            No inquiries recorded yet. Form submissions from the website contact page, home page, and cost estimator will show up here instantly with their exact submission timestamp.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {recentLeads.map((lead) => {
+              const cleanPhone = (lead.phone || '').replace(/\D/g, '');
+              const whatsAppPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+              const sourceLabel =
+                lead.source === 'site_visit_booking'
+                  ? 'Site Visit Booking'
+                  : lead.source === 'cost_estimator'
+                  ? 'Cost Estimator'
+                  : 'Website Contact';
+
+              return (
+                <div
+                  key={lead._id}
+                  className="bg-slate-50/70 rounded-xl border border-slate-200 p-4 hover:border-brand-navy-900 hover:bg-white transition-all flex flex-col justify-between space-y-3 shadow-xs"
+                >
+                  <div className="space-y-2.5">
+                    {/* Timestamp & Source Pill */}
+                    <div className="flex justify-between items-start gap-1">
+                      <div className="flex items-center gap-1.5 text-brand-navy-950 font-bold text-xs bg-white px-2 py-1 rounded-md border border-slate-200 shadow-2xs">
+                        <Clock className="w-3.5 h-3.5 text-brand-gold-600 shrink-0" />
+                        <span className="font-mono text-[11px]">{formatTimestamp(lead.createdAt)}</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 shrink-0">
+                        {formatTimeAgo(lead.createdAt)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-heading font-bold text-sm text-brand-navy-950 truncate">
+                          {lead.name}
+                        </h4>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-navy-50 text-brand-navy-900 border border-brand-navy-100 capitalize">
+                          {sourceLabel}
+                        </span>
+                      </div>
+
+                      {/* Phone & Email */}
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 mt-1">
+                        <a
+                          href={`tel:${cleanPhone}`}
+                          className="font-semibold text-brand-navy-900 hover:text-brand-gold-600 flex items-center gap-1"
+                        >
+                          <Phone className="w-3 h-3 text-brand-gold-500" />
+                          <span>+91 {lead.phone}</span>
+                        </a>
+                        <a
+                          href={`https://wa.me/${whatsAppPhone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-emerald-700 hover:text-emerald-800 text-[11px] font-bold flex items-center gap-0.5"
+                          title="Open WhatsApp chat"
+                        >
+                          <MessageCircle className="w-3 h-3 text-emerald-600" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </div>
+
+                      {lead.email && (
+                        <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-0.5 truncate">
+                          <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                          <a href={`mailto:${lead.email}`} className="hover:underline truncate">{lead.email}</a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Site Location & Category */}
+                    <div className="pt-2 border-t border-slate-200/60 space-y-1 text-xs">
+                      <div className="flex items-center gap-1 text-slate-600">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="font-semibold truncate">{lead.siteLocation}</span>
+                        <span className="text-slate-400">({lead.city || 'Chennai'})</span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 flex justify-between">
+                        <span className="capitalize font-medium text-slate-700">{lead.projectCategory?.replace('_', ' ')}</span>
+                        {lead.approxAreaSqFt && <span>{lead.approxAreaSqFt} sq.ft</span>}
+                      </div>
+
+                      {lead.preferredSiteVisitDate && (
+                        <div className="flex items-center gap-1 text-[11px] font-bold text-brand-gold-700 bg-brand-gold-50 px-2 py-0.5 rounded border border-brand-gold-200 mt-1">
+                          <Calendar className="w-3 h-3 text-brand-gold-600" />
+                          <span>Site Visit Requested: {new Date(lead.preferredSiteVisitDate).toLocaleDateString('en-IN')}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {lead.message && (
+                      <p className="text-[11px] text-slate-500 line-clamp-2 italic bg-white p-2 rounded border border-slate-100">
+                        "{lead.message}"
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions & Status */}
+                  <div className="pt-2.5 border-t border-slate-200/80 flex items-center justify-between gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
+                        lead.status === 'won'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : lead.status === 'site_visit_scheduled'
+                          ? 'bg-amber-100 text-amber-800'
+                          : lead.status === 'new'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {lead.status === 'won' ? 'Converted' : lead.status?.replace('_', ' ')}
+                    </span>
+
+                    <Link
+                      to="/admin/crm"
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-brand-navy-900 text-white hover:bg-brand-navy-800 transition-colors inline-flex items-center gap-1 shadow-xs"
+                    >
+                      <span>Manage Lead</span>
+                      <ArrowRight className="w-3 h-3 text-brand-gold-400" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Active Construction Projects (Owner Quick-Edit & Workspace Controls) */}

@@ -14,6 +14,7 @@ const constants_1 = require("../../shared/constants");
 const pdfService_1 = require("../../services/pdfService");
 const docxService_1 = require("../../services/docxService");
 const googleDriveService_1 = require("../../services/googleDriveService");
+const emailService_1 = require("../../services/emailService");
 const getRateLibrary = async (req, res) => {
     res.json({ success: true, rates: constants_1.STANDARD_RATE_LIBRARY });
 };
@@ -174,18 +175,24 @@ const createQuotation = async (req, res, next) => {
             status: 'draft',
             validUntil,
         });
-        // Background Google Drive synchronization
+        // Background PDF Dispatch & Google Drive synchronization
         setTimeout(async () => {
             try {
                 const stream = pdfService_1.PDFService.generateQuotationPDF(quotation);
                 const chunks = [];
                 stream.on('data', (c) => chunks.push(Buffer.from(c)));
                 stream.on('end', async () => {
-                    await googleDriveService_1.GoogleDriveService.syncQuotationPdf(quotation.quotationNumber, Buffer.concat(chunks), quotation.projectId, quotation.clientName);
+                    const pdfBuffer = Buffer.concat(chunks);
+                    // 1. Send backup alert email with attached PDF to company emails
+                    await (0, emailService_1.sendQuotationAlertEmail)(quotation, pdfBuffer).catch((mailErr) => {
+                        console.error('[Quotation] Failed to dispatch quotation alert email:', mailErr);
+                    });
+                    // 2. Sync to Google Drive
+                    await googleDriveService_1.GoogleDriveService.syncQuotationPdf(quotation.quotationNumber, pdfBuffer, quotation.projectId, quotation.clientName);
                 });
             }
             catch (e) {
-                console.warn('[DriveSync] Quotation creation sync note:', e);
+                console.warn('[DriveSync/Email] Quotation creation dispatch note:', e);
             }
         }, 100);
         res.status(201).json({ success: true, quotation });

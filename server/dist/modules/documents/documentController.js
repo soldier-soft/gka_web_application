@@ -1,7 +1,13 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteDocument = exports.updateDocument = exports.createDocument = exports.getDocumentById = exports.getDocuments = void 0;
+const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
 const Document_1 = require("../../models/Document");
+const emailService_1 = require("../../services/emailService");
 const getDocuments = async (req, res, next) => {
     try {
         const { projectId, category, visibleToClient } = req.query;
@@ -63,6 +69,28 @@ const createDocument = async (req, res, next) => {
         const populated = await Document_1.ProjectDocument.findById(document._id)
             .populate('projectId', 'projectId title')
             .populate('uploadedBy', 'name role');
+        // Attempt to locate local file for attachment
+        let fileAttachment;
+        if (fileUrl && typeof fileUrl === 'string') {
+            const cleanPath = fileUrl.replace(/^\/uploads\//, '');
+            const candidatePaths = [
+                path_1.default.resolve(process.cwd(), 'server', 'uploads', cleanPath),
+                path_1.default.resolve(process.cwd(), 'uploads', cleanPath),
+                path_1.default.resolve(__dirname, '../../uploads', cleanPath),
+            ];
+            for (const cp of candidatePaths) {
+                if (fs_1.default.existsSync(cp)) {
+                    fileAttachment = {
+                        filename: document.fileName || 'document.pdf',
+                        path: cp,
+                    };
+                    break;
+                }
+            }
+        }
+        (0, emailService_1.sendDocumentUploadAlertEmail)(populated || document, fileAttachment).catch((err) => {
+            console.error('[Documents] Failed to dispatch document upload alert email:', err);
+        });
         res.status(201).json({
             success: true,
             message: 'Document created successfully',

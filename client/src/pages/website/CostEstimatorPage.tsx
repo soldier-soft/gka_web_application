@@ -308,16 +308,16 @@ export const CostEstimatorPage: React.FC = () => {
                 Receive Detailed Itemized BOQ & Site Assessment
               </h3>
               <p className="text-xs text-slate-500">
-                Our site engineers will prepare a formal line-item quotation tailored to your plot dimensions.
+                Our site engineers will prepare a formal line-item quotation and contact you within 8 hours.
               </p>
 
               {submitSuccess ? (
                 <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-xl text-center space-y-2">
                   <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                  <h4 className="font-bold text-sm text-emerald-900">Estimate Details Saved!</h4>
-                  <p className="text-xs text-emerald-700">
+                  <h4 className="font-bold text-sm text-emerald-900">Estimate Details Received!</h4>
+                  <p className="text-xs text-emerald-800 leading-relaxed">
                     Our lead engineer will review this estimate for <strong>{areaSqFt} sq.ft</strong> at{' '}
-                    <strong>{siteLocation || 'your location'}</strong> and contact you on <strong>{phone}</strong>.
+                    <strong>{siteLocation || 'your location'}</strong> and contact you on <strong>{phone}</strong> within 8 hours.
                   </p>
                 </div>
               ) : (

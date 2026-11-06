@@ -219,8 +219,12 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                 </div>
               </div>
 
+              <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center text-xs text-emerald-800 font-bold">
+                ⚡ We have received your request and our site engineering team will review your specifications and respond to you within 8 hours.
+              </div>
+
               <p className="text-xs text-slate-600 leading-relaxed">
-                An experienced site engineer will review your site requirements and contact you promptly at your preferred time to arrange a personal site inspection.
+                An experienced site engineer will review your site requirements and contact you within 8 hours at your preferred contact time to arrange a personal site inspection.
               </p>
 
               {/* Direct Action Buttons */}

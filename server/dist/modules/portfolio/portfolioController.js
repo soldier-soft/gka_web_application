@@ -370,21 +370,23 @@ const createPublicEnquiry = async (req, res, next) => {
         catch (crmErr) {
             console.error('[PortfolioController] Lead sync non-blocking warning:', crmErr);
         }
-        // 3. Send email notifications (honest status reporting)
-        const emailResult = await (0, emailService_1.sendEnquiryNotification)({
+        // 3. Send email notifications to company and 8-hour acknowledgement to client
+        const emailResult = await (0, emailService_1.sendCompanyAndClientEnquiryNotification)({
             referenceNumber,
             customerName: customerName.trim(),
             phone: cleanedPhone,
             email: email ? email.trim().toLowerCase() : undefined,
+            source: 'portfolio_inquiry',
             preferredContactMethod: preferredContactMethod || 'call',
             serviceType: serviceType || 'residential',
+            projectCategory: serviceType || 'residential',
             projectLocation: projectLocation.trim(),
             builtUpAreaSqFt: builtUpAreaSqFt ? Number(builtUpAreaSqFt) : undefined,
-            projectType: projectType || 'new_construction',
             requirements: requirements.trim(),
             preferredContactTime: preferredContactTime ? preferredContactTime.trim() : undefined,
             relatedProjectTitle,
             relatedIdeaTitle,
+            submittedAt: enquiry.createdAt || new Date(),
         });
         // Update enquiry record with delivery results
         enquiry.emailNotificationSent = emailResult.sent;

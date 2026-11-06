@@ -186,24 +186,32 @@ export const ContactPage: React.FC = () => {
 
           {/* Right: Site Assessment Form */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-8 shadow-subtle">
-            <h3 className="text-2xl font-heading font-bold text-brand-navy-950 mb-2">
-              Book a Site Assessment or Send an Enquiry
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h3 className="text-2xl font-heading font-bold text-brand-navy-950">
+                Book a Site Assessment or Send an Enquiry
+              </h3>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                ⚡ 8-Hour Response Guarantee
+              </span>
+            </div>
             <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-              Fill in your plot or building location. Our team will review the requirements and arrange a site visit.
+              Fill in your plot or building location. Our site engineers will review your request and connect with you within 8 hours.
             </p>
 
             {submitSuccess ? (
               <div className="bg-emerald-50 border border-emerald-200 p-8 rounded-xl text-center space-y-3">
                 <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
                 <h4 className="text-lg font-bold text-emerald-900">Site Assessment Requested!</h4>
-                <p className="text-xs text-emerald-700 max-w-md mx-auto">
+                <p className="text-xs text-emerald-800 max-w-md mx-auto leading-relaxed">
                   Thank you, <strong>{formData.name}</strong>. Our site engineering office has logged your site visit request for{' '}
-                  <strong>{formData.siteLocation}</strong>. We will contact you at <strong>{formData.phone}</strong> to confirm the exact time.
+                  <strong>{formData.siteLocation}</strong>. We have sent an acknowledgement email to your inbox.
                 </p>
+                <div className="bg-white/80 p-3 rounded-lg border border-emerald-200 max-w-sm mx-auto text-xs text-emerald-900 font-bold">
+                  ⚡ Guaranteed Response: Our team will review your specifications and contact you at <strong>{formData.phone}</strong> within 8 hours.
+                </div>
                 <button
                   onClick={() => setSubmitSuccess(false)}
-                  className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold"
+                  className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold cursor-pointer hover:bg-emerald-700 transition-colors"
                 >
                   Submit Another Enquiry
                 </button>

@@ -692,24 +692,29 @@ export const HomePage: React.FC = () => {
                   DIRECT SITE ENGINEERING
                 </div>
 
-                <h3 className="text-xl font-heading font-bold text-brand-navy-900 mb-1">
-                  Request a Free Site Assessment
-                </h3>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                  <h3 className="text-xl font-heading font-bold text-brand-navy-900">
+                    Request a Free Site Assessment
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    ⚡ Within 8 Hrs Response
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500 mb-6">
-                  Speak directly with an experienced site engineer. No obligation.
+                  Speak directly with an experienced site engineer. We will review and respond within 8 hours.
                 </p>
 
                 {submitSuccess ? (
                   <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-xl text-center space-y-3">
                     <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-                    <h4 className="font-bold text-base">Enquiry Received!</h4>
-                    <p className="text-xs text-emerald-700">
-                      Our site engineering team has received your details and will call you on{' '}
-                      <strong>{formData.phone || 'your number'}</strong> to coordinate the visit.
+                    <h4 className="font-bold text-base">Enquiry Logged Successfully!</h4>
+                    <p className="text-xs text-emerald-800 leading-relaxed">
+                      Our site engineering team has received your details. We will review your site specifications and contact you on{' '}
+                      <strong>{formData.phone || 'your phone number'}</strong> within 8 hours.
                     </p>
                     <button
                       onClick={() => setSubmitSuccess(false)}
-                      className="mt-3 text-xs font-semibold text-emerald-700 underline"
+                      className="mt-3 text-xs font-semibold text-emerald-700 underline cursor-pointer"
                     >
                       Submit another enquiry
                     </button>

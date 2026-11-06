@@ -13,8 +13,10 @@ import { User } from '../../models/User';
 import { Quotation } from '../../models/Quotation';
 import { TaxReconciliation } from '../../models/TaxReconciliation';
 import { ClientFeedback } from '../../models/ClientFeedback';
+import { Lead } from '../../models/Lead';
 import { PDFService } from '../../services/pdfService';
 import { GoogleDriveService } from '../../services/googleDriveService';
+import { sendProjectAlertEmail } from '../../services/emailService';
 import { STANDARD_MILESTONES, formatClientPortalUsername } from '../../shared/constants';
 
 export const getProjects = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -255,6 +257,11 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
         };
       }
     }
+
+    // Dispatch Company Project Creation Alert Email
+    sendProjectAlertEmail(project, clientDoc).catch((err) => {
+      console.error('[Project] Failed to dispatch project alert email:', err);
+    });
 
     res.status(201).json({ success: true, project, clientAccess });
   } catch (error) {
@@ -497,17 +504,21 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
     const totalQuotations = quotationAggregation[0]?.count || 0;
     const totalInvoices = invoiceAggregation[0]?.count || 0;
 
-    // Recent activity
-    const recentSiteReports = await SiteReport.find()
-      .populate('projectId', 'title projectId')
-      .populate('supervisorId', 'name')
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    const recentExpenses = await Expense.find()
-      .populate('projectId', 'title projectId')
-      .sort({ createdAt: -1 })
-      .limit(5);
+    // Recent activity & Leads with exact timestamps
+    const [recentSiteReports, recentExpenses, recentLeads] = await Promise.all([
+      SiteReport.find()
+        .populate('projectId', 'title projectId')
+        .populate('supervisorId', 'name')
+        .sort({ createdAt: -1 })
+        .limit(5),
+      Expense.find()
+        .populate('projectId', 'title projectId')
+        .sort({ createdAt: -1 })
+        .limit(5),
+      Lead.find()
+        .sort({ createdAt: -1 })
+        .limit(6),
+    ]);
 
     res.json({
       success: true,
@@ -532,6 +543,7 @@ export const getDashboardStats = async (req: Request, res: Response, next: NextF
       },
       recentSiteReports,
       recentExpenses,
+      recentLeads,
     });
   } catch (error) {
     next(error);

@@ -3,7 +3,7 @@ import { PortfolioProject } from '../../models/PortfolioProject';
 import { ProjectIdea } from '../../models/ProjectIdea';
 import { Enquiry } from '../../models/Enquiry';
 import { Lead } from '../../models/Lead';
-import { sendEnquiryNotification } from '../../services/emailService';
+import { sendCompanyAndClientEnquiryNotification } from '../../services/emailService';
 
 // Helper to generate a slug from a title
 const slugify = (text: string): string =>
@@ -430,21 +430,23 @@ export const createPublicEnquiry = async (req: Request, res: Response, next: Nex
       console.error('[PortfolioController] Lead sync non-blocking warning:', crmErr);
     }
 
-    // 3. Send email notifications (honest status reporting)
-    const emailResult = await sendEnquiryNotification({
+    // 3. Send email notifications to company and 8-hour acknowledgement to client
+    const emailResult = await sendCompanyAndClientEnquiryNotification({
       referenceNumber,
       customerName: customerName.trim(),
       phone: cleanedPhone,
       email: email ? email.trim().toLowerCase() : undefined,
+      source: 'portfolio_inquiry',
       preferredContactMethod: preferredContactMethod || 'call',
       serviceType: serviceType || 'residential',
+      projectCategory: serviceType || 'residential',
       projectLocation: projectLocation.trim(),
       builtUpAreaSqFt: builtUpAreaSqFt ? Number(builtUpAreaSqFt) : undefined,
-      projectType: projectType || 'new_construction',
       requirements: requirements.trim(),
       preferredContactTime: preferredContactTime ? preferredContactTime.trim() : undefined,
       relatedProjectTitle,
       relatedIdeaTitle,
+      submittedAt: (enquiry as any).createdAt || new Date(),
     });
 
     // Update enquiry record with delivery results

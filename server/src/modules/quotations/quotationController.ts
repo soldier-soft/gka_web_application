@@ -9,6 +9,7 @@ import { STANDARD_RATE_LIBRARY, DEFAULT_INVOICE_TERMS, formatClientPortalUsernam
 import { PDFService } from '../../services/pdfService';
 import { DOCXService } from '../../services/docxService';
 import { GoogleDriveService } from '../../services/googleDriveService';
+import { sendQuotationAlertEmail } from '../../services/emailService';
 import { toPaise } from '../../shared/types';
 
 export const getRateLibrary = async (req: Request, res: Response): Promise<void> => {
@@ -201,22 +202,30 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
       validUntil,
     });
 
-    // Background Google Drive synchronization
+    // Background PDF Dispatch & Google Drive synchronization
     setTimeout(async () => {
       try {
         const stream = PDFService.generateQuotationPDF(quotation);
         const chunks: Buffer[] = [];
         stream.on('data', (c) => chunks.push(Buffer.from(c)));
         stream.on('end', async () => {
+          const pdfBuffer = Buffer.concat(chunks);
+
+          // 1. Send backup alert email with attached PDF to company emails
+          await sendQuotationAlertEmail(quotation, pdfBuffer).catch((mailErr) => {
+            console.error('[Quotation] Failed to dispatch quotation alert email:', mailErr);
+          });
+
+          // 2. Sync to Google Drive
           await GoogleDriveService.syncQuotationPdf(
             quotation.quotationNumber,
-            Buffer.concat(chunks),
+            pdfBuffer,
             quotation.projectId,
             quotation.clientName
           );
         });
       } catch (e) {
-        console.warn('[DriveSync] Quotation creation sync note:', e);
+        console.warn('[DriveSync/Email] Quotation creation dispatch note:', e);
       }
     }, 100);
 

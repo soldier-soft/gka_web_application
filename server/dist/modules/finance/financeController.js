@@ -16,6 +16,7 @@ const User_1 = require("../../models/User");
 const pdfService_1 = require("../../services/pdfService");
 const docxService_1 = require("../../services/docxService");
 const googleDriveService_1 = require("../../services/googleDriveService");
+const emailService_1 = require("../../services/emailService");
 const constants_1 = require("../../shared/constants");
 const getInvoices = async (req, res, next) => {
     try {
@@ -141,18 +142,24 @@ const createInvoice = async (req, res, next) => {
         // Update Project invoiced amount
         project.invoicedAmountPaise += totalAmountPaise;
         await project.save();
-        // Background Google Drive synchronization
+        // Background PDF Dispatch & Google Drive synchronization
         setTimeout(async () => {
             try {
                 const stream = pdfService_1.PDFService.generateInvoicePDF(invoice);
                 const chunks = [];
                 stream.on('data', (c) => chunks.push(Buffer.from(c)));
                 stream.on('end', async () => {
-                    await googleDriveService_1.GoogleDriveService.syncInvoicePdf(invoice.invoiceNumber, Buffer.concat(chunks), invoice.projectId, invoice.clientName);
+                    const pdfBuffer = Buffer.concat(chunks);
+                    // 1. Send backup alert email with attached PDF to company emails
+                    await (0, emailService_1.sendInvoiceAlertEmail)(invoice, pdfBuffer).catch((mailErr) => {
+                        console.error('[Invoice] Failed to dispatch invoice alert email:', mailErr);
+                    });
+                    // 2. Sync to Google Drive
+                    await googleDriveService_1.GoogleDriveService.syncInvoicePdf(invoice.invoiceNumber, pdfBuffer, invoice.projectId, invoice.clientName);
                 });
             }
             catch (e) {
-                console.warn('[DriveSync] Invoice creation sync note:', e);
+                console.warn('[DriveSync/Email] Invoice creation dispatch note:', e);
             }
         }, 100);
         res.status(201).json({ success: true, invoice });

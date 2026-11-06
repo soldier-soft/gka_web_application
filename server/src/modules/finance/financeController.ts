@@ -11,6 +11,7 @@ import { User } from '../../models/User';
 import { PDFService } from '../../services/pdfService';
 import { DOCXService } from '../../services/docxService';
 import { GoogleDriveService } from '../../services/googleDriveService';
+import { sendInvoiceAlertEmail } from '../../services/emailService';
 import { toPaise } from '../../shared/types';
 import { DEFAULT_INVOICE_TERMS, formatClientPortalUsername } from '../../shared/constants';
 
@@ -162,22 +163,30 @@ export const createInvoice = async (req: Request, res: Response, next: NextFunct
     project.invoicedAmountPaise += totalAmountPaise;
     await project.save();
 
-    // Background Google Drive synchronization
+    // Background PDF Dispatch & Google Drive synchronization
     setTimeout(async () => {
       try {
         const stream = PDFService.generateInvoicePDF(invoice);
         const chunks: Buffer[] = [];
         stream.on('data', (c) => chunks.push(Buffer.from(c)));
         stream.on('end', async () => {
+          const pdfBuffer = Buffer.concat(chunks);
+
+          // 1. Send backup alert email with attached PDF to company emails
+          await sendInvoiceAlertEmail(invoice, pdfBuffer).catch((mailErr) => {
+            console.error('[Invoice] Failed to dispatch invoice alert email:', mailErr);
+          });
+
+          // 2. Sync to Google Drive
           await GoogleDriveService.syncInvoicePdf(
             invoice.invoiceNumber,
-            Buffer.concat(chunks),
+            pdfBuffer,
             invoice.projectId,
             invoice.clientName
           );
         });
       } catch (e) {
-        console.warn('[DriveSync] Invoice creation sync note:', e);
+        console.warn('[DriveSync/Email] Invoice creation dispatch note:', e);
       }
     }, 100);
 

@@ -8,6 +8,10 @@ import { Project } from '../../models/Project';
 import { Milestone } from '../../models/Milestone';
 import { STANDARD_MILESTONES, formatClientPortalUsername } from '../../shared/constants';
 import { toPaise } from '../../shared/types';
+import {
+  sendCompanyAndClientEnquiryNotification,
+  sendProjectAlertEmail,
+} from '../../services/emailService';
 
 export const createEnquiry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -30,12 +34,16 @@ export const createEnquiry = async (req: Request, res: Response, next: NextFunct
       return;
     }
 
+    const currentYear = new Date().getFullYear();
+    const leadCount = await Lead.countDocuments();
+    const referenceNumber = `GKA-REQ-${currentYear}-${String(leadCount + 1001).padStart(4, '0')}`;
+
     const lead = await Lead.create({
-      name,
-      phone,
-      email,
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email ? email.trim().toLowerCase() : undefined,
       projectCategory: projectCategory || 'residential',
-      siteLocation,
+      siteLocation: siteLocation.trim(),
       city: city || 'Chennai',
       approxAreaSqFt: approxAreaSqFt ? Number(approxAreaSqFt) : undefined,
       estimatedBudgetRupees: estimatedBudgetRupees ? Number(estimatedBudgetRupees) : undefined,
@@ -45,9 +53,31 @@ export const createEnquiry = async (req: Request, res: Response, next: NextFunct
       preferredSiteVisitDate: preferredSiteVisitDate ? new Date(preferredSiteVisitDate) : undefined,
     });
 
+    // Send notifications to company (gkaconstruction51@gmail.com, elangovanit5012@gmail.com)
+    // and immediate acknowledgment email to client (promising response within 8 hours)
+    sendCompanyAndClientEnquiryNotification({
+      referenceNumber,
+      customerName: name.trim(),
+      phone: phone.trim(),
+      email: email ? email.trim().toLowerCase() : undefined,
+      source: source || 'website_contact',
+      projectCategory: projectCategory || 'residential',
+      serviceType: projectCategory || 'residential',
+      projectLocation: siteLocation.trim(),
+      city: city || 'Chennai',
+      builtUpAreaSqFt: approxAreaSqFt ? Number(approxAreaSqFt) : undefined,
+      estimatedBudgetRupees: estimatedBudgetRupees ? Number(estimatedBudgetRupees) : undefined,
+      preferredSiteVisitDate: preferredSiteVisitDate ? new Date(preferredSiteVisitDate) : undefined,
+      requirements: message,
+      submittedAt: lead.createdAt || new Date(),
+    }).catch((err) => {
+      console.error('[CRM] Non-blocking email dispatch notification warning:', err);
+    });
+
     res.status(201).json({
       success: true,
-      message: 'Enquiry submitted successfully. Our site engineering team will reach out promptly.',
+      message: 'Enquiry submitted successfully. Our site engineering team will reach out promptly within 8 hours.',
+      referenceNumber,
       leadId: lead._id,
     });
   } catch (error) {
@@ -253,6 +283,11 @@ export const convertLeadToProject = async (req: Request, res: Response, next: Ne
     lead.convertedToClientId = client._id as any;
     lead.convertedToProjectId = project._id as any;
     await lead.save();
+
+    // 7. Dispatch Company Project Creation Alert Email
+    sendProjectAlertEmail(project, client).catch((err) => {
+      console.error('[CRM] Non-blocking project alert email dispatch error:', err);
+    });
 
     res.status(201).json({
       success: true,

@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import path from 'path';
+import fs from 'fs';
 import { ProjectDocument } from '../../models/Document';
 import { Project } from '../../models/Project';
+import { sendDocumentUploadAlertEmail } from '../../services/emailService';
 
 export const getDocuments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -76,6 +79,30 @@ export const createDocument = async (req: Request, res: Response, next: NextFunc
     const populated = await ProjectDocument.findById(document._id)
       .populate('projectId', 'projectId title')
       .populate('uploadedBy', 'name role');
+
+    // Attempt to locate local file for attachment
+    let fileAttachment: { filename: string; path?: string } | undefined;
+    if (fileUrl && typeof fileUrl === 'string') {
+      const cleanPath = fileUrl.replace(/^\/uploads\//, '');
+      const candidatePaths = [
+        path.resolve(process.cwd(), 'server', 'uploads', cleanPath),
+        path.resolve(process.cwd(), 'uploads', cleanPath),
+        path.resolve(__dirname, '../../uploads', cleanPath),
+      ];
+      for (const cp of candidatePaths) {
+        if (fs.existsSync(cp)) {
+          fileAttachment = {
+            filename: document.fileName || 'document.pdf',
+            path: cp,
+          };
+          break;
+        }
+      }
+    }
+
+    sendDocumentUploadAlertEmail(populated || document, fileAttachment).catch((err) => {
+      console.error('[Documents] Failed to dispatch document upload alert email:', err);
+    });
 
     res.status(201).json({
       success: true,
