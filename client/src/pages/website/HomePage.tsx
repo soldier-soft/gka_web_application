@@ -1069,23 +1069,23 @@ export const HomePage: React.FC = () => {
                   key={step.id}
                   onClick={() => setActiveProcedureStep(idx)}
                   className={`relative p-3.5 rounded-xl text-left transition-all duration-200 border flex flex-col justify-between group ${isActive
-                      ? 'bg-brand-navy-950 text-white border-brand-gold-500 shadow-premium ring-2 ring-brand-gold-400/40'
-                      : 'bg-[#F8FAFC] text-slate-700 border-slate-200 hover:bg-slate-100/80 hover:border-slate-300'
+                    ? 'bg-brand-navy-950 text-white border-brand-gold-500 shadow-premium ring-2 ring-brand-gold-400/40'
+                    : 'bg-[#F8FAFC] text-slate-700 border-slate-200 hover:bg-slate-100/80 hover:border-slate-300'
                     }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span
                       className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center font-mono transition-colors ${isActive
-                          ? 'bg-brand-gold-500 text-brand-navy-950'
-                          : 'bg-slate-200 text-slate-700 group-hover:bg-brand-navy-100 group-hover:text-brand-navy-900'
+                        ? 'bg-brand-gold-500 text-brand-navy-950'
+                        : 'bg-slate-200 text-slate-700 group-hover:bg-brand-navy-100 group-hover:text-brand-navy-900'
                         }`}
                     >
                       {step.stepNumber}
                     </span>
                     <span
                       className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isActive
-                          ? 'bg-white/10 text-brand-gold-300 border border-brand-gold-400/30'
-                          : 'bg-slate-200/80 text-slate-600'
+                        ? 'bg-white/10 text-brand-gold-300 border border-brand-gold-400/30'
+                        : 'bg-slate-200/80 text-slate-600'
                         }`}
                     >
                       {step.duration}
@@ -1337,24 +1337,24 @@ export const HomePage: React.FC = () => {
                     key={step.id}
                     onClick={() => setActiveProcedureStep(idx)}
                     className={`cursor-pointer rounded-xl p-4 border transition-all duration-200 flex flex-col justify-between ${isActive
-                        ? 'bg-brand-navy-950 text-white border-brand-gold-500 shadow-md ring-2 ring-brand-gold-400/30'
-                        : 'bg-white text-slate-800 border-slate-200 hover:border-brand-gold-400 hover:shadow-subtle'
+                      ? 'bg-brand-navy-950 text-white border-brand-gold-500 shadow-md ring-2 ring-brand-gold-400/30'
+                      : 'bg-white text-slate-800 border-slate-200 hover:border-brand-gold-400 hover:shadow-subtle'
                       }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span
                           className={`w-6 h-6 rounded-md text-[11px] font-bold font-mono flex items-center justify-center ${isActive
-                              ? 'bg-brand-gold-500 text-brand-navy-950'
-                              : 'bg-slate-100 text-slate-700'
+                            ? 'bg-brand-gold-500 text-brand-navy-950'
+                            : 'bg-slate-100 text-slate-700'
                             }`}
                         >
                           {step.stepNumber}
                         </span>
                         <span
                           className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isActive
-                              ? 'bg-white/10 text-brand-gold-300'
-                              : 'bg-slate-100 text-slate-600'
+                            ? 'bg-white/10 text-brand-gold-300'
+                            : 'bg-slate-100 text-slate-600'
                             }`}
                         >
                           {step.duration}
@@ -1369,8 +1369,8 @@ export const HomePage: React.FC = () => {
                     </div>
                     <p
                       className={`text-[11px] mt-2 pt-2 border-t font-medium ${isActive
-                          ? 'border-white/10 text-brand-gold-400'
-                          : 'border-slate-100 text-slate-400'
+                        ? 'border-white/10 text-brand-gold-400'
+                        : 'border-slate-100 text-slate-400'
                         }`}
                     >
                       {step.phaseCategory}
@@ -1489,8 +1489,8 @@ export const HomePage: React.FC = () => {
             <button
               onClick={() => setActiveSectionTab('verified')}
               className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${activeSectionTab === 'verified'
-                  ? 'bg-[#10203A] text-white ring-2 ring-[#D6A21D] shadow-md'
-                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                ? 'bg-[#10203A] text-white ring-2 ring-[#D6A21D] shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                 }`}
             >
               <CheckCircle className="w-4 h-4 text-[#D6A21D]" />
@@ -1500,8 +1500,8 @@ export const HomePage: React.FC = () => {
             <button
               onClick={() => setActiveSectionTab('capabilities')}
               className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${activeSectionTab === 'capabilities'
-                  ? 'bg-[#10203A] text-white ring-2 ring-[#D6A21D] shadow-md'
-                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                ? 'bg-[#10203A] text-white ring-2 ring-[#D6A21D] shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                 }`}
             >
               <Building2 className="w-4 h-4 text-[#D6A21D]" />
@@ -1511,8 +1511,8 @@ export const HomePage: React.FC = () => {
             <button
               onClick={() => setActiveSectionTab('pillars')}
               className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${activeSectionTab === 'pillars'
-                  ? 'bg-[#10203A] text-white ring-2 ring-[#D6A21D] shadow-md'
-                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                ? 'bg-[#10203A] text-white ring-2 ring-[#D6A21D] shadow-md'
+                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                 }`}
             >
               <Layers className="w-4 h-4 text-[#D6A21D]" />
@@ -2136,8 +2136,8 @@ export const HomePage: React.FC = () => {
                     setActiveFaqIndex(null);
                   }}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${faqCategory === cat.id
-                      ? 'bg-brand-navy-950 text-white shadow-xs ring-1 ring-brand-gold-400'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    ? 'bg-brand-navy-950 text-white shadow-xs ring-1 ring-brand-gold-400'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
                     }`}
                 >
                   {cat.label}
@@ -2155,8 +2155,8 @@ export const HomePage: React.FC = () => {
                   <div
                     key={faq.id}
                     className={`rounded-2xl border transition-all duration-200 overflow-hidden ${isOpen
-                        ? 'bg-white border-brand-gold-500/60 shadow-premium ring-1 ring-brand-gold-400/20'
-                        : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
+                      ? 'bg-white border-brand-gold-500/60 shadow-premium ring-1 ring-brand-gold-400/20'
+                      : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
                       }`}
                   >
                     <button
@@ -2167,8 +2167,8 @@ export const HomePage: React.FC = () => {
                       <div className="flex items-start gap-3.5">
                         <span
                           className={`w-7 h-7 rounded-lg text-xs font-bold font-mono flex items-center justify-center shrink-0 mt-0.5 ${isOpen
-                              ? 'bg-brand-gold-500 text-brand-navy-950'
-                              : 'bg-slate-100 text-slate-600'
+                            ? 'bg-brand-gold-500 text-brand-navy-950'
+                            : 'bg-slate-100 text-slate-600'
                             }`}
                         >
                           {String(idx + 1).padStart(2, '0')}
@@ -2188,8 +2188,8 @@ export const HomePage: React.FC = () => {
 
                       <div
                         className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${isOpen
-                            ? 'bg-brand-navy-950 text-brand-gold-400'
-                            : 'bg-slate-100 text-slate-500'
+                          ? 'bg-brand-navy-950 text-brand-gold-400'
+                          : 'bg-slate-100 text-slate-500'
                           }`}
                       >
                         {isOpen ? (

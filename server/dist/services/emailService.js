@@ -962,6 +962,12 @@ const sendDocumentUploadAlertEmail = async (document, fileAttachment, isUpdate =
     }
 };
 exports.sendDocumentUploadAlertEmail = sendDocumentUploadAlertEmail;
+const escapeHtmlText = (str) => str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 const sendDocumentNotificationEmail = async (payload) => {
     const transporter = (0, exports.getTransporter)();
     if (!transporter) {
@@ -1004,6 +1010,10 @@ const sendDocumentNotificationEmail = async (payload) => {
                 subject = `GKA Construction — Project Workspace Onboarding for ${payload.projectTitle}`;
             }
         }
+        const attachmentFilename = payload.fileAttachment?.filename ||
+            (payload.documentType === 'welcome'
+                ? `GKA_Project_Welcome_${payload.documentNumber}.pdf`
+                : `${payload.documentNumber}.pdf`);
         const emailHtml = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background-color: #f8fafc; padding: 24px 16px; color: #1e293b;">
         <div style="background-color: #0F1E36; border-radius: 12px 12px 0 0; padding: 28px 24px; text-align: left; border-bottom: 3px solid #C59A27;">
@@ -1027,8 +1037,38 @@ const sendDocumentNotificationEmail = async (payload) => {
             Dear <strong>${clientName}</strong>,
           </p>
           <p style="font-size: 14px; line-height: 1.6; color: #334155;">
-            Greetings from GKA Construction. Please find the verified details of your <strong>${docTypeLabel}</strong> below.
+            Greetings from GKA Construction. Please find the verified details of your <strong>${docTypeLabel}</strong> below. The official document file has been attached directly to this message.
           </p>
+
+          ${payload.customMessage
+            ? `
+          <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #C59A27; border-radius: 8px; padding: 16px 18px; margin: 18px 0; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; line-height: 1.6; color: #1e293b; white-space: pre-wrap; word-break: break-word;">${escapeHtmlText(payload.customMessage)}</div>
+          `
+            : ''}
+
+          <!-- Official Document File Attachment Callout -->
+          <div style="background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 16px 20px; margin: 20px 0;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="36" valign="top" style="font-size: 24px; line-height: 1;">📎</td>
+                <td valign="top" style="padding-left: 10px;">
+                  <div style="font-size: 14px; font-weight: 700; color: #166534;">Official Document File Attached Directly</div>
+                  <div style="font-size: 12px; color: #15803d; margin-top: 4px; line-height: 1.5;">
+                    The certified PDF file <strong>${attachmentFilename}</strong> is attached directly to this email. You can open, download, or print it right from your inbox.
+                  </div>
+                  ${payload.pdfUrl
+            ? `
+                  <div style="margin-top: 10px;">
+                    <a href="${payload.pdfUrl}" target="_blank" style="display: inline-block; background-color: #0F1E36; color: #ffffff; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: 700;">
+                      📥 View / Archive Copy Online
+                    </a>
+                  </div>
+                  `
+            : ''}
+                </td>
+              </tr>
+            </table>
+          </div>
 
           <div style="background-color: #f1f5f9; border-radius: 8px; border: 1px solid #e2e8f0; padding: 18px 20px; margin: 20px 0;">
             <h3 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #0F1E36; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
@@ -1059,18 +1099,6 @@ const sendDocumentNotificationEmail = async (payload) => {
                 <td style="color: #dc2626; font-weight: 600;">${payload.dueDate}</td>
               </tr>` : ''}
             </table>
-          </div>
-
-          <div style="text-align: center; margin: 28px 0; padding: 20px; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px;">
-            <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: #475569;">
-              Access your official digitally signed document in PDF format:
-            </p>
-            <a href="${payload.pdfUrl}" target="_blank" style="display: inline-block; background-color: #0F1E36; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 700; border-left: 4px solid #C59A27; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              📥 View / Download Official PDF
-            </a>
-            <p style="margin: 10px 0 0 0; font-size: 11px; color: #94a3b8;">
-              Direct Link: <a href="${payload.pdfUrl}" style="color: #0F1E36; word-break: break-all;">${payload.pdfUrl}</a>
-            </p>
           </div>
 
           ${payload.portalUsername ? `
@@ -1140,13 +1168,35 @@ const sendDocumentNotificationEmail = async (payload) => {
         </div>
       </div>
     `;
+        const attachments = [];
+        if (payload.fileAttachment) {
+            if (payload.fileAttachment.content) {
+                attachments.push({
+                    filename: payload.fileAttachment.filename,
+                    content: payload.fileAttachment.content,
+                    contentType: payload.fileAttachment.contentType || 'application/pdf',
+                });
+            }
+            else if (payload.fileAttachment.path) {
+                attachments.push({
+                    filename: payload.fileAttachment.filename,
+                    path: payload.fileAttachment.path,
+                    contentType: payload.fileAttachment.contentType || 'application/pdf',
+                });
+            }
+        }
+        const companyRecipients = (0, exports.getCompanyRecipientEmails)().filter((email) => email.toLowerCase() !== payload.recipientEmail.toLowerCase());
         await transporter.sendMail({
             from: fromAddress,
             replyTo,
             to: payload.recipientEmail,
+            cc: companyRecipients.length > 0 ? companyRecipients : undefined,
             subject,
             html: emailHtml,
+            text: payload.customMessage || undefined,
+            attachments: attachments.length > 0 ? attachments : undefined,
         });
+        console.log(`[EmailService] Document share email dispatched to ${payload.recipientEmail} with ${attachments.length} attachment(s) (cc: ${companyRecipients.join(', ')})`);
         return { sent: true };
     }
     catch (error) {
