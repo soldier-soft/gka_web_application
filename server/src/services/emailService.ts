@@ -1171,15 +1171,14 @@ export const sendDocumentNotificationEmail = async (
             Greetings from GKA Construction. Please find the verified details of your <strong>${docTypeLabel}</strong> below. The official document file has been attached directly to this message.
           </p>
 
-          ${
-            payload.customMessage
-              ? `
+          ${payload.customMessage
+        ? `
           <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #C59A27; border-radius: 8px; padding: 16px 18px; margin: 18px 0; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; line-height: 1.6; color: #1e293b; white-space: pre-wrap; word-break: break-word;">${escapeHtmlText(
-                  payload.customMessage
-                )}</div>
+          payload.customMessage
+        )}</div>
           `
-              : ''
-          }
+        : ''
+      }
 
           <!-- Official Document File Attachment Callout -->
           <div style="background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 16px 20px; margin: 20px 0;">
@@ -1191,17 +1190,16 @@ export const sendDocumentNotificationEmail = async (
                   <div style="font-size: 12px; color: #15803d; margin-top: 4px; line-height: 1.5;">
                     The certified PDF file <strong>${attachmentFilename}</strong> is attached directly to this email. You can open, download, or print it right from your inbox.
                   </div>
-                  ${
-                    payload.pdfUrl
-                      ? `
+                  ${payload.pdfUrl
+        ? `
                   <div style="margin-top: 10px;">
                     <a href="${payload.pdfUrl}" target="_blank" style="display: inline-block; background-color: #0F1E36; color: #ffffff; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: 700;">
                       📥 View / Archive Copy Online
                     </a>
                   </div>
                   `
-                      : ''
-                  }
+        : ''
+      }
                 </td>
               </tr>
             </table>
@@ -1323,15 +1321,10 @@ export const sendDocumentNotificationEmail = async (
       }
     }
 
-    const companyRecipients = getCompanyRecipientEmails().filter(
-      (email) => email.toLowerCase() !== payload.recipientEmail.toLowerCase()
-    );
-
     await transporter.sendMail({
       from: fromAddress,
       replyTo,
       to: payload.recipientEmail,
-      cc: companyRecipients.length > 0 ? companyRecipients : undefined,
       subject,
       html: emailHtml,
       text: payload.customMessage || undefined,
@@ -1339,7 +1332,7 @@ export const sendDocumentNotificationEmail = async (
     });
 
     console.log(
-      `[EmailService] Document share email dispatched to ${payload.recipientEmail} with ${attachments.length} attachment(s) (cc: ${companyRecipients.join(', ')})`
+      `[EmailService] Document share email dispatched to ${payload.recipientEmail} with ${attachments.length} attachment(s)`
     );
     return { sent: true };
   } catch (error: any) {

@@ -450,23 +450,6 @@ export const updateInvoice = async (req: Request, res: Response, next: NextFunct
 
     await invoice.save();
 
-    // Background PDF Dispatch for updated invoice backup to company emails
-    setTimeout(async () => {
-      try {
-        const stream = PDFService.generateInvoicePDF(invoice);
-        const chunks: Buffer[] = [];
-        stream.on('data', (c) => chunks.push(Buffer.from(c)));
-        stream.on('end', async () => {
-          const pdfBuffer = Buffer.concat(chunks);
-          await sendInvoiceAlertEmail(invoice, pdfBuffer, true, 'Bill / Tax Invoice parameters or items updated').catch((mailErr) => {
-            console.error('[Invoice] Failed to dispatch invoice update email:', mailErr);
-          });
-        });
-      } catch (e) {
-        console.warn('[Invoice] Update alert dispatch note:', e);
-      }
-    }, 100);
-
     res.json({ success: true, message: 'Invoice updated successfully', invoice });
   } catch (error) {
     next(error);
@@ -717,28 +700,6 @@ export const recordPayment = async (req: Request, res: Response, next: NextFunct
           invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
           invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
           await invoice.save();
-
-          // Background PDF dispatch for invoice updated with payment
-          setTimeout(async () => {
-            try {
-              const stream = PDFService.generateInvoicePDF(invoice);
-              const chunks: Buffer[] = [];
-              stream.on('data', (c) => chunks.push(Buffer.from(c)));
-              stream.on('end', async () => {
-                const pdfBuffer = Buffer.concat(chunks);
-                await sendInvoiceAlertEmail(
-                  invoice,
-                  pdfBuffer,
-                  true,
-                  `Payment of ₹${toRupees(Number(amountPaise)).toLocaleString('en-IN')} recorded (${paymentMode || 'Direct'}). Outstanding due: ₹${toRupees(invoice.dueAmountPaise).toLocaleString('en-IN')}`
-                ).catch((mailErr) => {
-                  console.error('[Invoice] Failed to dispatch payment alert email:', mailErr);
-                });
-              });
-            } catch (e) {
-              console.warn('[Invoice] Payment update note:', e);
-            }
-          }, 100);
         }
       }
 
@@ -781,28 +742,6 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
         invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
         invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
         await invoice.save();
-
-        // Background PDF dispatch for verified payment on invoice
-        setTimeout(async () => {
-          try {
-            const stream = PDFService.generateInvoicePDF(invoice);
-            const chunks: Buffer[] = [];
-            stream.on('data', (c) => chunks.push(Buffer.from(c)));
-            stream.on('end', async () => {
-              const pdfBuffer = Buffer.concat(chunks);
-              await sendInvoiceAlertEmail(
-                invoice,
-                pdfBuffer,
-                true,
-                `Payment of ₹${toRupees(payment.amountPaise).toLocaleString('en-IN')} verified & credited. New status: ${invoice.status.toUpperCase()}`
-              ).catch((mailErr) => {
-                console.error('[Invoice] Failed to dispatch payment verification alert email:', mailErr);
-              });
-            });
-          } catch (e) {
-            console.warn('[Invoice] Verify alert note:', e);
-          }
-        }, 100);
       }
     }
 

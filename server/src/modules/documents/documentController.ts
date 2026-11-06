@@ -152,36 +152,6 @@ export const updateDocument = async (req: Request, res: Response, next: NextFunc
       .populate('projectId', 'projectId title')
       .populate('uploadedBy', 'name role');
 
-    // Locate local file for attachment if available
-    let fileAttachment: { filename: string; path?: string } | undefined;
-    const effectiveFileUrl = document.fileUrl;
-    if (effectiveFileUrl && typeof effectiveFileUrl === 'string') {
-      const cleanPath = effectiveFileUrl.replace(/^\/uploads\//, '');
-      const candidatePaths = [
-        path.resolve(process.cwd(), 'server', 'uploads', cleanPath),
-        path.resolve(process.cwd(), 'uploads', cleanPath),
-        path.resolve(__dirname, '../../uploads', cleanPath),
-      ];
-      for (const cp of candidatePaths) {
-        if (fs.existsSync(cp)) {
-          fileAttachment = {
-            filename: document.fileName || 'document.pdf',
-            path: cp,
-          };
-          break;
-        }
-      }
-    }
-
-    sendDocumentUploadAlertEmail(
-      populated || document,
-      fileAttachment,
-      true,
-      `Official Document metadata/file updated (v${document.version || 1}.0)`
-    ).catch((err) => {
-      console.error('[Documents] Failed to dispatch document update alert email:', err);
-    });
-
     res.json({
       success: true,
       message: 'Document updated successfully',

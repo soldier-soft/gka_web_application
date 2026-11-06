@@ -229,6 +229,7 @@ GKA Construction — Building Trust. Delivering Quality.`;
   const [messageBody, setMessageBody] = useState(defaultBody);
   const [copied, setCopied] = useState(false);
   const [isSendingMail, setIsSendingMail] = useState(false);
+  const [isProcessingAction, setIsProcessingAction] = useState<string | null>(null);
   const [mailStatus, setMailStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const handleCopy = () => {
@@ -237,7 +238,59 @@ GKA Construction — Building Trust. Delivering Quality.`;
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleShareWhatsApp = () => {
+  const getPdfBlobAndFile = async (): Promise<{ blob: Blob; file: File; filename: string }> => {
+    const filename =
+      docType === 'welcome'
+        ? `GKA_Project_Welcome_${docNumber}.pdf`
+        : `${docNumber}.pdf`;
+
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(fullPdfUrl, { headers });
+    if (!response.ok) {
+      throw new Error(`Failed to load document file (HTTP ${response.status})`);
+    }
+    const blob = await response.blob();
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    return { blob, file, filename };
+  };
+
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadFile = async () => {
+    setIsProcessingAction('download');
+    try {
+      const { blob, filename } = await getPdfBlobAndFile();
+      triggerDownload(blob, filename);
+      setMailStatus({
+        type: 'success',
+        message: `Official document "${filename}" downloaded successfully to your device.`,
+      });
+    } catch (err: any) {
+      console.warn('Direct blob download failed, falling back to window.open:', err);
+      window.open(fullPdfUrl, '_blank');
+    } finally {
+      setIsProcessingAction(null);
+    }
+  };
+
+  const handleShareWhatsApp = async () => {
+    setIsProcessingAction('whatsapp');
+    setMailStatus(null);
+
     let cleanPhone = recipientPhone.replace(/\D/g, '');
     if (cleanPhone.length === 10) {
       cleanPhone = `91${cleanPhone}`;
@@ -245,14 +298,104 @@ GKA Construction — Building Trust. Delivering Quality.`;
     const waUrl = cleanPhone
       ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(messageBody)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(messageBody)}`;
-    window.open(waUrl, '_blank');
+
+    try {
+      const { blob, file, filename } = await getPdfBlobAndFile();
+
+      // Check if Web Share API can share the PDF file directly to WhatsApp
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({
+            title: subjectText,
+            text: messageBody,
+            files: [file],
+          });
+          setMailStatus({
+            type: 'success',
+            message: `Official document (${filename}) and message shared via WhatsApp!`,
+          });
+          return;
+        } catch (shareErr: any) {
+          if (shareErr.name === 'AbortError') return; // User closed dialog
+          console.warn('Native share with file failed, falling back to auto-download:', shareErr);
+        }
+      }
+
+      // Fallback for Desktop / WhatsApp Web:
+      // Download file to disk so user can attach/drag-and-drop, and open WhatsApp with prefilled message
+      triggerDownload(blob, filename);
+      window.open(waUrl, '_blank');
+      setMailStatus({
+        type: 'success',
+        message: `📎 ${filename} downloaded! In WhatsApp, click the 📎 attachment icon to attach the downloaded file, or drag and drop it into your chat.`,
+      });
+    } catch (err: any) {
+      console.warn('WhatsApp share fetch failed, opening text link:', err);
+      window.open(waUrl, '_blank');
+      setMailStatus({
+        type: 'error',
+        message: 'Could not fetch file for attachment. Opened WhatsApp with text template.',
+      });
+    } finally {
+      setIsProcessingAction(null);
+    }
   };
 
-  const handleShareEmailClient = () => {
+  const handleShareEmailClient = async () => {
+    setIsProcessingAction('mailapp');
+    setMailStatus(null);
+
     const mailtoUrl = `mailto:${encodeURIComponent(recipientEmail)}?subject=${encodeURIComponent(
       subjectText
     )}&body=${encodeURIComponent(messageBody)}`;
-    window.open(mailtoUrl, '_blank');
+
+    try {
+      const { blob, file, filename } = await getPdfBlobAndFile();
+
+      // Check if Web Share API can open Mail App with the attached PDF file
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        try {
+          await navigator.share({
+            title: subjectText,
+            text: messageBody,
+            files: [file],
+          });
+          setMailStatus({
+            type: 'success',
+            message: `Official document (${filename}) opened in Mail app with file attachment!`,
+          });
+          return;
+        } catch (shareErr: any) {
+          if (shareErr.name === 'AbortError') return;
+          console.warn('Native mail share with file failed, falling back:', shareErr);
+        }
+      }
+
+      // Desktop fallback: Download the official file and open Mail client
+      triggerDownload(blob, filename);
+      window.open(mailtoUrl, '_blank');
+      setMailStatus({
+        type: 'success',
+        message: `📎 ${filename} downloaded! Opening your Mail app — please attach the downloaded file to your email message.`,
+      });
+    } catch (err: any) {
+      console.warn('Mail app fetch failed, opening mailto link:', err);
+      window.open(mailtoUrl, '_blank');
+      setMailStatus({
+        type: 'error',
+        message: 'Could not fetch file for attachment. Opened Mail app with message.',
+      });
+    } finally {
+      setIsProcessingAction(null);
+    }
   };
 
   const handleSendDirectEmail = async () => {
@@ -381,11 +524,10 @@ GKA Construction — Building Trust. Delivering Quality.`;
           {/* Mail Status Alert (if sent via SMTP) */}
           {mailStatus && (
             <div
-              className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
-                mailStatus.type === 'success'
+              className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${mailStatus.type === 'success'
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                   : 'bg-rose-50 border-rose-200 text-rose-800'
-              }`}
+                }`}
             >
               {mailStatus.type === 'success' ? (
                 <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -484,24 +626,36 @@ GKA Construction — Building Trust. Delivering Quality.`;
           {/* Certified Attachment File Preview */}
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 text-xs flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-700">Certified Attachment:</span>
+              <span className="font-semibold text-slate-700">Official Document File:</span>
               <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300 flex items-center gap-1">
                 <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
                 {docType === 'welcome' ? `GKA_Project_Welcome_${docNumber}.pdf` : `${docNumber}.pdf`}
               </span>
-              <span className="text-[11px] text-emerald-700 font-medium">(Attached Directly to Email)</span>
+              <span className="text-[11px] text-emerald-700 font-medium">(File Attachment Ready)</span>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadFile}
+                disabled={Boolean(isProcessingAction)}
+                className="px-3 py-1.5 rounded-lg bg-[#0F254B] text-white hover:bg-brand-navy-800 font-bold inline-flex items-center gap-1.5 shadow-sm transition-all text-xs"
+                title="Download official PDF file to device"
+              >
+                {isProcessingAction === 'download' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D6A21D]" />
+                ) : (
+                  <FileDown className="w-3.5 h-3.5 text-[#D6A21D]" />
+                )}
+                <span>Download File</span>
+              </button>
               <a
                 href={fullPdfUrl}
-                download={docType === 'welcome' ? `GKA_Project_Welcome_${docNumber}.pdf` : `${docNumber}.pdf`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-3 py-1.5 rounded-lg bg-[#0F254B] text-white hover:bg-brand-navy-800 font-bold inline-flex items-center gap-1.5 shadow-sm transition-all"
-                title="Download or preview PDF file directly"
+                className="px-2.5 py-1.5 rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold inline-flex items-center gap-1 shadow-xs transition-all text-xs"
+                title="Open PDF preview in new tab"
               >
-                <FileDown className="w-3.5 h-3.5 text-[#D6A21D]" />
-                <span>Download / Preview File</span>
+                <span>Preview</span>
                 <ExternalLink className="w-3 h-3 opacity-60 ml-0.5" />
               </a>
             </div>
@@ -529,47 +683,67 @@ GKA Construction — Building Trust. Delivering Quality.`;
           </button>
 
           <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
-            {/* WhatsApp Button */}
+            {/* WhatsApp Button with File */}
             <button
               type="button"
               onClick={handleShareWhatsApp}
-              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
-              title="Share structured template with PDF link on WhatsApp"
+              disabled={Boolean(isProcessingAction) || isSendingMail}
+              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
+              title="Share document file and formatted text on WhatsApp"
             >
-              <MessageCircle className="w-4 h-4 fill-white text-emerald-600" />
-              <span>WhatsApp</span>
+              {isProcessingAction === 'whatsapp' ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Preparing WhatsApp...</span>
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="w-4 h-4 fill-white text-emerald-600" />
+                  <span>WhatsApp + File</span>
+                </>
+              )}
             </button>
 
             {/* Direct Send via Mail Service (SMTP) Button */}
             <button
               type="button"
               onClick={handleSendDirectEmail}
-              disabled={isSendingMail}
+              disabled={Boolean(isProcessingAction) || isSendingMail}
               className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-[#0F254B] hover:bg-[#1A3A73] disabled:opacity-60 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 border border-[#C59A27]/40"
               title="Dispatch official text template and attached PDF document via GKA Mail Service"
             >
               {isSendingMail ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-[#D6A21D]" />
-                  <span>Sending Mail & Attachment...</span>
+                  <span>Dispatching Mail & File...</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4 text-[#D6A21D]" />
-                  <span>Dispatch Mail &amp; Attachment</span>
+                  <span>Dispatch Mail &amp; File</span>
                 </>
               )}
             </button>
 
-            {/* Email Client (Mailto) Fallback Button */}
+            {/* Email Client (Mailto / Web Share) Button */}
             <button
               type="button"
               onClick={handleShareEmailClient}
-              className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5"
-              title="Open default email application"
+              disabled={Boolean(isProcessingAction) || isSendingMail}
+              className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 disabled:opacity-60 text-slate-700 border border-slate-300 text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5"
+              title="Open default email application with document file attached"
             >
-              <Mail className="w-3.5 h-3.5 text-slate-500" />
-              <span>Mail App</span>
+              {isProcessingAction === 'mailapp' ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-600" />
+                  <span>Preparing Mail...</span>
+                </>
+              ) : (
+                <>
+                  <Mail className="w-3.5 h-3.5 text-slate-500" />
+                  <span>App Mail + File</span>
+                </>
+              )}
             </button>
           </div>
         </div>

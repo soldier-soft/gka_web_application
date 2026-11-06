@@ -394,23 +394,6 @@ const updateInvoice = async (req, res, next) => {
             }
         }
         await invoice.save();
-        // Background PDF Dispatch for updated invoice backup to company emails
-        setTimeout(async () => {
-            try {
-                const stream = pdfService_1.PDFService.generateInvoicePDF(invoice);
-                const chunks = [];
-                stream.on('data', (c) => chunks.push(Buffer.from(c)));
-                stream.on('end', async () => {
-                    const pdfBuffer = Buffer.concat(chunks);
-                    await (0, emailService_1.sendInvoiceAlertEmail)(invoice, pdfBuffer, true, 'Bill / Tax Invoice parameters or items updated').catch((mailErr) => {
-                        console.error('[Invoice] Failed to dispatch invoice update email:', mailErr);
-                    });
-                });
-            }
-            catch (e) {
-                console.warn('[Invoice] Update alert dispatch note:', e);
-            }
-        }, 100);
         res.json({ success: true, message: 'Invoice updated successfully', invoice });
     }
     catch (error) {
@@ -628,23 +611,6 @@ const recordPayment = async (req, res, next) => {
                     invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
                     invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
                     await invoice.save();
-                    // Background PDF dispatch for invoice updated with payment
-                    setTimeout(async () => {
-                        try {
-                            const stream = pdfService_1.PDFService.generateInvoicePDF(invoice);
-                            const chunks = [];
-                            stream.on('data', (c) => chunks.push(Buffer.from(c)));
-                            stream.on('end', async () => {
-                                const pdfBuffer = Buffer.concat(chunks);
-                                await (0, emailService_1.sendInvoiceAlertEmail)(invoice, pdfBuffer, true, `Payment of ₹${(0, constants_1.toRupees)(Number(amountPaise)).toLocaleString('en-IN')} recorded (${paymentMode || 'Direct'}). Outstanding due: ₹${(0, constants_1.toRupees)(invoice.dueAmountPaise).toLocaleString('en-IN')}`).catch((mailErr) => {
-                                    console.error('[Invoice] Failed to dispatch payment alert email:', mailErr);
-                                });
-                            });
-                        }
-                        catch (e) {
-                            console.warn('[Invoice] Payment update note:', e);
-                        }
-                    }, 100);
                 }
             }
             await Project_1.Project.findByIdAndUpdate(projectId, {
@@ -682,23 +648,6 @@ const verifyPayment = async (req, res, next) => {
                 invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
                 invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
                 await invoice.save();
-                // Background PDF dispatch for verified payment on invoice
-                setTimeout(async () => {
-                    try {
-                        const stream = pdfService_1.PDFService.generateInvoicePDF(invoice);
-                        const chunks = [];
-                        stream.on('data', (c) => chunks.push(Buffer.from(c)));
-                        stream.on('end', async () => {
-                            const pdfBuffer = Buffer.concat(chunks);
-                            await (0, emailService_1.sendInvoiceAlertEmail)(invoice, pdfBuffer, true, `Payment of ₹${(0, constants_1.toRupees)(payment.amountPaise).toLocaleString('en-IN')} verified & credited. New status: ${invoice.status.toUpperCase()}`).catch((mailErr) => {
-                                console.error('[Invoice] Failed to dispatch payment verification alert email:', mailErr);
-                            });
-                        });
-                    }
-                    catch (e) {
-                        console.warn('[Invoice] Verify alert note:', e);
-                    }
-                }, 100);
             }
         }
         // Update Project collected amount

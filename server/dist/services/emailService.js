@@ -1185,18 +1185,16 @@ const sendDocumentNotificationEmail = async (payload) => {
                 });
             }
         }
-        const companyRecipients = (0, exports.getCompanyRecipientEmails)().filter((email) => email.toLowerCase() !== payload.recipientEmail.toLowerCase());
         await transporter.sendMail({
             from: fromAddress,
             replyTo,
             to: payload.recipientEmail,
-            cc: companyRecipients.length > 0 ? companyRecipients : undefined,
             subject,
             html: emailHtml,
             text: payload.customMessage || undefined,
             attachments: attachments.length > 0 ? attachments : undefined,
         });
-        console.log(`[EmailService] Document share email dispatched to ${payload.recipientEmail} with ${attachments.length} attachment(s) (cc: ${companyRecipients.join(', ')})`);
+        console.log(`[EmailService] Document share email dispatched to ${payload.recipientEmail} with ${attachments.length} attachment(s)`);
         return { sent: true };
     }
     catch (error) {
