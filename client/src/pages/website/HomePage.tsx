@@ -462,6 +462,7 @@ import {
 export const HomePage: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     phone: '',
     projectCategory: 'residential',
     siteLocation: '',
@@ -494,6 +495,7 @@ export const HomePage: React.FC = () => {
     try {
       const res = await api.createEnquiry({
         ...formData,
+        email: formData.email?.trim() || undefined,
         approxAreaSqFt: formData.approxAreaSqFt ? Number(formData.approxAreaSqFt) : undefined,
         source: 'website_contact',
       });
@@ -501,6 +503,7 @@ export const HomePage: React.FC = () => {
         setSubmitSuccess(true);
         setFormData({
           name: '',
+          email: '',
           phone: '',
           projectCategory: 'residential',
           siteLocation: '',
@@ -727,16 +730,30 @@ export const HomePage: React.FC = () => {
                       </div>
                     )}
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Your Full Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="e.g. Ramesh Kumar"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-gold-500 focus:outline-none"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Your Full Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          placeholder="e.g. Ramesh Kumar"
+                          className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-gold-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Email Address <span className="text-slate-400 font-normal">(Instant copy)</span>
+                        </label>
+                        <input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          placeholder="e.g. ramesh@example.com"
+                          className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-brand-gold-500 focus:outline-none"
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1051,44 +1068,39 @@ export const HomePage: React.FC = () => {
                 <button
                   key={step.id}
                   onClick={() => setActiveProcedureStep(idx)}
-                  className={`relative p-3.5 rounded-xl text-left transition-all duration-200 border flex flex-col justify-between group ${
-                    isActive
+                  className={`relative p-3.5 rounded-xl text-left transition-all duration-200 border flex flex-col justify-between group ${isActive
                       ? 'bg-brand-navy-950 text-white border-brand-gold-500 shadow-premium ring-2 ring-brand-gold-400/40'
                       : 'bg-[#F8FAFC] text-slate-700 border-slate-200 hover:bg-slate-100/80 hover:border-slate-300'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span
-                      className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center font-mono transition-colors ${
-                        isActive
+                      className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center font-mono transition-colors ${isActive
                           ? 'bg-brand-gold-500 text-brand-navy-950'
                           : 'bg-slate-200 text-slate-700 group-hover:bg-brand-navy-100 group-hover:text-brand-navy-900'
-                      }`}
+                        }`}
                     >
                       {step.stepNumber}
                     </span>
                     <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                        isActive
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isActive
                           ? 'bg-white/10 text-brand-gold-300 border border-brand-gold-400/30'
                           : 'bg-slate-200/80 text-slate-600'
-                      }`}
+                        }`}
                     >
                       {step.duration}
                     </span>
                   </div>
                   <div>
                     <p
-                      className={`text-xs font-bold font-heading line-clamp-1 transition-colors ${
-                        isActive ? 'text-white' : 'text-slate-900 group-hover:text-brand-navy-900'
-                      }`}
+                      className={`text-xs font-bold font-heading line-clamp-1 transition-colors ${isActive ? 'text-white' : 'text-slate-900 group-hover:text-brand-navy-900'
+                        }`}
                     >
                       {step.title.split('&')[0].trim()}
                     </p>
                     <p
-                      className={`text-[11px] line-clamp-1 mt-0.5 ${
-                        isActive ? 'text-slate-300' : 'text-slate-500'
-                      }`}
+                      className={`text-[11px] line-clamp-1 mt-0.5 ${isActive ? 'text-slate-300' : 'text-slate-500'
+                        }`}
                     >
                       {step.phaseCategory}
                     </p>
@@ -1324,47 +1336,42 @@ export const HomePage: React.FC = () => {
                   <div
                     key={step.id}
                     onClick={() => setActiveProcedureStep(idx)}
-                    className={`cursor-pointer rounded-xl p-4 border transition-all duration-200 flex flex-col justify-between ${
-                      isActive
+                    className={`cursor-pointer rounded-xl p-4 border transition-all duration-200 flex flex-col justify-between ${isActive
                         ? 'bg-brand-navy-950 text-white border-brand-gold-500 shadow-md ring-2 ring-brand-gold-400/30'
                         : 'bg-white text-slate-800 border-slate-200 hover:border-brand-gold-400 hover:shadow-subtle'
-                    }`}
+                      }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span
-                          className={`w-6 h-6 rounded-md text-[11px] font-bold font-mono flex items-center justify-center ${
-                            isActive
+                          className={`w-6 h-6 rounded-md text-[11px] font-bold font-mono flex items-center justify-center ${isActive
                               ? 'bg-brand-gold-500 text-brand-navy-950'
                               : 'bg-slate-100 text-slate-700'
-                          }`}
+                            }`}
                         >
                           {step.stepNumber}
                         </span>
                         <span
-                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            isActive
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isActive
                               ? 'bg-white/10 text-brand-gold-300'
                               : 'bg-slate-100 text-slate-600'
-                          }`}
+                            }`}
                         >
                           {step.duration}
                         </span>
                       </div>
                       <h5
-                        className={`text-xs font-bold font-heading line-clamp-2 ${
-                          isActive ? 'text-white' : 'text-brand-navy-950'
-                        }`}
+                        className={`text-xs font-bold font-heading line-clamp-2 ${isActive ? 'text-white' : 'text-brand-navy-950'
+                          }`}
                       >
                         {step.title}
                       </h5>
                     </div>
                     <p
-                      className={`text-[11px] mt-2 pt-2 border-t font-medium ${
-                        isActive
+                      className={`text-[11px] mt-2 pt-2 border-t font-medium ${isActive
                           ? 'border-white/10 text-brand-gold-400'
                           : 'border-slate-100 text-slate-400'
-                      }`}
+                        }`}
                     >
                       {step.phaseCategory}
                     </p>
@@ -1481,11 +1488,10 @@ export const HomePage: React.FC = () => {
           <div className="flex items-center justify-center gap-3 flex-wrap mb-12">
             <button
               onClick={() => setActiveSectionTab('verified')}
-              className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${
-                activeSectionTab === 'verified'
+              className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${activeSectionTab === 'verified'
                   ? 'bg-[#10203A] text-white ring-2 ring-[#D6A21D] shadow-md'
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-              }`}
+                }`}
             >
               <CheckCircle className="w-4 h-4 text-[#D6A21D]" />
               <span>1. Client Projects (Confirmed Work)</span>
@@ -1493,11 +1499,10 @@ export const HomePage: React.FC = () => {
 
             <button
               onClick={() => setActiveSectionTab('capabilities')}
-              className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${
-                activeSectionTab === 'capabilities'
+              className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${activeSectionTab === 'capabilities'
                   ? 'bg-[#10203A] text-white ring-2 ring-[#D6A21D] shadow-md'
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-              }`}
+                }`}
             >
               <Building2 className="w-4 h-4 text-[#D6A21D]" />
               <span>2. Project Types & Construction Capabilities</span>
@@ -1505,11 +1510,10 @@ export const HomePage: React.FC = () => {
 
             <button
               onClick={() => setActiveSectionTab('pillars')}
-              className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${
-                activeSectionTab === 'pillars'
+              className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center gap-2 ${activeSectionTab === 'pillars'
                   ? 'bg-[#10203A] text-white ring-2 ring-[#D6A21D] shadow-md'
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-              }`}
+                }`}
             >
               <Layers className="w-4 h-4 text-[#D6A21D]" />
               <span>3. Core Capability Pillars (SEO Scope)</span>
@@ -2131,11 +2135,10 @@ export const HomePage: React.FC = () => {
                     setFaqCategory(cat.id);
                     setActiveFaqIndex(null);
                   }}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    faqCategory === cat.id
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${faqCategory === cat.id
                       ? 'bg-brand-navy-950 text-white shadow-xs ring-1 ring-brand-gold-400'
                       : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                  }`}
+                    }`}
                 >
                   {cat.label}
                 </button>
@@ -2151,11 +2154,10 @@ export const HomePage: React.FC = () => {
                 return (
                   <div
                     key={faq.id}
-                    className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
-                      isOpen
+                    className={`rounded-2xl border transition-all duration-200 overflow-hidden ${isOpen
                         ? 'bg-white border-brand-gold-500/60 shadow-premium ring-1 ring-brand-gold-400/20'
                         : 'bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs'
-                    }`}
+                      }`}
                   >
                     <button
                       onClick={() => setActiveFaqIndex(isOpen ? null : idx)}
@@ -2164,11 +2166,10 @@ export const HomePage: React.FC = () => {
                     >
                       <div className="flex items-start gap-3.5">
                         <span
-                          className={`w-7 h-7 rounded-lg text-xs font-bold font-mono flex items-center justify-center shrink-0 mt-0.5 ${
-                            isOpen
+                          className={`w-7 h-7 rounded-lg text-xs font-bold font-mono flex items-center justify-center shrink-0 mt-0.5 ${isOpen
                               ? 'bg-brand-gold-500 text-brand-navy-950'
                               : 'bg-slate-100 text-slate-600'
-                          }`}
+                            }`}
                         >
                           {String(idx + 1).padStart(2, '0')}
                         </span>
@@ -2177,9 +2178,8 @@ export const HomePage: React.FC = () => {
                             {faq.categoryLabel}
                           </span>
                           <h3
-                            className={`text-sm sm:text-base font-heading font-bold leading-snug transition-colors ${
-                              isOpen ? 'text-brand-navy-950' : 'text-slate-800'
-                            }`}
+                            className={`text-sm sm:text-base font-heading font-bold leading-snug transition-colors ${isOpen ? 'text-brand-navy-950' : 'text-slate-800'
+                              }`}
                           >
                             {faq.question}
                           </h3>
@@ -2187,11 +2187,10 @@ export const HomePage: React.FC = () => {
                       </div>
 
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                          isOpen
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${isOpen
                             ? 'bg-brand-navy-950 text-brand-gold-400'
                             : 'bg-slate-100 text-slate-500'
-                        }`}
+                          }`}
                       >
                         {isOpen ? (
                           <ChevronUp className="w-4 h-4" />

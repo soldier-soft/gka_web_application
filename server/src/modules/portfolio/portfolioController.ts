@@ -413,16 +413,15 @@ export const createPublicEnquiry = async (req: Request, res: Response, next: Nex
           serviceType === 'commercial'
             ? 'commercial'
             : serviceType === 'renovation'
-            ? 'renovation'
-            : serviceType === 'civil_finishing'
-            ? 'civil_structural'
-            : 'residential',
+              ? 'renovation'
+              : serviceType === 'civil_finishing'
+                ? 'civil_structural'
+                : 'residential',
         siteLocation: projectLocation.trim(),
         city: 'Chennai',
         approxAreaSqFt: builtUpAreaSqFt ? Number(builtUpAreaSqFt) : undefined,
-        message: `[Ref: ${referenceNumber}] ${requirements.trim()}${
-          relatedProjectTitle ? ` | Inquired about Project: ${relatedProjectTitle}` : ''
-        }${relatedIdeaTitle ? ` | Inquired about Concept: ${relatedIdeaTitle}` : ''}`,
+        message: `[Ref: ${referenceNumber}] ${requirements.trim()}${relatedProjectTitle ? ` | Inquired about Project: ${relatedProjectTitle}` : ''
+          }${relatedIdeaTitle ? ` | Inquired about Concept: ${relatedIdeaTitle}` : ''}`,
         source: 'website_contact',
         status: 'new',
       });

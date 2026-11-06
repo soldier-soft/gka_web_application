@@ -23,6 +23,7 @@ export const CostEstimatorPage: React.FC = () => {
 
   // Contact form state for quotation enquiry
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [siteLocation, setSiteLocation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,6 +57,7 @@ export const CostEstimatorPage: React.FC = () => {
     try {
       const res = await api.createEnquiry({
         name,
+        email: email.trim() || undefined,
         phone,
         projectCategory,
         siteLocation,
@@ -336,6 +338,19 @@ export const CostEstimatorPage: React.FC = () => {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="e.g. Anand Kumar"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-brand-gold-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Email Address <span className="text-slate-400 font-normal">(Instant copy)</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. anand@example.com"
                       className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-brand-gold-500 focus:outline-none"
                     />
                   </div>

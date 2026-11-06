@@ -1,7 +1,24 @@
 #!/usr/bin/env node
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.server = exports.app = void 0;
+const dns_1 = __importDefault(require("dns"));
+const net_1 = __importDefault(require("net"));
+// Force Node to prioritize IPv4 and disable Happy Eyeballs autoSelectFamily
+// to eliminate IPv6 network connection timeout stalls
+try {
+    dns_1.default.setDefaultResultOrder('ipv4first');
+}
+catch { }
+try {
+    if (net_1.default.setDefaultAutoSelectFamily) {
+        net_1.default.setDefaultAutoSelectFamily(false);
+    }
+}
+catch { }
 const app_1 = require("./app");
 const db_1 = require("./config/db");
 const env_1 = require("./config/env");

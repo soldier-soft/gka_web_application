@@ -68,8 +68,8 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
         requirements: initialContext?.relatedIdeaTitle
           ? `I am interested in exploring the "${initialContext.relatedIdeaTitle}" concept for my site. Please provide recommendations and arrange a site visit.`
           : initialContext?.relatedProjectTitle
-          ? `I am inquiring about a similar scope to the "${initialContext.relatedProjectTitle}" project. Please advise on specifications and site inspection.`
-          : '',
+            ? `I am inquiring about a similar scope to the "${initialContext.relatedProjectTitle}" project. Please advise on specifications and site inspection.`
+            : '',
       }));
       setSubmissionResult(null);
       setErrorMessage('');
@@ -341,11 +341,10 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                         key={m.id}
                         type="button"
                         onClick={() => setFormData({ ...formData, preferredContactMethod: m.id as any })}
-                        className={`px-2 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all ${
-                          formData.preferredContactMethod === m.id
+                        className={`px-2 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border transition-all ${formData.preferredContactMethod === m.id
                             ? 'bg-[#10203A] text-white border-[#10203A] shadow-sm'
                             : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                        }`}
+                          }`}
                       >
                         <m.icon className="w-3.5 h-3.5" />
                         <span>{m.label}</span>

@@ -223,6 +223,23 @@ const approveQuotation = async (req, res, next) => {
             quotation.convertedToBudget = true;
             await quotation.save();
         }
+        // Background PDF dispatch for approved quotation backup to company emails
+        setTimeout(async () => {
+            try {
+                const stream = pdfService_1.PDFService.generateQuotationPDF(quotation);
+                const chunks = [];
+                stream.on('data', (c) => chunks.push(Buffer.from(c)));
+                stream.on('end', async () => {
+                    const pdfBuffer = Buffer.concat(chunks);
+                    await (0, emailService_1.sendQuotationAlertEmail)(quotation, pdfBuffer, true, 'Quotation Status Updated to APPROVED').catch((mailErr) => {
+                        console.error('[Quotation] Failed to dispatch quotation approval email:', mailErr);
+                    });
+                });
+            }
+            catch (e) {
+                console.warn('[Quotation] Approval alert dispatch note:', e);
+            }
+        }, 100);
         res.json({
             success: true,
             message: 'Quotation approved successfully and project budget initialized.',
@@ -560,6 +577,23 @@ const updateQuotation = async (req, res, next) => {
             }
         }
         await quotation.save();
+        // Background PDF dispatch for updated quotation backup to company emails
+        setTimeout(async () => {
+            try {
+                const stream = pdfService_1.PDFService.generateQuotationPDF(quotation);
+                const chunks = [];
+                stream.on('data', (c) => chunks.push(Buffer.from(c)));
+                stream.on('end', async () => {
+                    const pdfBuffer = Buffer.concat(chunks);
+                    await (0, emailService_1.sendQuotationAlertEmail)(quotation, pdfBuffer, true, 'Quotation parameters or line items updated').catch((mailErr) => {
+                        console.error('[Quotation] Failed to dispatch quotation update email:', mailErr);
+                    });
+                });
+            }
+            catch (e) {
+                console.warn('[Quotation] Update alert dispatch note:', e);
+            }
+        }, 100);
         res.json({ success: true, message: 'Quotation updated successfully', quotation });
     }
     catch (error) {

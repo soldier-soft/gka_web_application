@@ -1,4 +1,18 @@
 #!/usr/bin/env node
+import dns from 'dns';
+import net from 'net';
+
+// Force Node to prioritize IPv4 and disable Happy Eyeballs autoSelectFamily
+// to eliminate IPv6 network connection timeout stalls
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {}
+try {
+  if ((net as any).setDefaultAutoSelectFamily) {
+    (net as any).setDefaultAutoSelectFamily(false);
+  }
+} catch {}
+
 import { createApp } from './app';
 import { connectDB } from './config/db';
 import { ENV } from './config/env';

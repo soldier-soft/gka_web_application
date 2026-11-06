@@ -133,6 +133,29 @@ const updateDocument = async (req, res, next) => {
         const populated = await Document_1.ProjectDocument.findById(document._id)
             .populate('projectId', 'projectId title')
             .populate('uploadedBy', 'name role');
+        // Locate local file for attachment if available
+        let fileAttachment;
+        const effectiveFileUrl = document.fileUrl;
+        if (effectiveFileUrl && typeof effectiveFileUrl === 'string') {
+            const cleanPath = effectiveFileUrl.replace(/^\/uploads\//, '');
+            const candidatePaths = [
+                path_1.default.resolve(process.cwd(), 'server', 'uploads', cleanPath),
+                path_1.default.resolve(process.cwd(), 'uploads', cleanPath),
+                path_1.default.resolve(__dirname, '../../uploads', cleanPath),
+            ];
+            for (const cp of candidatePaths) {
+                if (fs_1.default.existsSync(cp)) {
+                    fileAttachment = {
+                        filename: document.fileName || 'document.pdf',
+                        path: cp,
+                    };
+                    break;
+                }
+            }
+        }
+        (0, emailService_1.sendDocumentUploadAlertEmail)(populated || document, fileAttachment, true, `Official Document metadata/file updated (v${document.version || 1}.0)`).catch((err) => {
+            console.error('[Documents] Failed to dispatch document update alert email:', err);
+        });
         res.json({
             success: true,
             message: 'Document updated successfully',

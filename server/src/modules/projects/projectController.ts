@@ -360,6 +360,17 @@ export const updateProject = async (req: Request, res: Response, next: NextFunct
       res.status(404).json({ success: false, message: 'Project not found' });
       return;
     }
+
+    // Dispatch Project Update Alert Email to Company
+    sendProjectAlertEmail(
+      project,
+      project.clientId,
+      true,
+      `Project parameters updated. Status: ${(project.status || 'active').toUpperCase()} • Overall Progress: ${project.progressPercent || 0}%`
+    ).catch((err) => {
+      console.error('[Project] Failed to dispatch project update email:', err);
+    });
+
     res.json({ success: true, project });
   } catch (error) {
     next(error);

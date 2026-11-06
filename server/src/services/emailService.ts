@@ -1,12 +1,21 @@
 import nodemailer from 'nodemailer';
 import dns from 'dns';
+import net from 'net';
 import { GKA_COMPANY, toRupees } from '../shared/constants';
 
-// Set DNS to prioritize IPv4 to eliminate IPv6 network timeout delays
+// Set DNS to prioritize IPv4 and disable Node 20 Happy Eyeballs autoSelectFamily
+// to eliminate IPv6 network timeout delays on Windows
 try {
   dns.setDefaultResultOrder('ipv4first');
 } catch {
   // Ignore in older node versions
+}
+try {
+  if ((net as any).setDefaultAutoSelectFamily) {
+    (net as any).setDefaultAutoSelectFamily(false);
+  }
+} catch {
+  // Ignore
 }
 
 export interface EmailResult {
@@ -53,13 +62,14 @@ export const getTransporter = () => {
     port,
     secure,
     auth: { user, pass },
+    family: 4,
     pool: true,
     maxConnections: 3,
     maxMessages: 100,
     connectionTimeout: 30000,
     greetingTimeout: 30000,
     socketTimeout: 30000,
-  });
+  } as any);
 
   return cachedTransporter;
 };
@@ -139,10 +149,10 @@ export const sendCompanyAndClientEnquiryNotification = async (
     payload.source === 'site_visit_booking'
       ? 'Site Visit Booking'
       : payload.source === 'cost_estimator'
-      ? 'Cost Estimator Inquiry'
-      : payload.source === 'portfolio_inquiry'
-      ? 'Portfolio Concept Inquiry'
-      : 'Website Contact Request';
+        ? 'Cost Estimator Inquiry'
+        : payload.source === 'portfolio_inquiry'
+          ? 'Portfolio Concept Inquiry'
+          : 'Website Contact Request';
 
   const categoryLabel =
     payload.projectCategory || payload.serviceType || 'Residential Construction';
@@ -327,7 +337,7 @@ export const sendCompanyAndClientEnquiryNotification = async (
     // -------------------------------------------------------------
     let clientSent = false;
     if (payload.email && payload.email.includes('@')) {
-      const clientSubject = `We have received your site request — GKA Construction [Ref: #${payload.referenceNumber}]`;
+      const clientSubject = `We will contact you soon — GKA Construction [Ref: #${payload.referenceNumber}]`;
 
       const clientHtml = `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 620px; margin: 0 auto; background-color: #f8fafc; padding: 24px 16px; color: #1e293b;">
@@ -348,11 +358,11 @@ export const sendCompanyAndClientEnquiryNotification = async (
 
             <!-- 8 Hours Guarantee Alert Box -->
             <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #16a34a; border-radius: 8px; padding: 16px 18px; margin: 20px 0;">
-              <h3 style="margin: 0 0 6px 0; font-size: 14px; color: #15803d; font-weight: 800; text-transform: uppercase;">
-                ⚡ Prompt Response Commitment
+              <h3 style="margin: 0 0 6px 0; font-size: 15px; color: #15803d; font-weight: 800; text-transform: uppercase;">
+                ⚡ We will contact you soon!
               </h3>
-              <p style="margin: 0; font-size: 13px; color: #166534; line-height: 1.6;">
-                Our site engineering and estimation team has received your request logged at <strong>${timestampIST}</strong>. <strong>We will review your requirements and respond to you within 8 hours.</strong>
+              <p style="margin: 0; font-size: 14px; color: #166534; line-height: 1.6;">
+                We have safely received your request logged at <strong>${timestampIST}</strong>. <strong>Our site engineering & estimation team will review your requirements and reach out to you within 8 hours.</strong>
               </p>
             </div>
 
@@ -454,12 +464,14 @@ export const sendEnquiryNotification = async (enquiry: any): Promise<EmailResult
 };
 
 // ==============================================================================
-// 2. Official Quotation Creation Alert & Document Backup Email
+// 2. Official Quotation Creation & Update Alert & Document Backup Email
 // ==============================================================================
 
 export const sendQuotationAlertEmail = async (
   quotation: any,
-  pdfBuffer?: Buffer
+  pdfBuffer?: Buffer,
+  isUpdate: boolean = false,
+  updateNote?: string
 ): Promise<EmailResult> => {
   const transporter = getTransporter();
   if (!transporter) {
@@ -467,13 +479,24 @@ export const sendQuotationAlertEmail = async (
     return { sent: false, error: 'SMTP credentials not configured' };
   }
 
-  const timestampIST = formatTimestampIST(quotation.createdAt ? new Date(quotation.createdAt) : new Date());
+  const timestampDate = isUpdate && quotation.updatedAt
+    ? new Date(quotation.updatedAt)
+    : quotation.createdAt
+      ? new Date(quotation.createdAt)
+      : new Date();
+  const timestampIST = formatTimestampIST(timestampDate);
   const fromAddress = process.env.SMTP_FROM || `"GKA Construction" <gkaconstruction51@gmail.com>`;
   const replyTo = process.env.SMTP_REPLY_TO || 'gkaconstruction51@gmail.com';
   const companyRecipients = getCompanyRecipientEmails();
   const totalRupees = toRupees(quotation.totalAmountPaise || 0);
 
-  const subject = `[Backup Alert] New Quotation Created: ${quotation.quotationNumber} — ${quotation.clientName} (₹${totalRupees.toLocaleString('en-IN')})`;
+  const statusLabel = (quotation.status || (isUpdate ? 'updated' : 'draft')).toUpperCase();
+  const subject = isUpdate
+    ? `[Backup Alert] Quotation Updated: ${quotation.quotationNumber} — ${quotation.clientName} (v${quotation.revisionNumber || 1}) [Status: ${statusLabel}] (₹${totalRupees.toLocaleString('en-IN')})`
+    : `[Backup Alert] New Quotation Created: ${quotation.quotationNumber} — ${quotation.clientName} (₹${totalRupees.toLocaleString('en-IN')})`;
+
+  const badgeTitle = isUpdate ? 'Quotation Update & Document Backup Alert' : 'Quotation Creation & Backup Alert';
+  const timeLabel = isUpdate ? 'Updated Timestamp' : 'Created Timestamp';
 
   const itemsHtml = (quotation.items || [])
     .slice(0, 15)
@@ -494,17 +517,21 @@ export const sendQuotationAlertEmail = async (
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 680px; margin: 0 auto; background-color: #f8fafc; padding: 24px 16px; color: #1e293b;">
       <div style="background-color: #0F1E36; border-radius: 12px 12px 0 0; padding: 24px; border-bottom: 4px solid #C59A27;">
         <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800;">GKA CONSTRUCTION</h1>
-        <p style="margin: 4px 0 0 0; color: #C59A27; font-size: 12px; font-weight: 600; text-transform: uppercase;">Quotation Creation & Backup Alert</p>
+        <p style="margin: 4px 0 0 0; color: #C59A27; font-size: 12px; font-weight: 600; text-transform: uppercase;">${badgeTitle}</p>
       </div>
 
       <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; padding: 28px 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
         <div style="background-color: #fefce8; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px;">
           <p style="margin: 0; font-size: 13px; color: #854d0e; font-weight: 600;">
-            📅 <strong>Created Timestamp:</strong> ${timestampIST}
+            📅 <strong>${timeLabel}:</strong> ${timestampIST}
           </p>
           <p style="margin: 4px 0 0 0; font-size: 12px; color: #a16207;">
-            Quotation Reference: <strong style="font-family: monospace;">${quotation.quotationNumber}</strong>
+            Quotation Reference: <strong style="font-family: monospace;">${quotation.quotationNumber}</strong> • Version: <strong>v${quotation.revisionNumber || 1}</strong> • Status: <strong style="text-transform: uppercase;">${statusLabel}</strong>
           </p>
+          ${updateNote ? `
+          <p style="margin: 6px 0 0 0; font-size: 12px; color: #1e3a8a; background: #e0f2fe; padding: 6px 10px; border-radius: 4px;">
+            📝 <strong>Update Note:</strong> ${updateNote}
+          </p>` : ''}
         </div>
 
         <div style="background-color: #f1f5f9; border-radius: 8px; border: 1px solid #e2e8f0; padding: 18px 20px; margin-bottom: 20px;">
@@ -564,7 +591,7 @@ export const sendQuotationAlertEmail = async (
         ${pdfBuffer ? `
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; margin: 18px 0; text-align: center;">
           <p style="margin: 0; font-size: 13px; color: #166534; font-weight: bold;">
-            📎 The complete official Quotation PDF [${quotation.quotationNumber}.pdf] is attached to this email.
+            📎 The complete official Quotation PDF [${quotation.quotationNumber}.pdf] is attached to this backup email.
           </p>
         </div>` : ''}
 
@@ -595,7 +622,7 @@ export const sendQuotationAlertEmail = async (
       attachments,
     });
 
-    console.log(`[EmailService] Quotation backup email dispatched for ${quotation.quotationNumber}`);
+    console.log(`[EmailService] Quotation ${isUpdate ? 'update' : 'creation'} backup email dispatched for ${quotation.quotationNumber}`);
     return { sent: true };
   } catch (error: any) {
     console.error('[EmailService] Quotation backup email error:', error);
@@ -604,12 +631,14 @@ export const sendQuotationAlertEmail = async (
 };
 
 // ==============================================================================
-// 3. Official Bill / Tax Invoice Creation Alert & Document Backup Email
+// 3. Official Bill / Tax Invoice Creation & Update Alert & Backup Email
 // ==============================================================================
 
 export const sendInvoiceAlertEmail = async (
   invoice: any,
-  pdfBuffer?: Buffer
+  pdfBuffer?: Buffer,
+  isUpdate: boolean = false,
+  updateNote?: string
 ): Promise<EmailResult> => {
   const transporter = getTransporter();
   if (!transporter) {
@@ -617,13 +646,26 @@ export const sendInvoiceAlertEmail = async (
     return { sent: false, error: 'SMTP credentials not configured' };
   }
 
-  const timestampIST = formatTimestampIST(invoice.createdAt ? new Date(invoice.createdAt) : new Date());
+  const timestampDate = isUpdate && invoice.updatedAt
+    ? new Date(invoice.updatedAt)
+    : invoice.createdAt
+      ? new Date(invoice.createdAt)
+      : new Date();
+  const timestampIST = formatTimestampIST(timestampDate);
   const fromAddress = process.env.SMTP_FROM || `"GKA Construction" <gkaconstruction51@gmail.com>`;
   const replyTo = process.env.SMTP_REPLY_TO || 'gkaconstruction51@gmail.com';
   const companyRecipients = getCompanyRecipientEmails();
   const totalRupees = toRupees(invoice.totalAmountPaise || 0);
+  const paidRupees = toRupees(invoice.paidAmountPaise || 0);
+  const dueRupees = toRupees(invoice.dueAmountPaise !== undefined ? invoice.dueAmountPaise : Math.max(0, (invoice.totalAmountPaise || 0) - (invoice.paidAmountPaise || 0)));
 
-  const subject = `[Backup Alert] New Bill/Invoice Issued: ${invoice.invoiceNumber} — ${invoice.clientName} (₹${totalRupees.toLocaleString('en-IN')})`;
+  const statusLabel = (invoice.status || (isUpdate ? 'updated' : 'issued')).toUpperCase();
+  const subject = isUpdate
+    ? `[Backup Alert] Bill/Invoice Updated: ${invoice.invoiceNumber} — ${invoice.clientName} [Status: ${statusLabel}] (₹${totalRupees.toLocaleString('en-IN')})`
+    : `[Backup Alert] New Bill/Invoice Issued: ${invoice.invoiceNumber} — ${invoice.clientName} (₹${totalRupees.toLocaleString('en-IN')})`;
+
+  const badgeTitle = isUpdate ? 'Tax Invoice / Bill Update Alert' : 'Tax Invoice / Bill Issuance Alert';
+  const timeLabel = isUpdate ? 'Updated Timestamp' : 'Issued Timestamp';
 
   let dueDateFormatted = '14 calendar days';
   if (invoice.dueDate) {
@@ -638,17 +680,21 @@ export const sendInvoiceAlertEmail = async (
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 680px; margin: 0 auto; background-color: #f8fafc; padding: 24px 16px; color: #1e293b;">
       <div style="background-color: #0F1E36; border-radius: 12px 12px 0 0; padding: 24px; border-bottom: 4px solid #C59A27;">
         <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800;">GKA CONSTRUCTION</h1>
-        <p style="margin: 4px 0 0 0; color: #C59A27; font-size: 12px; font-weight: 600; text-transform: uppercase;">Tax Invoice / Bill Issuance Alert</p>
+        <p style="margin: 4px 0 0 0; color: #C59A27; font-size: 12px; font-weight: 600; text-transform: uppercase;">${badgeTitle}</p>
       </div>
 
       <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; padding: 28px 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
         <div style="background-color: #fefce8; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px;">
           <p style="margin: 0; font-size: 13px; color: #854d0e; font-weight: 600;">
-            📅 <strong>Issued Timestamp:</strong> ${timestampIST}
+            📅 <strong>${timeLabel}:</strong> ${timestampIST}
           </p>
           <p style="margin: 4px 0 0 0; font-size: 12px; color: #a16207;">
-            Invoice Number: <strong style="font-family: monospace;">${invoice.invoiceNumber}</strong>
+            Invoice Number: <strong style="font-family: monospace;">${invoice.invoiceNumber}</strong> • Status: <strong style="text-transform: uppercase;">${statusLabel}</strong>
           </p>
+          ${updateNote ? `
+          <p style="margin: 6px 0 0 0; font-size: 12px; color: #1e3a8a; background: #e0f2fe; padding: 6px 10px; border-radius: 4px;">
+            📝 <strong>Update Note:</strong> ${updateNote}
+          </p>` : ''}
         </div>
 
         <div style="background-color: #f1f5f9; border-radius: 8px; border: 1px solid #e2e8f0; padding: 18px 20px; margin-bottom: 20px;">
@@ -681,8 +727,16 @@ export const sendInvoiceAlertEmail = async (
               <td style="color: #0F1E36; font-weight: 800; font-size: 16px;">₹ ${totalRupees.toLocaleString('en-IN')}</td>
             </tr>
             <tr>
+              <td style="color: #16a34a; font-weight: 600;">Total Paid:</td>
+              <td style="color: #16a34a; font-weight: 700;">₹ ${paidRupees.toLocaleString('en-IN')}</td>
+            </tr>
+            <tr>
+              <td style="color: #dc2626; font-weight: 600;">Outstanding Due:</td>
+              <td style="color: #dc2626; font-weight: 800;">₹ ${dueRupees.toLocaleString('en-IN')}</td>
+            </tr>
+            <tr>
               <td style="color: #64748b; font-weight: 600;">Payment Due Date:</td>
-              <td style="color: #dc2626; font-weight: 700;">${dueDateFormatted}</td>
+              <td style="color: #334155; font-weight: 600;">${dueDateFormatted}</td>
             </tr>
           </table>
         </div>
@@ -690,7 +744,7 @@ export const sendInvoiceAlertEmail = async (
         ${pdfBuffer ? `
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; margin: 18px 0; text-align: center;">
           <p style="margin: 0; font-size: 13px; color: #166534; font-weight: bold;">
-            📎 The complete official Tax Invoice PDF [${invoice.invoiceNumber}.pdf] is attached to this email.
+            📎 The complete official Tax Invoice PDF [${invoice.invoiceNumber}.pdf] is attached to this backup email.
           </p>
         </div>` : ''}
 
@@ -721,7 +775,7 @@ export const sendInvoiceAlertEmail = async (
       attachments,
     });
 
-    console.log(`[EmailService] Invoice backup email dispatched for ${invoice.invoiceNumber}`);
+    console.log(`[EmailService] Invoice ${isUpdate ? 'update' : 'creation'} backup email dispatched for ${invoice.invoiceNumber}`);
     return { sent: true };
   } catch (error: any) {
     console.error('[EmailService] Invoice backup email error:', error);
@@ -730,12 +784,14 @@ export const sendInvoiceAlertEmail = async (
 };
 
 // ==============================================================================
-// 4. Project Initialization Alert Email
+// 4. Project Initialization & Update Alert Email
 // ==============================================================================
 
 export const sendProjectAlertEmail = async (
   project: any,
-  clientDoc?: any
+  clientDoc?: any,
+  isUpdate: boolean = false,
+  updateNote?: string
 ): Promise<EmailResult> => {
   const transporter = getTransporter();
   if (!transporter) {
@@ -743,13 +799,26 @@ export const sendProjectAlertEmail = async (
     return { sent: false, error: 'SMTP credentials not configured' };
   }
 
-  const timestampIST = formatTimestampIST(project.createdAt ? new Date(project.createdAt) : new Date());
+  const timestampDate = isUpdate && project.updatedAt
+    ? new Date(project.updatedAt)
+    : project.createdAt
+      ? new Date(project.createdAt)
+      : new Date();
+  const timestampIST = formatTimestampIST(timestampDate);
   const fromAddress = process.env.SMTP_FROM || `"GKA Construction" <gkaconstruction51@gmail.com>`;
   const replyTo = process.env.SMTP_REPLY_TO || 'gkaconstruction51@gmail.com';
   const companyRecipients = getCompanyRecipientEmails();
   const contractRupees = toRupees(project.contractValuePaise || 0);
+  const invoicedRupees = toRupees(project.invoicedAmountPaise || 0);
+  const collectedRupees = toRupees(project.collectedAmountPaise || 0);
 
-  const subject = `[Project Alert] New Project Workspace Initialized: ${project.projectId} — ${project.title}`;
+  const statusLabel = (project.status || (isUpdate ? 'updated' : 'planning')).toUpperCase();
+  const subject = isUpdate
+    ? `[Project Alert] Project Updated: ${project.projectId} — ${project.title} [Progress: ${project.progressPercent || 0}%, Status: ${statusLabel}]`
+    : `[Project Alert] New Project Workspace Initialized: ${project.projectId} — ${project.title}`;
+
+  const badgeTitle = isUpdate ? 'Project Progress & Information Update Alert' : 'New Project Initialization Alert';
+  const timeLabel = isUpdate ? 'Updated Timestamp' : 'Initialized Timestamp';
 
   let startDateFormatted = 'Immediate';
   let targetEndDateFormatted = '6 Months';
@@ -768,22 +837,26 @@ export const sendProjectAlertEmail = async (
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background-color: #f8fafc; padding: 24px 16px; color: #1e293b;">
       <div style="background-color: #0F1E36; border-radius: 12px 12px 0 0; padding: 24px; border-bottom: 4px solid #C59A27;">
         <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800;">GKA CONSTRUCTION</h1>
-        <p style="margin: 4px 0 0 0; color: #C59A27; font-size: 12px; font-weight: 600; text-transform: uppercase;">New Project Initialization Alert</p>
+        <p style="margin: 4px 0 0 0; color: #C59A27; font-size: 12px; font-weight: 600; text-transform: uppercase;">${badgeTitle}</p>
       </div>
 
       <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; padding: 28px 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
         <div style="background-color: #fefce8; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px;">
           <p style="margin: 0; font-size: 13px; color: #854d0e; font-weight: 600;">
-            📅 <strong>Initialized Timestamp:</strong> ${timestampIST}
+            📅 <strong>${timeLabel}:</strong> ${timestampIST}
           </p>
           <p style="margin: 4px 0 0 0; font-size: 12px; color: #a16207;">
-            Project Identifier: <strong style="font-family: monospace;">${project.projectId}</strong>
+            Project Identifier: <strong style="font-family: monospace;">${project.projectId}</strong> • Status: <strong style="text-transform: uppercase;">${statusLabel}</strong> • Overall Progress: <strong>${project.progressPercent || 0}%</strong>
           </p>
+          ${updateNote ? `
+          <p style="margin: 6px 0 0 0; font-size: 12px; color: #1e3a8a; background: #e0f2fe; padding: 6px 10px; border-radius: 4px;">
+            📝 <strong>Update Note:</strong> ${updateNote}
+          </p>` : ''}
         </div>
 
         <div style="background-color: #f1f5f9; border-radius: 8px; border: 1px solid #e2e8f0; padding: 18px 20px; margin-bottom: 20px;">
           <h3 style="margin: 0 0 12px 0; font-size: 13px; text-transform: uppercase; color: #0F1E36; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">
-            Project Parameters
+            Project Parameters & Progress
           </h3>
           <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 13px;">
             <tr>
@@ -793,6 +866,14 @@ export const sendProjectAlertEmail = async (
             <tr>
               <td style="color: #64748b; font-weight: 600;">Category:</td>
               <td style="color: #334155; text-transform: capitalize; font-weight: 600;">${project.category || 'Residential'}</td>
+            </tr>
+            <tr>
+              <td style="color: #64748b; font-weight: 600;">Current Progress:</td>
+              <td style="color: #0F1E36; font-weight: 700;">
+                <span style="display: inline-block; background-color: #0F1E36; color: #C59A27; padding: 3px 10px; border-radius: 12px; font-size: 12px;">
+                  ${project.progressPercent || 0}% Completed
+                </span>
+              </td>
             </tr>
             <tr>
               <td style="color: #64748b; font-weight: 600;">Client:</td>
@@ -811,6 +892,15 @@ export const sendProjectAlertEmail = async (
               <td style="color: #64748b; font-weight: 600;">Contract Value:</td>
               <td style="color: #0F1E36; font-weight: 800; font-size: 15px;">₹ ${contractRupees.toLocaleString('en-IN')}</td>
             </tr>
+            ${isUpdate ? `
+            <tr>
+              <td style="color: #64748b; font-weight: 600;">Invoiced to Date:</td>
+              <td style="color: #334155; font-weight: 700;">₹ ${invoicedRupees.toLocaleString('en-IN')}</td>
+            </tr>
+            <tr>
+              <td style="color: #64748b; font-weight: 600;">Collected to Date:</td>
+              <td style="color: #16a34a; font-weight: 700;">₹ ${collectedRupees.toLocaleString('en-IN')}</td>
+            </tr>` : ''}
             <tr>
               <td style="color: #64748b; font-weight: 600;">Execution Window:</td>
               <td style="color: #334155;">${startDateFormatted} to ${targetEndDateFormatted}</td>
@@ -841,7 +931,7 @@ export const sendProjectAlertEmail = async (
       html: emailHtml,
     });
 
-    console.log(`[EmailService] Project creation alert dispatched for ${project.projectId}`);
+    console.log(`[EmailService] Project ${isUpdate ? 'update' : 'creation'} alert dispatched for ${project.projectId}`);
     return { sent: true };
   } catch (error: any) {
     console.error('[EmailService] Project alert email error:', error);
@@ -850,12 +940,14 @@ export const sendProjectAlertEmail = async (
 };
 
 // ==============================================================================
-// 5. Official Document Upload / Creation Alert Email
+// 5. Official Document Upload & Update Alert Email
 // ==============================================================================
 
 export const sendDocumentUploadAlertEmail = async (
   document: any,
-  fileAttachment?: { filename: string; content?: Buffer; path?: string }
+  fileAttachment?: { filename: string; content?: Buffer; path?: string },
+  isUpdate: boolean = false,
+  updateNote?: string
 ): Promise<EmailResult> => {
   const transporter = getTransporter();
   if (!transporter) {
@@ -863,28 +955,42 @@ export const sendDocumentUploadAlertEmail = async (
     return { sent: false, error: 'SMTP credentials not configured' };
   }
 
-  const timestampIST = formatTimestampIST(document.createdAt ? new Date(document.createdAt) : new Date());
+  const timestampDate = isUpdate && document.updatedAt
+    ? new Date(document.updatedAt)
+    : document.createdAt
+      ? new Date(document.createdAt)
+      : new Date();
+  const timestampIST = formatTimestampIST(timestampDate);
   const fromAddress = process.env.SMTP_FROM || `"GKA Construction" <gkaconstruction51@gmail.com>`;
   const replyTo = process.env.SMTP_REPLY_TO || 'gkaconstruction51@gmail.com';
   const companyRecipients = getCompanyRecipientEmails();
 
-  const subject = `[Backup Alert] Official Document Uploaded: ${document.title} (${document.category || 'Project Document'})`;
+  const subject = isUpdate
+    ? `[Backup Alert] Official Document Updated: ${document.title} (v${document.version || 1}.0)`
+    : `[Backup Alert] Official Document Uploaded: ${document.title} (${document.category || 'Project Document'})`;
+
+  const badgeTitle = isUpdate ? 'Official Document Repository Update Backup' : 'Official Document Repository Backup';
+  const timeLabel = isUpdate ? 'Updated Timestamp' : 'Uploaded Timestamp';
 
   const emailHtml = `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background-color: #f8fafc; padding: 24px 16px; color: #1e293b;">
       <div style="background-color: #0F1E36; border-radius: 12px 12px 0 0; padding: 24px; border-bottom: 4px solid #C59A27;">
         <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 800;">GKA CONSTRUCTION</h1>
-        <p style="margin: 4px 0 0 0; color: #C59A27; font-size: 12px; font-weight: 600; text-transform: uppercase;">Official Document Repository Backup</p>
+        <p style="margin: 4px 0 0 0; color: #C59A27; font-size: 12px; font-weight: 600; text-transform: uppercase;">${badgeTitle}</p>
       </div>
 
       <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; padding: 28px 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
         <div style="background-color: #fefce8; border-left: 4px solid #ca8a04; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px;">
           <p style="margin: 0; font-size: 13px; color: #854d0e; font-weight: 600;">
-            📅 <strong>Uploaded Timestamp:</strong> ${timestampIST}
+            📅 <strong>${timeLabel}:</strong> ${timestampIST}
           </p>
           <p style="margin: 4px 0 0 0; font-size: 12px; color: #a16207;">
             Category: <strong style="text-transform: uppercase;">${document.category || 'General'}</strong> • Version: <strong>v${document.version || 1}.0</strong>
           </p>
+          ${updateNote ? `
+          <p style="margin: 6px 0 0 0; font-size: 12px; color: #1e3a8a; background: #e0f2fe; padding: 6px 10px; border-radius: 4px;">
+            📝 <strong>Update Note:</strong> ${updateNote}
+          </p>` : ''}
         </div>
 
         <div style="background-color: #f1f5f9; border-radius: 8px; border: 1px solid #e2e8f0; padding: 18px 20px; margin-bottom: 20px;">
@@ -944,7 +1050,7 @@ export const sendDocumentUploadAlertEmail = async (
       attachments,
     });
 
-    console.log(`[EmailService] Document backup email dispatched for ${document.title}`);
+    console.log(`[EmailService] Document ${isUpdate ? 'update' : 'upload'} backup email dispatched for ${document.title}`);
     return { sent: true };
   } catch (error: any) {
     console.error('[EmailService] Document backup email error:', error);
