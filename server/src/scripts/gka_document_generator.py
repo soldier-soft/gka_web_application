@@ -256,7 +256,7 @@ def create_dynamic_document(data: dict[str, Any], doc_type: str = "quotation") -
     r_addr.font.size = Pt(7.5)
     r_addr.font.color.rgb = RGBColor(71, 85, 105)
 
-    r_tax = p_right.add_run("GSTIN: 33CDYPA3555M2ZZ | PAN NO: CDYPA3555M\nMobile: 8838030917 | Email: gkaconstruction51@gmail.com\nWebsite: www.gkaconstruction.com")
+    r_tax = p_right.add_run("UDYAM: UDYAM-TN-29-0114848 (Govt. MSME) | GSTIN: 33CDYPA3555M2ZZ\nPAN: CDYPA3555M | Enterprise: GKA CONSTRUCTION\nMobile: 8838030917 | Email: gkaconstruction51@gmail.com\nWebsite: www.gkaconstruction.com")
     r_tax.font.size = Pt(7.5)
     r_tax.font.bold = True
     r_tax.font.color.rgb = RGBColor(15, 37, 75)

@@ -11,7 +11,7 @@ import { User } from '../../models/User';
 import { PDFService } from '../../services/pdfService';
 import { DOCXService } from '../../services/docxService';
 import { GoogleDriveService } from '../../services/googleDriveService';
-import { sendInvoiceAlertEmail } from '../../services/emailService';
+import { sendInvoiceAlertEmail, streamToBuffer } from '../../services/emailService';
 import { toPaise } from '../../shared/types';
 import { DEFAULT_INVOICE_TERMS, formatClientPortalUsername, toRupees } from '../../shared/constants';
 
@@ -33,8 +33,16 @@ export const getInvoices = async (req: Request, res: Response, next: NextFunctio
       filter.isDeleted = { $ne: true };
     }
 
-    if (req.user?.role === 'client' && req.user.clientId) {
-      filter.clientId = req.user.clientId;
+    // For clients, restrict to their client ID or assigned projects and hide drafts
+    if (req.user?.role === 'client') {
+      const orConditions: any[] = [];
+      if (req.user.clientId) orConditions.push({ clientId: req.user.clientId });
+      if (req.user.assignedProjects && req.user.assignedProjects.length > 0) {
+        orConditions.push({ projectId: { $in: req.user.assignedProjects } });
+      }
+      if (orConditions.length > 0) {
+        filter.$or = orConditions;
+      }
       filter.status = { $ne: 'draft' };
       filter.isDeleted = { $ne: true };
     }
@@ -450,6 +458,22 @@ export const updateInvoice = async (req: Request, res: Response, next: NextFunct
 
     await invoice.save();
 
+    // Background alert email dispatch with PDF attachment for invoice update
+    setTimeout(async () => {
+      try {
+        const stream = PDFService.generateInvoicePDF(invoice);
+        const buffer = await streamToBuffer(stream);
+        await sendInvoiceAlertEmail(
+          invoice,
+          buffer,
+          true,
+          'Tax Invoice parameters or line items updated'
+        );
+      } catch (mailErr) {
+        console.error('[Invoice] Failed to dispatch invoice update alert email:', mailErr);
+      }
+    }, 100);
+
     res.json({ success: true, message: 'Invoice updated successfully', invoice });
   } catch (error) {
     next(error);
@@ -700,6 +724,21 @@ export const recordPayment = async (req: Request, res: Response, next: NextFunct
           invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
           invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
           await invoice.save();
+
+          setTimeout(async () => {
+            try {
+              const stream = PDFService.generateInvoicePDF(invoice);
+              const buffer = await streamToBuffer(stream);
+              await sendInvoiceAlertEmail(
+                invoice,
+                buffer,
+                true,
+                `Payment of ₹${toRupees(Number(amountPaise)).toLocaleString('en-IN')} recorded via ${paymentMode || 'bank_transfer'}`
+              );
+            } catch (mErr) {
+              console.error('[Payment] Alert email error:', mErr);
+            }
+          }, 100);
         }
       }
 
@@ -742,6 +781,21 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
         invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
         invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
         await invoice.save();
+
+        setTimeout(async () => {
+          try {
+            const stream = PDFService.generateInvoicePDF(invoice);
+            const buffer = await streamToBuffer(stream);
+            await sendInvoiceAlertEmail(
+              invoice,
+              buffer,
+              true,
+              `Payment of ₹${toRupees(payment.amountPaise).toLocaleString('en-IN')} verified & credited to invoice`
+            );
+          } catch (mErr) {
+            console.error('[Payment] Verify alert email error:', mErr);
+          }
+        }, 100);
       }
     }
 

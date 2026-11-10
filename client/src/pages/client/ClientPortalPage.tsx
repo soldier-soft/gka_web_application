@@ -1828,6 +1828,114 @@ WEBSITE: ${(GKA_COMPANY.bankDetails.website || GKA_COMPANY.website).toUpperCase(
                         </div>
                       </div>
                     </div>
+
+                    {/* Official Udyam Registration & Enterprise Certificate Card */}
+                    <div className="md:col-span-2 bg-gradient-to-r from-amber-50 via-white to-amber-50/60 rounded-2xl p-6 border-2 border-amber-300 shadow-sm relative overflow-hidden">
+                      <div className="absolute top-0 right-0 transform translate-x-4 -translate-y-4 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-amber-200/80 pb-4 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D6A21D] to-amber-600 text-white flex items-center justify-center font-black shadow-md">
+                            <ShieldCheck className="w-7 h-7" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-amber-800 uppercase tracking-wider bg-amber-200/70 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
+                                Ministry of MSME • Govt. of India
+                              </span>
+                              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300">
+                                Official Registration Verified
+                              </span>
+                            </div>
+                            <h3 className="font-heading font-extrabold text-lg text-brand-navy-950 mt-1">
+                              UDYAM REGISTRATION CERTIFICATE
+                            </h3>
+                          </div>
+                        </div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0F254B] text-amber-300 font-mono text-xs font-bold shadow">
+                          <span>UDYAM-TN-29-0114848</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                        <div className="p-3 rounded-xl bg-white border border-amber-200/70 shadow-xs">
+                          <span className="text-slate-500 block text-[11px] font-medium">UDYAM REGISTRATION NUMBER</span>
+                          <span className="font-mono font-black text-brand-navy-950 text-sm block mt-0.5 tracking-tight">
+                            {GKA_COMPANY.udyamRegistrationNumber}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white border border-amber-200/70 shadow-xs">
+                          <span className="text-slate-500 block text-[11px] font-medium">NAME OF ENTERPRISE</span>
+                          <span className="font-bold text-brand-navy-950 text-sm block mt-0.5">
+                            {GKA_COMPANY.enterpriseName}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white border border-amber-200/70 shadow-xs">
+                          <span className="text-slate-500 block text-[11px] font-medium">STATUTORY GSTIN</span>
+                          <span className="font-mono font-bold text-slate-800 text-xs block mt-0.5">
+                            {GKA_COMPANY.gstin}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white border border-amber-200/70 shadow-xs">
+                          <span className="text-slate-500 block text-[11px] font-medium">PERMANENT ACCOUNT NUMBER</span>
+                          <span className="font-mono font-bold text-slate-800 text-xs block mt-0.5">
+                            PAN: {GKA_COMPANY.pan}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-amber-900/80 mt-3 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>
+                          All quotations, tax invoices, and legal project contracts issued by <strong>{GKA_COMPANY.enterpriseName}</strong> carry this registered Government of India MSME Udyam credentials.
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Client Synchronized Credentials Card */}
+                    <div className="md:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-3 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
+                            <KeyRound className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-heading font-bold text-base text-brand-navy-950">
+                              Client Portal Credentials &amp; Project Linking Status
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Your account is securely synchronized with your projects, quotations, and bills.
+                            </p>
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Credentials Active &amp; Matched
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                          <span className="text-slate-500 block text-[11px]">Portal Username (Login ID)</span>
+                          <span className="font-mono font-bold text-slate-800 text-xs block mt-0.5 truncate">
+                            {user?.email}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                          <span className="text-slate-500 block text-[11px]">Password Status</span>
+                          <span className="font-semibold text-slate-800 text-xs block mt-0.5 flex items-center gap-1">
+                            <Lock className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Encrypted &bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                          <span className="text-slate-500 block text-[11px]">Assigned Projects Linked</span>
+                          <span className="font-bold text-emerald-700 text-xs block mt-0.5">
+                            {projects.length} Workspace{projects.length === 1 ? '' : 's'} Linked
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 

@@ -122,6 +122,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
         email: user.email,
         role: user.role,
         clientId,
+        assignedProjects: (user.assignedProjects || []).map((p: any) => p.toString()),
       };
 
       const token = jwt.sign(payload, ENV.JWT_SECRET, { expiresIn: ENV.JWT_EXPIRES_IN as any });
@@ -136,6 +137,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
           phone: user.phone,
           role: user.role,
           clientId,
+          assignedProjects: (user.assignedProjects || []).map((p: any) => p.toString()),
         },
       });
       return;

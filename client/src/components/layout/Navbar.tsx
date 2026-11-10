@@ -30,6 +30,11 @@ export const Navbar: React.FC = () => {
               15+ Years Field Experience
             </span>
             <span className="hidden sm:inline text-slate-400">|</span>
+            <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-brand-gold-500/15 border border-brand-gold-500/30 text-brand-gold-300 font-mono text-[11px] shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-gold-400 animate-pulse" />
+              UDYAM: {GKA_COMPANY.udyamRegistrationNumber}
+            </span>
+            <span className="hidden sm:inline text-slate-400">|</span>
             <span className="hidden sm:inline">Chennai & Tiruvannamalai, Tamil Nadu</span>
           </div>
           <div className="flex items-center space-x-6">

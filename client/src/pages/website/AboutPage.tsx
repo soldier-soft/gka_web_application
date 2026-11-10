@@ -31,14 +31,24 @@ export const AboutPage: React.FC = () => {
             <p>
               From complete home construction to renovation, civil works, interiors and finishing, we can coordinate multiple work packages under one project. Our objective is to make construction easier for the client through clear scope definition, organized execution and professional communication.
             </p>
-            <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-4">
-              <div>
-                <strong className="text-brand-navy-950 block text-xs">GSTIN:</strong>
-                <span className="text-xs font-mono text-slate-600">{GKA_COMPANY.gstin}</span>
+            <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200/90 shadow-sm">
+                <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs mb-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>UDYAM REGISTRATION:</span>
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-950 block">{GKA_COMPANY.udyamRegistrationNumber}</span>
+                <span className="text-[11px] text-amber-800 font-medium block mt-0.5">Enterprise: {GKA_COMPANY.enterpriseName} (Govt MSME)</span>
               </div>
-              <div>
-                <strong className="text-brand-navy-950 block text-xs">PAN:</strong>
-                <span className="text-xs font-mono text-slate-600">{GKA_COMPANY.pan}</span>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div>
+                  <strong className="text-brand-navy-950 text-xs inline-block mr-1">GSTIN:</strong>
+                  <span className="text-xs font-mono text-slate-700">{GKA_COMPANY.gstin}</span>
+                </div>
+                <div>
+                  <strong className="text-brand-navy-950 text-xs inline-block mr-1">PAN:</strong>
+                  <span className="text-xs font-mono text-slate-700">{GKA_COMPANY.pan}</span>
+                </div>
               </div>
             </div>
           </div>

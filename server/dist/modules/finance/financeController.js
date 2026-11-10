@@ -37,8 +37,17 @@ const getInvoices = async (req, res, next) => {
         else {
             filter.isDeleted = { $ne: true };
         }
-        if (req.user?.role === 'client' && req.user.clientId) {
-            filter.clientId = req.user.clientId;
+        // For clients, restrict to their client ID or assigned projects and hide drafts
+        if (req.user?.role === 'client') {
+            const orConditions = [];
+            if (req.user.clientId)
+                orConditions.push({ clientId: req.user.clientId });
+            if (req.user.assignedProjects && req.user.assignedProjects.length > 0) {
+                orConditions.push({ projectId: { $in: req.user.assignedProjects } });
+            }
+            if (orConditions.length > 0) {
+                filter.$or = orConditions;
+            }
             filter.status = { $ne: 'draft' };
             filter.isDeleted = { $ne: true };
         }
@@ -394,6 +403,17 @@ const updateInvoice = async (req, res, next) => {
             }
         }
         await invoice.save();
+        // Background alert email dispatch with PDF attachment for invoice update
+        setTimeout(async () => {
+            try {
+                const stream = pdfService_1.PDFService.generateInvoicePDF(invoice);
+                const buffer = await (0, emailService_1.streamToBuffer)(stream);
+                await (0, emailService_1.sendInvoiceAlertEmail)(invoice, buffer, true, 'Tax Invoice parameters or line items updated');
+            }
+            catch (mailErr) {
+                console.error('[Invoice] Failed to dispatch invoice update alert email:', mailErr);
+            }
+        }, 100);
         res.json({ success: true, message: 'Invoice updated successfully', invoice });
     }
     catch (error) {
@@ -611,6 +631,16 @@ const recordPayment = async (req, res, next) => {
                     invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
                     invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
                     await invoice.save();
+                    setTimeout(async () => {
+                        try {
+                            const stream = pdfService_1.PDFService.generateInvoicePDF(invoice);
+                            const buffer = await (0, emailService_1.streamToBuffer)(stream);
+                            await (0, emailService_1.sendInvoiceAlertEmail)(invoice, buffer, true, `Payment of ₹${(0, constants_1.toRupees)(Number(amountPaise)).toLocaleString('en-IN')} recorded via ${paymentMode || 'bank_transfer'}`);
+                        }
+                        catch (mErr) {
+                            console.error('[Payment] Alert email error:', mErr);
+                        }
+                    }, 100);
                 }
             }
             await Project_1.Project.findByIdAndUpdate(projectId, {
@@ -648,6 +678,16 @@ const verifyPayment = async (req, res, next) => {
                 invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
                 invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
                 await invoice.save();
+                setTimeout(async () => {
+                    try {
+                        const stream = pdfService_1.PDFService.generateInvoicePDF(invoice);
+                        const buffer = await (0, emailService_1.streamToBuffer)(stream);
+                        await (0, emailService_1.sendInvoiceAlertEmail)(invoice, buffer, true, `Payment of ₹${(0, constants_1.toRupees)(payment.amountPaise).toLocaleString('en-IN')} verified & credited to invoice`);
+                    }
+                    catch (mErr) {
+                        console.error('[Payment] Verify alert email error:', mErr);
+                    }
+                }, 100);
             }
         }
         // Update Project collected amount

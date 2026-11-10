@@ -237,15 +237,23 @@ export const DocumentVisualView: React.FC<DocumentVisualViewProps> = ({
               <br />
               <span>Tiruvannamalai District, Tamil Nadu – 606907</span>
             </div>
-            <div className="pt-1 font-mono text-[10px] space-y-0.5">
-              <div className="text-slate-800">
-                <strong>GSTIN:</strong> 33CDYPA3555M2ZZ &bull; <strong>PAN:</strong> CDYPA3555M
+            <div className="pt-1 font-mono text-[10px] space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-50 border border-amber-200/90 text-amber-900 font-sans font-bold text-[9.5px] shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>UDYAM: {GKA_COMPANY.udyamRegistrationNumber}</span>
+                <span className="text-[8px] px-1 py-0.2 rounded bg-amber-200 text-amber-900 font-semibold uppercase">Govt MSME</span>
+              </div>
+              <div className="text-slate-800 text-[10px]">
+                <strong>ENTERPRISE:</strong> {GKA_COMPANY.enterpriseName}
+              </div>
+              <div className="text-slate-800 text-[10px]">
+                <strong>GSTIN:</strong> {GKA_COMPANY.gstin} &bull; <strong>PAN:</strong> {GKA_COMPANY.pan}
               </div>
               <div>
-                <strong>Mobile:</strong> 8838030917 &bull; <strong>Email:</strong> gkaconstruction51@gmail.com
+                <strong>Mobile:</strong> {GKA_COMPANY.phoneDisplay} &bull; <strong>Email:</strong> {GKA_COMPANY.email}
               </div>
               <div>
-                <strong>Website:</strong> www.gkaconstruction.com
+                <strong>Website:</strong> {GKA_COMPANY.website}
               </div>
             </div>
           </div>

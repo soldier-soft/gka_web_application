@@ -5,11 +5,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.permanentDeleteQuotation = exports.restoreQuotation = exports.deleteQuotation = exports.updateQuotation = exports.convertToInvoice = exports.downloadQuotationDOCX = exports.downloadQuotationPDF = exports.approveQuotation = exports.createQuotation = exports.getQuotationById = exports.getQuotations = exports.getRateLibrary = void 0;
 const fs_1 = __importDefault(require("fs"));
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const Quotation_1 = require("../../models/Quotation");
 const Project_1 = require("../../models/Project");
 const Invoice_1 = require("../../models/Invoice");
 const Client_1 = require("../../models/Client");
 const User_1 = require("../../models/User");
+const Milestone_1 = require("../../models/Milestone");
 const constants_1 = require("../../shared/constants");
 const pdfService_1 = require("../../services/pdfService");
 const docxService_1 = require("../../services/docxService");
@@ -38,9 +40,17 @@ const getQuotations = async (req, res, next) => {
         else {
             filter.isDeleted = { $ne: true };
         }
-        // For clients, restrict to their client ID and hide drafts
-        if (req.user?.role === 'client' && req.user.clientId) {
-            filter.clientId = req.user.clientId;
+        // For clients, restrict to their client ID or assigned projects and hide drafts
+        if (req.user?.role === 'client') {
+            const orConditions = [];
+            if (req.user.clientId)
+                orConditions.push({ clientId: req.user.clientId });
+            if (req.user.assignedProjects && req.user.assignedProjects.length > 0) {
+                orConditions.push({ projectId: { $in: req.user.assignedProjects } });
+            }
+            if (orConditions.length > 0) {
+                filter.$or = orConditions;
+            }
             filter.status = { $in: ['sent', 'approved', 'revised'] }; // Drafts hidden from client
             filter.isDeleted = { $ne: true };
         }
@@ -213,19 +223,149 @@ const approveQuotation = async (req, res, next) => {
         quotation.status = 'approved';
         quotation.approvedAt = new Date();
         quotation.approvedBy = req.user?.id;
-        await quotation.save();
-        // If quotation is linked to a project, update project contract value & budget!
-        if (quotation.projectId) {
+        // Workflow: Quotation -> Approve for project (with project title of quotation subject or project scope)
+        if (!quotation.projectId) {
+            // 1. Resolve or create client
+            let clientDoc = quotation.clientId ? await Client_1.Client.findById(quotation.clientId) : null;
+            if (!clientDoc) {
+                const clientEmail = (quotation.clientEmail || (0, constants_1.formatClientPortalUsername)(quotation.clientName)).toLowerCase();
+                clientDoc = await Client_1.Client.findOne({
+                    $or: [{ email: clientEmail }, { name: quotation.clientName }],
+                });
+                if (!clientDoc) {
+                    clientDoc = await Client_1.Client.create({
+                        name: quotation.clientName || 'Valued Client',
+                        companyName: quotation.clientCompany,
+                        email: clientEmail,
+                        phone: quotation.clientPhone || '8838030917',
+                        billingAddress: {
+                            street: quotation.clientAddress || quotation.siteLocation || '',
+                            city: 'Chennai',
+                            state: 'Tamil Nadu',
+                            pincode: '600130',
+                            gstin: quotation.clientGstin || undefined,
+                        },
+                    });
+                }
+                quotation.clientId = clientDoc._id;
+            }
+            // 2. Generate unique project ID
+            const count = await Project_1.Project.countDocuments();
+            const currentYear = new Date().getFullYear();
+            const projectIdStr = `GKA-PRJ-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+            // Project title: quotation subject or project scope or projectTitle
+            const projectTitle = quotation.subject ||
+                quotation.projectTitle ||
+                (quotation.items && quotation.items[0]?.description) ||
+                'Civil & Building Construction Works';
+            // 3. Create Project
+            const project = await Project_1.Project.create({
+                projectId: projectIdStr,
+                title: projectTitle,
+                category: 'residential',
+                clientId: clientDoc._id,
+                siteAddress: {
+                    street: quotation.siteLocation || quotation.clientAddress || '',
+                    city: 'Chennai',
+                    state: 'Tamil Nadu',
+                    pincode: '600130',
+                },
+                scopeOfWork: (quotation.items || []).map((it) => it.description).filter(Boolean).slice(0, 10),
+                startDate: new Date(),
+                targetEndDate: quotation.validUntil || new Date(Date.now() + 180 * 86400000),
+                status: 'active',
+                progressPercent: 0,
+                contractValuePaise: quotation.totalAmountPaise,
+                totalBudgetPaise: quotation.subtotalPaise,
+                invoicedAmountPaise: 0,
+                collectedAmountPaise: 0,
+            });
+            // 4. Seed Standard Milestones
+            const milestoneDocs = constants_1.STANDARD_MILESTONES.map((m, idx) => {
+                const pStart = new Date(Date.now() + idx * 25 * 86400000);
+                const pEnd = new Date(Date.now() + (idx + 1) * 25 * 86400000);
+                return {
+                    projectId: project._id,
+                    code: m.code,
+                    title: m.title,
+                    description: m.description,
+                    plannedStartDate: pStart,
+                    plannedEndDate: pEnd,
+                    weightagePercent: m.weightagePercent,
+                    progressPercent: 0,
+                    status: 'pending',
+                    isPublishedToClient: true,
+                    orderIndex: m.orderIndex,
+                };
+            });
+            await Milestone_1.Milestone.insertMany(milestoneDocs);
+            // 5. Ensure Client User Account exists with password and linked project
+            let user = await User_1.User.findOne({
+                $or: [
+                    { clientId: clientDoc._id },
+                    { _id: clientDoc.userId },
+                    { email: clientDoc.email.toLowerCase() },
+                ],
+            });
+            if (!user) {
+                const portalUsername = clientDoc.email.includes('@gkaconstruction.com')
+                    ? clientDoc.email.toLowerCase()
+                    : (0, constants_1.formatClientPortalUsername)(clientDoc.name);
+                const defaultPassword = 'GKAclient2026!';
+                const salt = await bcryptjs_1.default.genSalt(10);
+                const passwordHash = await bcryptjs_1.default.hash(defaultPassword, salt);
+                user = await User_1.User.create({
+                    name: clientDoc.name,
+                    email: portalUsername,
+                    phone: clientDoc.phone || '8838030917',
+                    passwordHash,
+                    defaultPassword,
+                    role: 'client',
+                    clientId: clientDoc._id,
+                    assignedProjects: [project._id],
+                    isActive: true,
+                });
+                await Client_1.Client.findByIdAndUpdate(clientDoc._id, { userId: user._id, email: portalUsername });
+            }
+            else {
+                if (!user.assignedProjects.includes(project._id)) {
+                    user.assignedProjects.push(project._id);
+                }
+                if (!user.clientId)
+                    user.clientId = clientDoc._id;
+                if (!user.defaultPassword)
+                    user.defaultPassword = 'GKAclient2026!';
+                await user.save();
+                await Client_1.Client.findByIdAndUpdate(clientDoc._id, { userId: user._id });
+            }
+            // Link quotation to project
+            quotation.projectId = project._id;
+            quotation.projectTitle = project.title;
+            quotation.convertedToBudget = true;
+        }
+        else {
+            // If quotation is already linked to a project, update project contract value & budget!
             await Project_1.Project.findByIdAndUpdate(quotation.projectId, {
                 contractValuePaise: quotation.totalAmountPaise,
-                totalBudgetPaise: quotation.subtotalPaise, // baseline execution budget
+                totalBudgetPaise: quotation.subtotalPaise,
             });
             quotation.convertedToBudget = true;
-            await quotation.save();
         }
+        await quotation.save();
+        // Background alert email dispatch with attached PDF
+        setTimeout(async () => {
+            try {
+                const stream = pdfService_1.PDFService.generateQuotationPDF(quotation);
+                const buffer = await (0, emailService_1.streamToBuffer)(stream);
+                await (0, emailService_1.sendQuotationAlertEmail)(quotation, buffer, true, 'Quotation approved and active project workspace initialized');
+            }
+            catch (mailErr) {
+                console.error('[Quotation] Failed to dispatch quotation approval email:', mailErr);
+            }
+        }, 100);
         res.json({
             success: true,
-            message: 'Quotation approved successfully and project budget initialized.',
+            message: 'Quotation approved successfully and project workspace initialized.',
             quotation,
         });
     }
@@ -367,14 +507,125 @@ const convertToInvoice = async (req, res, next) => {
             res.status(400).json({ success: false, message: 'Only approved quotations can be converted to an invoice.' });
             return;
         }
-        if (!quotation.projectId) {
-            res.status(400).json({ success: false, message: 'Quotation must be linked to an active project before converting to invoice.' });
-            return;
-        }
-        const project = await Project_1.Project.findById(quotation.projectId);
+        // Auto-create or resolve project if not yet linked
+        let project = quotation.projectId ? await Project_1.Project.findById(quotation.projectId) : null;
         if (!project) {
-            res.status(404).json({ success: false, message: 'Linked project not found.' });
-            return;
+            // 1. Resolve or create client
+            let clientDoc = quotation.clientId ? await Client_1.Client.findById(quotation.clientId) : null;
+            if (!clientDoc) {
+                const clientEmail = (quotation.clientEmail || (0, constants_1.formatClientPortalUsername)(quotation.clientName)).toLowerCase();
+                clientDoc = await Client_1.Client.findOne({
+                    $or: [{ email: clientEmail }, { name: quotation.clientName }],
+                });
+                if (!clientDoc) {
+                    clientDoc = await Client_1.Client.create({
+                        name: quotation.clientName || 'Valued Client',
+                        companyName: quotation.clientCompany,
+                        email: clientEmail,
+                        phone: quotation.clientPhone || '8838030917',
+                        billingAddress: {
+                            street: quotation.clientAddress || quotation.siteLocation || '',
+                            city: 'Chennai',
+                            state: 'Tamil Nadu',
+                            pincode: '600130',
+                            gstin: quotation.clientGstin || undefined,
+                        },
+                    });
+                }
+                quotation.clientId = clientDoc._id;
+            }
+            // 2. Generate unique project ID
+            const count = await Project_1.Project.countDocuments();
+            const currentYear = new Date().getFullYear();
+            const projectIdStr = `GKA-PRJ-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+            const projectTitle = quotation.subject ||
+                quotation.projectTitle ||
+                (quotation.items && quotation.items[0]?.description) ||
+                'Civil & Building Construction Works';
+            // 3. Create Project
+            project = await Project_1.Project.create({
+                projectId: projectIdStr,
+                title: projectTitle,
+                category: 'residential',
+                clientId: clientDoc._id,
+                siteAddress: {
+                    street: quotation.siteLocation || quotation.clientAddress || '',
+                    city: 'Chennai',
+                    state: 'Tamil Nadu',
+                    pincode: '600130',
+                },
+                scopeOfWork: (quotation.items || []).map((it) => it.description).filter(Boolean).slice(0, 10),
+                startDate: new Date(),
+                targetEndDate: quotation.validUntil || new Date(Date.now() + 180 * 86400000),
+                status: 'active',
+                progressPercent: 0,
+                contractValuePaise: quotation.totalAmountPaise,
+                totalBudgetPaise: quotation.subtotalPaise,
+                invoicedAmountPaise: 0,
+                collectedAmountPaise: 0,
+            });
+            // 4. Seed Standard Milestones
+            const milestoneDocs = constants_1.STANDARD_MILESTONES.map((m, idx) => {
+                const pStart = new Date(Date.now() + idx * 25 * 86400000);
+                const pEnd = new Date(Date.now() + (idx + 1) * 25 * 86400000);
+                return {
+                    projectId: project._id,
+                    code: m.code,
+                    title: m.title,
+                    description: m.description,
+                    plannedStartDate: pStart,
+                    plannedEndDate: pEnd,
+                    weightagePercent: m.weightagePercent,
+                    progressPercent: 0,
+                    status: 'pending',
+                    isPublishedToClient: true,
+                    orderIndex: m.orderIndex,
+                };
+            });
+            await Milestone_1.Milestone.insertMany(milestoneDocs);
+            // 5. Ensure Client User Account exists with password and linked project
+            let user = await User_1.User.findOne({
+                $or: [
+                    { clientId: clientDoc._id },
+                    { _id: clientDoc.userId },
+                    { email: clientDoc.email.toLowerCase() },
+                ],
+            });
+            if (!user) {
+                const portalUsername = clientDoc.email.includes('@gkaconstruction.com')
+                    ? clientDoc.email.toLowerCase()
+                    : (0, constants_1.formatClientPortalUsername)(clientDoc.name);
+                const defaultPassword = 'GKAclient2026!';
+                const salt = await bcryptjs_1.default.genSalt(10);
+                const passwordHash = await bcryptjs_1.default.hash(defaultPassword, salt);
+                user = await User_1.User.create({
+                    name: clientDoc.name,
+                    email: portalUsername,
+                    phone: clientDoc.phone || '8838030917',
+                    passwordHash,
+                    defaultPassword,
+                    role: 'client',
+                    clientId: clientDoc._id,
+                    assignedProjects: [project._id],
+                    isActive: true,
+                });
+                await Client_1.Client.findByIdAndUpdate(clientDoc._id, { userId: user._id, email: portalUsername });
+            }
+            else {
+                if (!user.assignedProjects.includes(project._id)) {
+                    user.assignedProjects.push(project._id);
+                }
+                if (!user.clientId)
+                    user.clientId = clientDoc._id;
+                if (!user.defaultPassword)
+                    user.defaultPassword = 'GKAclient2026!';
+                await user.save();
+                await Client_1.Client.findByIdAndUpdate(clientDoc._id, { userId: user._id });
+            }
+            quotation.projectId = project._id;
+            quotation.projectTitle = project.title;
+            quotation.convertedToBudget = true;
+            await quotation.save();
         }
         const itemsToConvert = partialItemIndices && Array.isArray(partialItemIndices) && partialItemIndices.length > 0
             ? quotation.items.filter((_, idx) => partialItemIndices.includes(idx))
@@ -447,6 +698,17 @@ const convertToInvoice = async (req, res, next) => {
         // Update project invoiced amount
         project.invoicedAmountPaise += totalAmountPaise;
         await project.save();
+        // Background alert email dispatch with PDF attachment
+        setTimeout(async () => {
+            try {
+                const stream = pdfService_1.PDFService.generateInvoicePDF(invoice);
+                const buffer = await (0, emailService_1.streamToBuffer)(stream);
+                await (0, emailService_1.sendInvoiceAlertEmail)(invoice, buffer, false);
+            }
+            catch (mailErr) {
+                console.error('[Invoice] Failed to dispatch invoice conversion alert email:', mailErr);
+            }
+        }, 100);
         res.status(201).json({
             success: true,
             message: `Quotation ${quotation.quotationNumber} successfully converted to Tax Invoice ${invoice.invoiceNumber}.`,
@@ -560,6 +822,17 @@ const updateQuotation = async (req, res, next) => {
             }
         }
         await quotation.save();
+        // Background alert email dispatch with PDF attachment for quotation update
+        setTimeout(async () => {
+            try {
+                const stream = pdfService_1.PDFService.generateQuotationPDF(quotation);
+                const buffer = await (0, emailService_1.streamToBuffer)(stream);
+                await (0, emailService_1.sendQuotationAlertEmail)(quotation, buffer, true, 'Quotation parameters or line items updated');
+            }
+            catch (mailErr) {
+                console.error('[Quotation] Failed to dispatch quotation update alert email:', mailErr);
+            }
+        }, 100);
         res.json({ success: true, message: 'Quotation updated successfully', quotation });
     }
     catch (error) {

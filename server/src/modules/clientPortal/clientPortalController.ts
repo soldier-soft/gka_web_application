@@ -94,8 +94,12 @@ export const getClientProjectDetails = async (req: Request, res: Response, next:
     }).sort({ reportDate: -1 });
 
     // Client Invoices (Drafts hidden and deleted hidden)
+    const invoiceConditions: any[] = [{ projectId: project._id }];
+    if (project.clientId) {
+      invoiceConditions.push({ clientId: project.clientId });
+    }
     const invoices = await Invoice.find({
-      projectId: project._id,
+      $or: invoiceConditions,
       isDeleted: { $ne: true },
       status: { $ne: 'draft' },
     }).sort({ issueDate: -1 });
@@ -107,6 +111,9 @@ export const getClientProjectDetails = async (req: Request, res: Response, next:
 
     // Project Quotations (exclude soft-deleted)
     const quotationConditions: any[] = [{ projectId: project._id }];
+    if (project.clientId) {
+      quotationConditions.push({ clientId: project.clientId });
+    }
     if (project.title) {
       quotationConditions.push({ projectTitle: project.title });
     }
@@ -190,8 +197,12 @@ export const getAllClientProjectsWithData = async (req: Request, res: Response, 
           isPublishedToClient: true,
         }).sort({ reportDate: -1 });
 
+        const invoiceConditions: any[] = [{ projectId: project._id }];
+        if (project.clientId) {
+          invoiceConditions.push({ clientId: project.clientId });
+        }
         const invoices = await Invoice.find({
-          projectId: project._id,
+          $or: invoiceConditions,
           isDeleted: { $ne: true },
           status: { $ne: 'draft' },
         }).sort({ issueDate: -1 });
@@ -201,6 +212,9 @@ export const getAllClientProjectsWithData = async (req: Request, res: Response, 
         }).sort({ paymentDate: -1 });
 
         const quotationConditions: any[] = [{ projectId: project._id }];
+        if (project.clientId) {
+          quotationConditions.push({ clientId: project.clientId });
+        }
         if (project.title) {
           quotationConditions.push({ projectTitle: project.title });
         }

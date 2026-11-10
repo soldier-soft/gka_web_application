@@ -85,8 +85,12 @@ const getClientProjectDetails = async (req, res, next) => {
             isPublishedToClient: true,
         }).sort({ reportDate: -1 });
         // Client Invoices (Drafts hidden and deleted hidden)
+        const invoiceConditions = [{ projectId: project._id }];
+        if (project.clientId) {
+            invoiceConditions.push({ clientId: project.clientId });
+        }
         const invoices = await Invoice_1.Invoice.find({
-            projectId: project._id,
+            $or: invoiceConditions,
             isDeleted: { $ne: true },
             status: { $ne: 'draft' },
         }).sort({ issueDate: -1 });
@@ -96,6 +100,9 @@ const getClientProjectDetails = async (req, res, next) => {
         }).sort({ paymentDate: -1 });
         // Project Quotations (exclude soft-deleted)
         const quotationConditions = [{ projectId: project._id }];
+        if (project.clientId) {
+            quotationConditions.push({ clientId: project.clientId });
+        }
         if (project.title) {
             quotationConditions.push({ projectTitle: project.title });
         }
@@ -170,8 +177,12 @@ const getAllClientProjectsWithData = async (req, res, next) => {
                 projectId: project._id,
                 isPublishedToClient: true,
             }).sort({ reportDate: -1 });
+            const invoiceConditions = [{ projectId: project._id }];
+            if (project.clientId) {
+                invoiceConditions.push({ clientId: project.clientId });
+            }
             const invoices = await Invoice_1.Invoice.find({
-                projectId: project._id,
+                $or: invoiceConditions,
                 isDeleted: { $ne: true },
                 status: { $ne: 'draft' },
             }).sort({ issueDate: -1 });
@@ -179,6 +190,9 @@ const getAllClientProjectsWithData = async (req, res, next) => {
                 projectId: project._id,
             }).sort({ paymentDate: -1 });
             const quotationConditions = [{ projectId: project._id }];
+            if (project.clientId) {
+                quotationConditions.push({ clientId: project.clientId });
+            }
             if (project.title) {
                 quotationConditions.push({ projectTitle: project.title });
             }

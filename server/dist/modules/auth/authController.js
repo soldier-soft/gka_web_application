@@ -115,6 +115,7 @@ const login = async (req, res, next) => {
                 email: user.email,
                 role: user.role,
                 clientId,
+                assignedProjects: (user.assignedProjects || []).map((p) => p.toString()),
             };
             const token = jsonwebtoken_1.default.sign(payload, env_1.ENV.JWT_SECRET, { expiresIn: env_1.ENV.JWT_EXPIRES_IN });
             res.json({
@@ -127,6 +128,7 @@ const login = async (req, res, next) => {
                     phone: user.phone,
                     role: user.role,
                     clientId,
+                    assignedProjects: (user.assignedProjects || []).map((p) => p.toString()),
                 },
             });
             return;

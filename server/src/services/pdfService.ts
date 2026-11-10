@@ -117,9 +117,10 @@ export class PDFService {
     doc.text('Tiruvannamalai District, Tamil Nadu - 606907', 260, 38, { width: 275, align: 'right' });
 
     doc.fontSize(6.8).font('Helvetica-Bold').fillColor('#0F254B');
-    doc.text('GSTIN : 33CDYPA3555M2ZZ  |  PAN NO : CDYPA3555M', 260, 50, { width: 275, align: 'right' });
-    doc.text(`Mobile : ${GKA_COMPANY.phoneDisplay}  |  Email : ${GKA_COMPANY.email}`, 260, 60, { width: 275, align: 'right' });
-    doc.text(`Website : ${GKA_COMPANY.website}`, 260, 70, { width: 275, align: 'right' });
+    doc.text(`UDYAM : ${GKA_COMPANY.udyamRegistrationNumber} (Govt. MSME)  |  GSTIN : ${GKA_COMPANY.gstin}`, 260, 48, { width: 275, align: 'right' });
+    doc.text(`PAN : ${GKA_COMPANY.pan}  |  Enterprise : ${GKA_COMPANY.enterpriseName}`, 260, 58, { width: 275, align: 'right' });
+    doc.text(`Mobile : ${GKA_COMPANY.phoneDisplay}  |  Email : ${GKA_COMPANY.email}`, 260, 68, { width: 275, align: 'right' });
+    doc.text(`Website : ${GKA_COMPANY.website}`, 260, 78, { width: 275, align: 'right' });
 
     // Document Title Banner Ribbon
     const ribbonY = 104;
@@ -903,9 +904,10 @@ export class PDFService {
     doc.text('Tiruvannamalai District, Tamil Nadu - 606907', 260, 38, { width: 275, align: 'right' });
 
     doc.fontSize(6.8).font('Helvetica-Bold').fillColor('#0F254B');
-    doc.text('GSTIN : 33CDYPA3555M2ZZ  |  PAN NO : CDYPA3555M', 260, 50, { width: 275, align: 'right' });
-    doc.text(`Mobile : ${GKA_COMPANY.phoneDisplay}  |  Email : ${GKA_COMPANY.email}`, 260, 60, { width: 275, align: 'right' });
-    doc.text(`Website : ${GKA_COMPANY.website}`, 260, 70, { width: 275, align: 'right' });
+    doc.text(`UDYAM : ${GKA_COMPANY.udyamRegistrationNumber} (Govt. MSME)  |  GSTIN : ${GKA_COMPANY.gstin}`, 260, 48, { width: 275, align: 'right' });
+    doc.text(`PAN : ${GKA_COMPANY.pan}  |  Enterprise : ${GKA_COMPANY.enterpriseName}`, 260, 58, { width: 275, align: 'right' });
+    doc.text(`Mobile : ${GKA_COMPANY.phoneDisplay}  |  Email : ${GKA_COMPANY.email}`, 260, 68, { width: 275, align: 'right' });
+    doc.text(`Website : ${GKA_COMPANY.website}`, 260, 78, { width: 275, align: 'right' });
 
     // Document Title Banner Ribbon
     const ribbonY = 104;

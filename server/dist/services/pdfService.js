@@ -112,9 +112,10 @@ class PDFService {
         doc.text('No. 965, Pillaiyar Kovil St, Theppanandhal, Kelur,', 260, 29, { width: 275, align: 'right' });
         doc.text('Tiruvannamalai District, Tamil Nadu - 606907', 260, 38, { width: 275, align: 'right' });
         doc.fontSize(6.8).font('Helvetica-Bold').fillColor('#0F254B');
-        doc.text('GSTIN : 33CDYPA3555M2ZZ  |  PAN NO : CDYPA3555M', 260, 50, { width: 275, align: 'right' });
-        doc.text(`Mobile : ${constants_1.GKA_COMPANY.phoneDisplay}  |  Email : ${constants_1.GKA_COMPANY.email}`, 260, 60, { width: 275, align: 'right' });
-        doc.text(`Website : ${constants_1.GKA_COMPANY.website}`, 260, 70, { width: 275, align: 'right' });
+        doc.text(`UDYAM : ${constants_1.GKA_COMPANY.udyamRegistrationNumber} (Govt. MSME)  |  GSTIN : ${constants_1.GKA_COMPANY.gstin}`, 260, 48, { width: 275, align: 'right' });
+        doc.text(`PAN : ${constants_1.GKA_COMPANY.pan}  |  Enterprise : ${constants_1.GKA_COMPANY.enterpriseName}`, 260, 58, { width: 275, align: 'right' });
+        doc.text(`Mobile : ${constants_1.GKA_COMPANY.phoneDisplay}  |  Email : ${constants_1.GKA_COMPANY.email}`, 260, 68, { width: 275, align: 'right' });
+        doc.text(`Website : ${constants_1.GKA_COMPANY.website}`, 260, 78, { width: 275, align: 'right' });
         // Document Title Banner Ribbon
         const ribbonY = 104;
         doc.save();
@@ -721,9 +722,10 @@ class PDFService {
         doc.text('No. 965, Pillaiyar Kovil St, Theppanandhal, Kelur,', 260, 29, { width: 275, align: 'right' });
         doc.text('Tiruvannamalai District, Tamil Nadu - 606907', 260, 38, { width: 275, align: 'right' });
         doc.fontSize(6.8).font('Helvetica-Bold').fillColor('#0F254B');
-        doc.text('GSTIN : 33CDYPA3555M2ZZ  |  PAN NO : CDYPA3555M', 260, 50, { width: 275, align: 'right' });
-        doc.text(`Mobile : ${constants_1.GKA_COMPANY.phoneDisplay}  |  Email : ${constants_1.GKA_COMPANY.email}`, 260, 60, { width: 275, align: 'right' });
-        doc.text(`Website : ${constants_1.GKA_COMPANY.website}`, 260, 70, { width: 275, align: 'right' });
+        doc.text(`UDYAM : ${constants_1.GKA_COMPANY.udyamRegistrationNumber} (Govt. MSME)  |  GSTIN : ${constants_1.GKA_COMPANY.gstin}`, 260, 48, { width: 275, align: 'right' });
+        doc.text(`PAN : ${constants_1.GKA_COMPANY.pan}  |  Enterprise : ${constants_1.GKA_COMPANY.enterpriseName}`, 260, 58, { width: 275, align: 'right' });
+        doc.text(`Mobile : ${constants_1.GKA_COMPANY.phoneDisplay}  |  Email : ${constants_1.GKA_COMPANY.email}`, 260, 68, { width: 275, align: 'right' });
+        doc.text(`Website : ${constants_1.GKA_COMPANY.website}`, 260, 78, { width: 275, align: 'right' });
         // Document Title Banner Ribbon
         const ribbonY = 104;
         doc.save();

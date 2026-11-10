@@ -152,6 +152,30 @@ export const updateDocument = async (req: Request, res: Response, next: NextFunc
       .populate('projectId', 'projectId title')
       .populate('uploadedBy', 'name role');
 
+    // Attempt to locate local file for attachment
+    let fileAttachment: { filename: string; path?: string } | undefined;
+    if (document.fileUrl && typeof document.fileUrl === 'string') {
+      const cleanPath = document.fileUrl.replace(/^\/uploads\//, '');
+      const candidatePaths = [
+        path.resolve(process.cwd(), 'server', 'uploads', cleanPath),
+        path.resolve(process.cwd(), 'uploads', cleanPath),
+        path.resolve(__dirname, '../../uploads', cleanPath),
+      ];
+      for (const cp of candidatePaths) {
+        if (fs.existsSync(cp)) {
+          fileAttachment = {
+            filename: document.fileName || 'document.pdf',
+            path: cp,
+          };
+          break;
+        }
+      }
+    }
+
+    sendDocumentUploadAlertEmail(populated || document, fileAttachment, true, 'Document parameters or file updated').catch((err) => {
+      console.error('[Documents] Failed to dispatch document update alert email:', err);
+    });
+
     res.json({
       success: true,
       message: 'Document updated successfully',

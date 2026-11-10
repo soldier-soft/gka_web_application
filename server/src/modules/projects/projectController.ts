@@ -26,9 +26,16 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
     if (status) filter.status = status;
     if (category) filter.category = category;
 
-    // If role is client, only allow projects belonging to their client account
-    if (req.user?.role === 'client' && req.user.clientId) {
-      filter.clientId = req.user.clientId;
+    // If role is client, only allow projects belonging to their client account or assigned projects
+    if (req.user?.role === 'client') {
+      const orConditions: any[] = [];
+      if (req.user.clientId) orConditions.push({ clientId: req.user.clientId });
+      if (req.user.assignedProjects && req.user.assignedProjects.length > 0) {
+        orConditions.push({ _id: { $in: req.user.assignedProjects } });
+      }
+      if (orConditions.length > 0) {
+        filter.$or = orConditions;
+      }
     }
 
     const projects = await Project.find(filter)
@@ -361,6 +368,11 @@ export const updateProject = async (req: Request, res: Response, next: NextFunct
       return;
     }
 
+    // Background alert email dispatch for project update
+    sendProjectAlertEmail(project, project.clientId, true, 'Project information / parameters updated').catch((err) => {
+      console.error('[Project] Failed to dispatch project update alert email:', err);
+    });
+
     res.json({ success: true, project });
   } catch (error) {
     next(error);
@@ -395,9 +407,22 @@ export const updateMilestone = async (req: Request, res: Response, next: NextFun
       totalProgress += (m.progressPercent * m.weightagePercent) / 100;
     });
 
-    await Project.findByIdAndUpdate(milestone.projectId, {
-      progressPercent: Math.round(totalProgress),
-    });
+    const updatedProject = await Project.findByIdAndUpdate(
+      milestone.projectId,
+      { progressPercent: Math.round(totalProgress) },
+      { new: true }
+    ).populate('clientId');
+
+    if (updatedProject) {
+      sendProjectAlertEmail(
+        updatedProject,
+        updatedProject.clientId,
+        true,
+        `Milestone "${milestone.title}" updated (${milestone.progressPercent}%). Total project progress: ${Math.round(totalProgress)}%`
+      ).catch((err) => {
+        console.error('[Project] Failed to dispatch milestone update alert email:', err);
+      });
+    }
 
     res.json({ success: true, milestone });
   } catch (error) {

@@ -9,6 +9,7 @@ export interface AuthUserPayload {
   email: string;
   role: UserRole;
   clientId?: string;
+  assignedProjects?: string[];
 }
 
 declare global {

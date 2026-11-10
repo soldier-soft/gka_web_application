@@ -22,7 +22,13 @@ export const Footer: React.FC = () => {
             <p className="text-xs text-slate-400 leading-relaxed">
               Complete building construction, renovation, design, interiors, civil & allied works under one accountable roof. Serving Chennai, Tiruvannamalai and surrounding regions across Tamil Nadu.
             </p>
-            <div className="pt-2 flex flex-col space-y-1 text-xs text-slate-400">
+            <div className="pt-2 flex flex-col space-y-1.5 text-xs text-slate-400">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-brand-gold-500/15 border border-brand-gold-500/30 text-brand-gold-300 font-mono text-[11px] w-fit shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-gold-400 animate-pulse" />
+                <span>UDYAM: {GKA_COMPANY.udyamRegistrationNumber}</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-brand-gold-500/30 text-brand-gold-200 font-sans font-semibold">MSME</span>
+              </div>
+              <span className="font-semibold text-slate-200">NAME OF ENTERPRISE: {GKA_COMPANY.enterpriseName}</span>
               <span className="font-semibold text-slate-200">GSTIN: {GKA_COMPANY.gstin}</span>
               <span className="font-semibold text-slate-200">PAN: {GKA_COMPANY.pan}</span>
             </div>
