@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Calculator,
   Plus,
@@ -16,6 +16,9 @@ import {
   Printer,
   Share2,
   Edit3,
+  Building2,
+  Wrench,
+  Hotel,
 } from 'lucide-react';
 import { api, downloadFile, getFileUrl } from '../../services/api';
 import { formatINR, toPaise, toRupees } from '@shared/types';
@@ -23,10 +26,204 @@ import { STANDARD_RATE_LIBRARY, GOOGLE_DRIVE_CONFIG } from '@shared/constants';
 import { DocumentVisualView } from '../../components/documents/DocumentVisualView';
 import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
+// Different works GKA Construction executes (hospitality, civil, demolition, etc.)
+export const GKA_WORK_PRESETS = [
+  {
+    id: 'cooling-tower-dismantle',
+    title: 'Dismantling Cooling Tower',
+    subject: 'Quotation for Dismantling Cooling Tower & Demolition Works',
+    defaultLocation: 'Vivanta hotel, Sholinganallur, Chennai',
+    items: [
+      {
+        description: 'Dismantling of cooling tower steel structure, fiberglass casing & drift eliminators',
+        category: 'demolition',
+        unit: 'job',
+        quantity: 1,
+        unitRateRupees: 145000,
+      },
+      {
+        description: 'Disconnection and safe salvage of motorized pump sets, valves & riser headers',
+        category: 'demolition',
+        unit: 'set',
+        quantity: 2,
+        unitRateRupees: 35000,
+      },
+      {
+        description: 'Debris sorting, site clearance, safety netting and transport disposal to municipal yard',
+        category: 'demolition',
+        unit: 'trip',
+        quantity: 3,
+        unitRateRupees: 19100,
+      },
+    ],
+  },
+  {
+    id: 'hotel-suite-renovation',
+    title: 'Hotel Suite & Bathroom Renovation',
+    subject: 'Comprehensive Renovation & Modernization of Hotel Guest Suites',
+    defaultLocation: 'Vivanta Hotel, Chennai',
+    items: [
+      {
+        description: 'Careful demolition and stripping of existing bathroom tiles, sanitary fittings & false ceiling',
+        category: 'civil',
+        unit: 'room',
+        quantity: 3,
+        unitRateRupees: 42000,
+      },
+      {
+        description: 'Waterproofing of wet areas with multilayer elastomeric acrylic polymer coating',
+        category: 'waterproofing',
+        unit: 'sq.ft',
+        quantity: 320,
+        unitRateRupees: 165,
+      },
+      {
+        description: 'Laying 600x1200mm premium vitrified tiles with epoxy stain-proof grouting',
+        category: 'flooring',
+        unit: 'sq.ft',
+        quantity: 480,
+        unitRateRupees: 195,
+      },
+      {
+        description: 'Royal luxury emulsion painting over 2 coats acrylic putty and primer',
+        category: 'painting',
+        unit: 'sq.ft',
+        quantity: 650,
+        unitRateRupees: 110,
+      },
+    ],
+  },
+  {
+    id: 'civil-structural-works',
+    title: 'Civil Construction & Structural Execution',
+    subject: 'RCC Framing, Masonry, Structural Columns & Plastering Execution',
+    defaultLocation: 'OMR, Kelambakkam, Chennai',
+    items: [
+      {
+        description: 'Earthwork excavation in foundation trenches and backfilling with consolidation',
+        category: 'civil',
+        unit: 'cu.ft',
+        quantity: 350,
+        unitRateRupees: 32,
+      },
+      {
+        description: 'Reinforced Cement Concrete (RCC M25 grade) for plinth beams, columns and slabs',
+        category: 'civil',
+        unit: 'cu.ft',
+        quantity: 280,
+        unitRateRupees: 420,
+      },
+      {
+        description: 'Solid red clay brick masonry in CM 1:5 for external and partition walls',
+        category: 'civil',
+        unit: 'sq.ft',
+        quantity: 800,
+        unitRateRupees: 145,
+      },
+      {
+        description: 'Smooth sponge finish cement plastering (1:4) for interior & exterior walls',
+        category: 'civil',
+        unit: 'sq.ft',
+        quantity: 1100,
+        unitRateRupees: 55,
+      },
+    ],
+  },
+  {
+    id: 'terrace-waterproofing',
+    title: 'Terrace Waterproofing & Leakage Arrest',
+    subject: 'Complete Terrace APP Membrane & PU Waterproofing System with 10-Yr Guarantee',
+    defaultLocation: 'Commercial Complex / Hotel, Chennai',
+    items: [
+      {
+        description: 'Surface preparation by mechanical wire brushing, washing and crack injection grouting',
+        category: 'waterproofing',
+        unit: 'sq.ft',
+        quantity: 1200,
+        unitRateRupees: 35,
+      },
+      {
+        description: 'Application of 3mm APP torch-on waterproof membrane with primer and 100mm lap sealing',
+        category: 'waterproofing',
+        unit: 'sq.ft',
+        quantity: 1200,
+        unitRateRupees: 175,
+      },
+      {
+        description: 'Laying thermal reflective cool roof white tiles with waterproof joint filling',
+        category: 'flooring',
+        unit: 'sq.ft',
+        quantity: 1200,
+        unitRateRupees: 110,
+      },
+    ],
+  },
+  {
+    id: 'flooring-granite-marble',
+    title: 'Flooring, Granite & Marble Laying',
+    subject: 'Premium Italian Marble, Granite Slabs & Heavy-Duty Vitrified Tiling',
+    defaultLocation: 'Chennai',
+    items: [
+      {
+        description: 'Polished jet-black granite laying on steps, risers, and kitchen counter with edge chamfering',
+        category: 'flooring',
+        unit: 'sq.ft',
+        quantity: 260,
+        unitRateRupees: 280,
+      },
+      {
+        description: '800x1600mm double-charged glazed vitrified tile laying with polymer adhesive bed',
+        category: 'flooring',
+        unit: 'sq.ft',
+        quantity: 1200,
+        unitRateRupees: 135,
+      },
+      {
+        description: 'Diamond mirror polish and crystallization treatment for marble surfaces',
+        category: 'flooring',
+        unit: 'sq.ft',
+        quantity: 500,
+        unitRateRupees: 65,
+      },
+    ],
+  },
+  {
+    id: 'electrical-mep-plumbing',
+    title: 'Electrical, MEP & Commercial Plumbing',
+    subject: 'Concealed Conduit Wiring, DB Dressing, CPVC Pipeline & Drainage Works',
+    defaultLocation: 'Chennai',
+    items: [
+      {
+        description: 'Concealed PVC conduit wiring with FRLS copper wires, modular metal boxes & switch plates',
+        category: 'mep',
+        unit: 'point',
+        quantity: 75,
+        unitRateRupees: 850,
+      },
+      {
+        description: 'Main Distribution Board installation with 4-pole RCCB, MCBs and earth pit testing',
+        category: 'mep',
+        unit: 'set',
+        quantity: 2,
+        unitRateRupees: 18500,
+      },
+      {
+        description: 'SDR 11 CPVC & UPVC water supply and ring main plumbing lines with pressure testing',
+        category: 'plumbing',
+        unit: 'r.ft',
+        quantity: 400,
+        unitRateRupees: 120,
+      },
+    ],
+  },
+];
+
 export const QuotationsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [quotations, setQuotations] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -44,7 +241,8 @@ export const QuotationsPage: React.FC = () => {
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [permanentDeletingId, setPermanentDeletingId] = useState<string | null>(null);
 
-  // New Quotation form state (clean live application default)
+  // New Quotation form state
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [quotationNumber, setQuotationNumber] = useState('GKA-QUO-2026-001');
   const [clientName, setClientName] = useState('');
@@ -62,6 +260,7 @@ export const QuotationsPage: React.FC = () => {
   // Edit Quotation form state
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<any>(null);
+  const [selectedEditClientId, setSelectedEditClientId] = useState<string>('');
   const [editProjectId, setEditProjectId] = useState<string>('');
   const [editQuotationNumber, setEditQuotationNumber] = useState('');
   const [editClientName, setEditClientName] = useState('');
@@ -90,10 +289,11 @@ export const QuotationsPage: React.FC = () => {
   const fetchQuotationsAndProjects = async () => {
     try {
       setLoading(true);
-      const [quoRes, projRes, recRes] = await Promise.all([
+      const [quoRes, projRes, recRes, clientsRes] = await Promise.all([
         api.getQuotations(),
         api.getProjects().catch(() => ({ success: false, projects: [] })),
         api.getQuotations({ deleted: 'true' }).catch(() => ({ success: false, quotations: [] })),
+        api.getClients().catch(() => ({ success: false, clients: [] })),
       ]);
       if (quoRes.success) {
         setQuotations(quoRes.quotations);
@@ -103,6 +303,9 @@ export const QuotationsPage: React.FC = () => {
       }
       if (recRes.success && Array.isArray(recRes.quotations)) {
         setRecycleQuotations(recRes.quotations);
+      }
+      if (clientsRes.success && Array.isArray(clientsRes.clients)) {
+        setClients(clientsRes.clients);
       }
     } catch (error) {
       console.error('Error fetching quotations & projects:', error);
@@ -244,7 +447,7 @@ export const QuotationsPage: React.FC = () => {
         setShowModal(false);
         fetchQuotationsAndProjects();
         // Trigger auto Google Drive sync
-        api.syncToGoogleDrive('quotation', res.quotation._id).catch(() => {});
+        api.syncToGoogleDrive('quotation', res.quotation._id).catch(() => { });
         triggerAutoDownloads(res.quotation._id, res.quotation.quotationNumber);
       }
     } catch (err: any) {
@@ -254,12 +457,64 @@ export const QuotationsPage: React.FC = () => {
     }
   };
 
+  const handleSelectExistingClient = (clientId: string) => {
+    setSelectedClientId(clientId);
+    if (!clientId) return;
+    const c = clients.find((item) => item._id === clientId);
+    if (c) {
+      if (c.name) setClientName(c.name);
+      if (c.company || c.name) setClientCompany(c.company || c.name);
+      const addr = c.billingAddress?.street || c.billingAddress?.city || '';
+      if (addr) setSiteLocation(addr);
+      const gst = c.billingAddress?.gstin || c.gstin || '';
+      if (gst) setClientGstin(gst);
+    }
+  };
+
+  const handleSelectEditExistingClient = (clientId: string) => {
+    setSelectedEditClientId(clientId);
+    if (!clientId) return;
+    const c = clients.find((item) => item._id === clientId);
+    if (c) {
+      if (c.name) setEditClientName(c.name);
+      if (c.company || c.name) setEditClientCompany(c.company || c.name);
+      const addr = c.billingAddress?.street || c.billingAddress?.city || '';
+      if (addr) setEditSiteLocation(addr);
+      const gst = c.billingAddress?.gstin || c.gstin || '';
+      if (gst) setEditClientGstin(gst);
+    }
+  };
+
+  const applyWorkPreset = (preset: any, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditProjectTitle(preset.title);
+      setEditSubject(preset.subject);
+      if (!editSiteLocation && preset.defaultLocation) {
+        setEditSiteLocation(preset.defaultLocation);
+      }
+      setEditItems(preset.items.map((it: any) => ({ ...it })));
+    } else {
+      setProjectTitle(preset.title);
+      setSubject(preset.subject);
+      if (!siteLocation && preset.defaultLocation) {
+        setSiteLocation(preset.defaultLocation);
+      }
+      setItems(preset.items.map((it: any) => ({ ...it })));
+    }
+  };
+
   const handleApproveQuotation = async (quotationId: string) => {
     try {
       setApprovingId(quotationId);
       const res = await api.approveQuotation(quotationId);
       if (res.success) {
-        fetchQuotations();
+        await fetchQuotationsAndProjects();
+        const pId = res.quotation?.projectId?._id || res.quotation?.projectId;
+        if (pId) {
+          navigate(`/admin/projects?editProjectId=${pId}&fromQuotation=1`);
+        } else {
+          navigate('/admin/projects?fromQuotation=1');
+        }
       }
     } catch (err: any) {
       alert(err.message || 'Error approving quotation');
@@ -274,7 +529,7 @@ export const QuotationsPage: React.FC = () => {
       const res = await api.convertQuotationToInvoice(quotationId);
       if (res.success && res.invoice) {
         alert(`Quotation successfully converted to Tax Invoice ${res.invoice.invoiceNumber}.`);
-        fetchQuotations();
+        await fetchQuotationsAndProjects();
         // Trigger auto downloads
         window.open(`/api/v1/finance/invoices/${res.invoice._id}/pdf`, '_blank');
       }
@@ -510,22 +765,20 @@ export const QuotationsPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowRecycleBin(false)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              !showRecycleBin
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${!showRecycleBin
                 ? 'bg-[#0F254B] text-white shadow-sm'
                 : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
+              }`}
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Active Quotations ({quotations.length})</span>
           </button>
           <button
             onClick={() => setShowRecycleBin(true)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              showRecycleBin
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${showRecycleBin
                 ? 'bg-rose-600 text-white shadow-sm'
                 : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
-            }`}
+              }`}
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Recycle Bin ({recycleQuotations.length})</span>
@@ -616,11 +869,10 @@ export const QuotationsPage: React.FC = () => {
 
                       <td className="py-3.5 px-4">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${
-                            q.status === 'approved'
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${q.status === 'approved'
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-amber-100 text-amber-800'
-                          }`}
+                            }`}
                         >
                           {q.status}
                         </span>
@@ -704,7 +956,7 @@ export const QuotationsPage: React.FC = () => {
                               title="Convert approved quotation to sequential tax invoice"
                             >
                               <ArrowRight className="w-3 h-3 text-[#D6A21D]" />
-                              <span>{convertingId === q._id ? 'Converting...' : 'To Invoice'}</span>
+                              <span>{convertingId === q._id ? 'Converting...' : 'Convert to Invoice'}</span>
                             </button>
                           )}
 
@@ -789,11 +1041,10 @@ export const QuotationsPage: React.FC = () => {
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border ${
-                                daysLeft <= 5
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border ${daysLeft <= 5
                                   ? 'bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
                                   : 'bg-amber-100 text-amber-800 border-amber-300'
-                              }`}
+                                }`}
                             >
                               ⏳ Purges in {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
                             </span>
@@ -878,37 +1129,84 @@ export const QuotationsPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateQuotation} className="space-y-4">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Link to Project Workspace
-                </label>
-                <select
-                  value={selectedProjectId}
-                  onChange={(e) => {
-                    const pid = e.target.value;
-                    setSelectedProjectId(pid);
-                    if (pid) {
-                      const match = projects.find((p) => p._id === pid);
-                      if (match) {
-                        setProjectTitle(match.title || '');
-                        setSiteLocation(
-                          `${match.siteAddress?.street || ''}, ${match.siteAddress?.city || ''}`.trim()
-                        );
-                        if (match.clientName) setClientName(match.clientName);
-                        const gst = (match.clientId as any)?.billingAddress?.gstin || (match.clientId as any)?.gstin || '';
-                        setClientGstin(gst);
+              {/* Existing Client & Linked Project Workspaces */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block font-semibold text-slate-800 mb-1 flex items-center gap-1.5">
+                    <Hotel className="w-3.5 h-3.5 text-brand-gold-600" />
+                    <span>Select Existing Client / Hotel</span>
+                  </label>
+                  <select
+                    value={selectedClientId}
+                    onChange={(e) => handleSelectExistingClient(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900 text-xs"
+                  >
+                    <option value="">-- Choose Existing Client Profile --</option>
+                    {clients.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name} {c.company ? `(${c.company})` : ''} — {c.phone || c.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-800 mb-1 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-[#0F254B]" />
+                    <span>Link to Project Workspace</span>
+                  </label>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => {
+                      const pid = e.target.value;
+                      setSelectedProjectId(pid);
+                      if (pid) {
+                        const match = projects.find((p) => p._id === pid);
+                        if (match) {
+                          setProjectTitle(match.title || '');
+                          setSiteLocation(
+                            `${match.siteAddress?.street || ''}, ${match.siteAddress?.city || ''}`.trim()
+                          );
+                          if (match.clientName) setClientName(match.clientName);
+                          const gst = (match.clientId as any)?.billingAddress?.gstin || (match.clientId as any)?.gstin || '';
+                          setClientGstin(gst);
+                        }
                       }
-                    }
-                  }}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900"
-                >
-                  <option value="">-- Unlinked / Standalone Quotation --</option>
-                  {projects.map((p) => (
-                    <option key={p._id} value={p._id}>
-                      {p.projectId} — {p.title}
-                    </option>
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900 text-xs"
+                  >
+                    <option value="">-- Unlinked / Standalone Quotation --</option>
+                    {projects.map((p) => (
+                      <option key={p._id} value={p._id}>
+                        {p.projectId} — {p.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Work Scope Presets (Different Works GKA Performs) */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-amber-950 text-xs flex items-center gap-1.5">
+                    <Wrench className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Different Works We Do (1-Click Scope & Items Template)</span>
+                  </label>
+                  <span className="text-[10px] text-amber-800 font-medium hidden sm:inline">Loads trade items & rates</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {GKA_WORK_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyWorkPreset(preset, false)}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 hover:border-amber-400 transition-colors shadow-2xs"
+                      title={preset.subject}
+                    >
+                      + {preset.title}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1212,36 +1510,83 @@ export const QuotationsPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveEditQuotation} className="space-y-4">
-              <div>
-                <label className="block text-[10px] text-slate-500 font-semibold mb-1">
-                  Link to Project Workspace
-                </label>
-                <select
-                  value={editProjectId}
-                  onChange={(e) => {
-                    const pid = e.target.value;
-                    setEditProjectId(pid);
-                    if (pid) {
-                      const match = projects.find((p) => p._id === pid);
-                      if (match) {
-                        setEditProjectTitle(match.title || '');
-                        if (match.siteAddress?.street) {
-                          setEditSiteLocation(
-                            `${match.siteAddress.street}, ${match.siteAddress.city || ''}`.trim()
-                          );
+              {/* Existing Client & Linked Project Workspaces */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block text-[10px] text-slate-700 font-semibold mb-1 flex items-center gap-1.5">
+                    <Hotel className="w-3.5 h-3.5 text-brand-gold-600" />
+                    <span>Select Existing Client / Hotel</span>
+                  </label>
+                  <select
+                    value={selectedEditClientId}
+                    onChange={(e) => handleSelectEditExistingClient(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-bold text-slate-900 text-xs"
+                  >
+                    <option value="">-- Choose Existing Client Profile --</option>
+                    {clients.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name} {c.company ? `(${c.company})` : ''} — {c.phone || c.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-700 font-semibold mb-1 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-[#0F254B]" />
+                    <span>Link to Project Workspace</span>
+                  </label>
+                  <select
+                    value={editProjectId}
+                    onChange={(e) => {
+                      const pid = e.target.value;
+                      setEditProjectId(pid);
+                      if (pid) {
+                        const match = projects.find((p) => p._id === pid);
+                        if (match) {
+                          setEditProjectTitle(match.title || '');
+                          if (match.siteAddress?.street) {
+                            setEditSiteLocation(
+                              `${match.siteAddress.street}, ${match.siteAddress.city || ''}`.trim()
+                            );
+                          }
                         }
                       }
-                    }
-                  }}
-                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-bold text-slate-900"
-                >
-                  <option value="">-- Unlinked / Standalone Quotation --</option>
-                  {projects.map((p) => (
-                    <option key={p._id} value={p._id}>
-                      {p.projectId} — {p.title}
-                    </option>
+                    }}
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-bold text-slate-900 text-xs"
+                  >
+                    <option value="">-- Unlinked / Standalone Quotation --</option>
+                    {projects.map((p) => (
+                      <option key={p._id} value={p._id}>
+                        {p.projectId} — {p.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Work Scope Presets */}
+              <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-amber-950 text-[11px] flex items-center gap-1.5">
+                    <Wrench className="w-3 h-3 text-amber-600" />
+                    <span>Apply Work Scope Template</span>
+                  </label>
+                  <span className="text-[10px] text-amber-800">1-click trade items</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {GKA_WORK_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyWorkPreset(preset, true)}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 transition-colors"
+                      title={preset.subject}
+                    >
+                      + {preset.title}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

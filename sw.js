@@ -199,7 +199,7 @@ self.addEventListener('fetch', (event) => {
                   caches.open(targetCache).then((cache) => cache.put(req, toCache));
                 }
               })
-              .catch(() => {});
+              .catch(() => { });
           }
           return cachedResponse;
         }

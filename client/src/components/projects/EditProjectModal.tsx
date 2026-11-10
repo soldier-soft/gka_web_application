@@ -21,6 +21,7 @@ interface EditProjectModalProps {
   onClose: () => void;
   project: any;
   onProjectUpdated: (updatedProject: any) => void;
+  fromQuotation?: boolean;
 }
 
 export const EditProjectModal: React.FC<EditProjectModalProps> = ({
@@ -28,6 +29,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   onClose,
   project,
   onProjectUpdated,
+  fromQuotation = false,
 }) => {
   if (!isOpen || !project) return null;
 
@@ -198,6 +200,16 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto text-xs">
+          {fromQuotation && (
+            <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-xs text-emerald-950 font-medium shadow-xs">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div className="flex-1">
+                <strong className="font-bold text-emerald-900 block text-sm">Quotation Approved Successfully!</strong>
+                <span>Project workspace initialized with details from quotation. Review details and click <strong>"Save Project & Go to Dashboard"</strong> below.</span>
+              </div>
+            </div>
+          )}
+
           {errorMsg && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-2 font-medium">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -573,7 +585,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
               ) : (
                 <>
                   <Save className="w-4 h-4 text-[#D6A21D]" />
-                  <span>Save Project Changes</span>
+                  <span>{fromQuotation ? 'Save Project & Go to Dashboard' : 'Save Project Changes'}</span>
                 </>
               )}
             </button>

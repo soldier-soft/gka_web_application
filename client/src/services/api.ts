@@ -269,6 +269,8 @@ export const api = {
   },
   getProjectById: (id: string) =>
     request<{ success: boolean; project: any; milestones: any[]; recentSiteReports: any[] }>(`/projects/${id}`),
+  getProject: (id: string) =>
+    request<{ success: boolean; project: any; milestones: any[]; recentSiteReports: any[] }>(`/projects/${id}`),
   createProject: (data: any) =>
     request<{ success: boolean; project: any }>('/projects', {
       method: 'POST',

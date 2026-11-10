@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Briefcase,
   Plus,
@@ -25,6 +25,11 @@ import { formatClientPortalUsername } from '@shared/constants';
 import { EditProjectModal } from '../../components/projects/EditProjectModal';
 
 export const ProjectsPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const editProjectIdParam = searchParams.get('editProjectId');
+  const fromQuotationParam = searchParams.get('fromQuotation');
+
   const [projects, setProjects] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +97,27 @@ export const ProjectsPage: React.FC = () => {
     fetchProjects();
     fetchClients();
   }, [statusFilter]);
+
+  // Auto-open Edit Project modal when navigated from quotation approval
+  useEffect(() => {
+    if (editProjectIdParam) {
+      const found = projects.find(
+        (p) => String(p._id) === String(editProjectIdParam) || String(p.projectId) === String(editProjectIdParam)
+      );
+      if (found) {
+        setEditingProject(found);
+      } else {
+        api
+          .getProjectById(editProjectIdParam)
+          .then((res) => {
+            if (res.success && res.project) {
+              setEditingProject(res.project);
+            }
+          })
+          .catch((err) => console.warn('Could not auto-load project for edit:', err));
+      }
+    }
+  }, [editProjectIdParam, projects]);
 
   const handleSelectClient = (clientId: string) => {
     setSelectedClientId(clientId);
@@ -647,9 +673,13 @@ export const ProjectsPage: React.FC = () => {
           isOpen={!!editingProject}
           onClose={() => setEditingProject(null)}
           project={editingProject}
+          fromQuotation={Boolean(fromQuotationParam)}
           onProjectUpdated={(updated) => {
             setProjects((prev) => prev.map((item) => (item._id === updated._id ? updated : item)));
             fetchProjects();
+            if (fromQuotationParam) {
+              navigate('/admin');
+            }
           }}
         />
       )}

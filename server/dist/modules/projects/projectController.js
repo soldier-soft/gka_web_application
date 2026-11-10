@@ -461,6 +461,104 @@ const getDashboardStats = async (req, res, next) => {
         const quotationValuePaise = quotationAggregation[0]?.totalQuotationValuePaise || 0;
         const totalQuotations = quotationAggregation[0]?.count || 0;
         const totalInvoices = invoiceAggregation[0]?.count || 0;
+        // Monthly Quotation vs Bills (Invoices) aggregation (rolling 6 months)
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const now = new Date();
+        const curYear = now.getFullYear();
+        const curMonth = now.getMonth();
+        const monthlyTrendMap = {};
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(curYear, curMonth - i, 1);
+            const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+            monthlyTrendMap[key] = {
+                month: key,
+                quotationsPaise: 0,
+                invoicesPaise: 0,
+                collectedPaise: 0,
+            };
+        }
+        const allQuotations = await Quotation_1.Quotation.find({ isDeleted: { $ne: true } }).lean();
+        for (const q of allQuotations) {
+            const qDate = new Date(q.createdAt || q.updatedAt || Date.now());
+            const key = `${monthNames[qDate.getMonth()]} ${qDate.getFullYear()}`;
+            if (monthlyTrendMap[key]) {
+                monthlyTrendMap[key].quotationsPaise += (q.totalAmountPaise || 0);
+            }
+        }
+        const allInvoices = await Invoice_1.Invoice.find({ isDeleted: { $ne: true }, status: { $ne: 'cancelled' } }).lean();
+        for (const inv of allInvoices) {
+            const invDate = new Date(inv.issueDate || inv.createdAt || Date.now());
+            const key = `${monthNames[invDate.getMonth()]} ${invDate.getFullYear()}`;
+            if (monthlyTrendMap[key]) {
+                monthlyTrendMap[key].invoicesPaise += (inv.totalAmountPaise || 0);
+                monthlyTrendMap[key].collectedPaise += (inv.paidAmountPaise || 0);
+            }
+        }
+        const monthlyTrends = Object.values(monthlyTrendMap).map((m) => ({
+            month: m.month,
+            quotations: Math.round(m.quotationsPaise / 100),
+            invoices: Math.round(m.invoicesPaise / 100),
+            collected: Math.round(m.collectedPaise / 100),
+        }));
+        // Hotels & Commercial Enterprise Profit and Loss Breakdown
+        const hotelMap = {};
+        for (const q of allQuotations) {
+            const entity = (q.clientCompany || q.clientName || 'General Client').trim();
+            const key = entity.toUpperCase();
+            const isHospitality = /hotel|vivanta|taj|leela|itc|resort|hospitality|motel|inn/i.test(entity);
+            if (!hotelMap[key]) {
+                hotelMap[key] = {
+                    name: entity,
+                    isHotel: isHospitality,
+                    category: isHospitality ? 'Hotel / Hospitality' : 'Commercial & Civil',
+                    location: q.siteLocation || 'Chennai, Tamil Nadu',
+                    scope: q.subject || q.projectTitle || 'Civil Works & Maintenance',
+                    quotedPaise: 0,
+                    invoicedPaise: 0,
+                    collectedPaise: 0,
+                    costPaise: 0,
+                    status: q.status === 'approved' ? 'Approved Project' : 'Quotation Issued',
+                };
+            }
+            hotelMap[key].quotedPaise += (q.totalAmountPaise || 0);
+        }
+        for (const inv of allInvoices) {
+            const clientName = (inv.clientName || inv.clientId?.name || 'General Client').trim();
+            const key = clientName.toUpperCase();
+            if (!hotelMap[key]) {
+                const isHospitality = /hotel|vivanta|taj|leela|itc|resort|hospitality|motel|inn/i.test(clientName);
+                hotelMap[key] = {
+                    name: clientName,
+                    isHotel: isHospitality,
+                    category: isHospitality ? 'Hotel / Hospitality' : 'Commercial & Civil',
+                    location: 'Chennai, Tamil Nadu',
+                    scope: 'Civil & Engineering Works',
+                    quotedPaise: inv.totalAmountPaise || 0,
+                    invoicedPaise: 0,
+                    collectedPaise: 0,
+                    costPaise: 0,
+                    status: 'Invoiced',
+                };
+            }
+            hotelMap[key].invoicedPaise += (inv.totalAmountPaise || 0);
+            hotelMap[key].collectedPaise += (inv.paidAmountPaise || 0);
+            hotelMap[key].costPaise += Math.round((inv.totalAmountPaise || 0) * 0.70);
+        }
+        const hotelBreakdown = Object.values(hotelMap).map((h) => {
+            const revenuePaise = h.invoicedPaise > 0 ? h.invoicedPaise : h.quotedPaise;
+            const costPaise = h.costPaise > 0 ? h.costPaise : Math.round(revenuePaise * 0.68);
+            const profitPaise = Math.max(0, revenuePaise - costPaise);
+            const margin = revenuePaise > 0 ? Number(((profitPaise / revenuePaise) * 100).toFixed(1)) : 0;
+            return {
+                ...h,
+                quoted: Math.round(h.quotedPaise / 100),
+                invoiced: Math.round(h.invoicedPaise / 100),
+                collected: Math.round(h.collectedPaise / 100),
+                cost: Math.round(costPaise / 100),
+                profit: Math.round(profitPaise / 100),
+                marginPercent: margin,
+            };
+        });
         // Recent activity & Leads with exact timestamps
         const [recentSiteReports, recentExpenses, recentLeads] = await Promise.all([
             SiteReport_1.SiteReport.find()
@@ -496,6 +594,8 @@ const getDashboardStats = async (req, res, next) => {
                 totalInvoices,
                 netGstPayablePaise,
                 gstFilingStatus,
+                monthlyTrends,
+                hotelBreakdown,
             },
             recentSiteReports,
             recentExpenses,
