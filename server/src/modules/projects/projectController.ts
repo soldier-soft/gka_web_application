@@ -23,8 +23,8 @@ export const getProjects = async (req: Request, res: Response, next: NextFunctio
   try {
     const { status, category } = req.query;
     const filter: any = {};
-    if (status) filter.status = status;
-    if (category) filter.category = category;
+    if (status && typeof status === 'string') filter.status = status;
+    if (category && typeof category === 'string') filter.category = category;
 
     // If role is client, only allow projects belonging to their client account or assigned projects
     if (req.user?.role === 'client') {

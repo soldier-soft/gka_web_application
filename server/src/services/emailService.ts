@@ -66,9 +66,9 @@ export const getTransporter = () => {
     pool: true,
     maxConnections: 3,
     maxMessages: 100,
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 12000,
   } as any);
 
   return cachedTransporter;

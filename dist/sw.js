@@ -1,10 +1,10 @@
 /**
  * GKA Construction Progressive Web App (PWA) Service Worker
- * Version: 1.0.0
- * Architecture: App Shell + Network-First (APIs) + Cache-First (Static Assets)
+ * Version: 1.0.1
+ * Architecture: App Shell + Network-First (APIs & Navigation) + Cache-First (Static Assets)
  */
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.0.1';
 const SHELL_CACHE = `gka-shell-${VERSION}`;
 const STATIC_CACHE = `gka-static-${VERSION}`;
 const IMAGE_CACHE = `gka-images-${VERSION}`;
@@ -59,8 +59,7 @@ self.addEventListener('install', (event) => {
         );
       })
       .then(() => {
-        // Do not force skipWaiting immediately during install so active sessions aren't disrupted;
-        // SkipWaiting will be triggered cleanly when user clicks "Update Now"
+        // Activate worker promptly
         console.log(`[ServiceWorker ${VERSION}] Installed successfully.`);
       })
   );
@@ -117,7 +116,7 @@ self.addEventListener('fetch', (event) => {
     return; // Pass through straight to network
   }
 
-  // C. Dynamic Backend API Requests -> Network-First (Never replace live data with stale data)
+  // C. Dynamic Backend API Requests -> Network-First with safe JSON error fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(req).catch(() => {
@@ -125,11 +124,11 @@ self.addEventListener('fetch', (event) => {
           JSON.stringify({
             success: false,
             offline: true,
-            message: 'You are currently offline. Live database updates require an active internet connection.',
+            message: 'You are currently offline or server request timed out. Please check your internet connection.',
           }),
           {
             status: 503,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
           }
         );
       })
@@ -137,13 +136,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // D. HTML Page Navigation (SPA Routes) -> Network-First with App Shell / Offline Fallback
-  if (req.mode === 'navigate') {
+  // D. HTML Page Navigation & SPA Routes -> Network-First with App Shell / Offline Fallback
+  const isSpaPageRoute =
+    req.mode === 'navigate' ||
+    req.destination === 'document' ||
+    (req.headers.get('accept') && req.headers.get('accept').includes('text/html')) ||
+    (!url.pathname.includes('.') && !url.pathname.startsWith('/assets/') && !url.pathname.startsWith('/icons/'));
+
+  if (isSpaPageRoute) {
     event.respondWith(
       fetch(req)
         .then((response) => {
-          if (response.ok) {
-            // Clone and update the cached index.html so the app shell stays fresh
+          if (response && response.ok) {
+            // Clone and update cached index.html so the app shell stays fresh
             const cloned = response.clone();
             caches.open(SHELL_CACHE).then((cache) => {
               cache.put('/index.html', cloned);
@@ -153,16 +158,19 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(async () => {
           // Offline fallback: serve cached index.html to allow React SPA routing or offline.html
-          const cachedIndex = await caches.match('/index.html');
+          const cachedIndex = (await caches.match('/index.html')) || (await caches.match('/'));
           if (cachedIndex) return cachedIndex;
 
           const cachedOffline = await caches.match('/offline.html');
           if (cachedOffline) return cachedOffline;
 
-          return new Response('Offline: Please reconnect to the internet.', {
-            status: 503,
-            headers: { 'Content-Type': 'text/plain' },
-          });
+          return new Response(
+            '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>GKA Construction - Offline</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:40px 16px;background:#0F1E36;color:#ffffff;"><h1 style="color:#D6A21D;">GKA CONSTRUCTION</h1><p>You appear to be offline or server is temporarily unreachable.</p><button onclick="location.reload()" style="background:#D6A21D;color:#0F1E36;border:none;padding:10px 20px;border-radius:6px;font-weight:bold;cursor:pointer;">Retry</button></body></html>',
+            {
+              status: 200,
+              headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+            }
+          );
         })
     );
     return;
@@ -182,12 +190,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.match(req).then((cachedResponse) => {
         if (cachedResponse) {
-          // Serve from cache immediately, and revalidate in background if not hashed/immutable
+          // Serve from cache immediately, and revalidate in background if not hashed
           if (!url.pathname.startsWith('/assets/index-')) {
             fetch(req)
               .then((networkResponse) => {
                 if (networkResponse && networkResponse.ok) {
-                  caches.open(targetCache).then((cache) => cache.put(req, networkResponse));
+                  const toCache = networkResponse.clone();
+                  caches.open(targetCache).then((cache) => cache.put(req, toCache));
                 }
               })
               .catch(() => {});
@@ -210,15 +219,33 @@ self.addEventListener('fetch', (event) => {
               const fallbackLogo = await caches.match('/logo.png');
               if (fallbackLogo) return fallbackLogo;
             }
-            return new Response('Asset not available offline', { status: 404 });
+            return new Response('Asset not available offline', {
+              status: 404,
+              headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
+            });
           });
       })
     );
     return;
   }
 
-  // F. Default fallback: network with cache fallback
+  // F. Default fallback: network with cache fallback - ALWAYS return a valid Response
   event.respondWith(
-    fetch(req).catch(() => caches.match(req))
+    fetch(req).catch(async () => {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+
+      // If it was an HTML or SPA route, fallback to index.html
+      if (!url.pathname.includes('.') || (req.headers.get('accept') && req.headers.get('accept').includes('text/html'))) {
+        const cachedIndex = (await caches.match('/index.html')) || (await caches.match('/'));
+        if (cachedIndex) return cachedIndex;
+      }
+
+      return new Response('Network request failed or resource unavailable offline.', {
+        status: 504,
+        statusText: 'Gateway Timeout',
+        headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
+      });
+    })
   );
 });

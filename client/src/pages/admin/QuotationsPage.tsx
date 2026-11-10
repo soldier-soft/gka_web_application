@@ -202,14 +202,6 @@ export const QuotationsPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const enquiry = await api.createEnquiry({
-        name: clientName,
-        phone: '8838030917',
-        siteLocation,
-        projectCategory: 'commercial',
-        source: 'direct',
-      });
-
       const convertedItems = items.map((it, idx) => ({
         id: `item-${idx + 1}`,
         description: it.description,
@@ -222,7 +214,6 @@ export const QuotationsPage: React.FC = () => {
       const res = await api.createQuotation({
         quotationNumber,
         projectId: selectedProjectId || undefined,
-        clientId: enquiry.leadId,
         clientName,
         clientContactPerson: clientName,
         clientCompany,
@@ -239,6 +230,15 @@ export const QuotationsPage: React.FC = () => {
         negotiatedDiscountPaise: isNegotiated ? toPaise(Number(negotiatedDiscountRupees) || 0) : 0,
         negotiatedNotes: isNegotiated ? negotiatedNotes : undefined,
       });
+
+      // Optional non-blocking CRM tracking sync
+      api.createEnquiry({
+        name: clientName,
+        phone: '8838030917',
+        siteLocation,
+        projectCategory: 'commercial',
+        source: 'direct',
+      }).catch((e) => console.warn('[CRM] Optional lead tracking note:', e));
 
       if (res.success && res.quotation) {
         setShowModal(false);

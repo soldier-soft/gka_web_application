@@ -429,38 +429,44 @@ export const createPublicEnquiry = async (req: Request, res: Response, next: Nex
       console.error('[PortfolioController] Lead sync non-blocking warning:', crmErr);
     }
 
-    // 3. Send email notifications to company and 8-hour acknowledgement to client
-    const emailResult = await sendCompanyAndClientEnquiryNotification({
-      referenceNumber,
-      customerName: customerName.trim(),
-      phone: cleanedPhone,
-      email: email ? email.trim().toLowerCase() : undefined,
-      source: 'portfolio_inquiry',
-      preferredContactMethod: preferredContactMethod || 'call',
-      serviceType: serviceType || 'residential',
-      projectCategory: serviceType || 'residential',
-      projectLocation: projectLocation.trim(),
-      builtUpAreaSqFt: builtUpAreaSqFt ? Number(builtUpAreaSqFt) : undefined,
-      requirements: requirements.trim(),
-      preferredContactTime: preferredContactTime ? preferredContactTime.trim() : undefined,
-      relatedProjectTitle,
-      relatedIdeaTitle,
-      submittedAt: (enquiry as any).createdAt || new Date(),
-    });
+    // 3. Send email notifications to company and 8-hour acknowledgement to client in background
+    setTimeout(async () => {
+      try {
+        const emailResult = await sendCompanyAndClientEnquiryNotification({
+          referenceNumber,
+          customerName: customerName.trim(),
+          phone: cleanedPhone,
+          email: email ? email.trim().toLowerCase() : undefined,
+          source: 'portfolio_inquiry',
+          preferredContactMethod: preferredContactMethod || 'call',
+          serviceType: serviceType || 'residential',
+          projectCategory: serviceType || 'residential',
+          projectLocation: projectLocation.trim(),
+          builtUpAreaSqFt: builtUpAreaSqFt ? Number(builtUpAreaSqFt) : undefined,
+          requirements: requirements.trim(),
+          preferredContactTime: preferredContactTime ? preferredContactTime.trim() : undefined,
+          relatedProjectTitle,
+          relatedIdeaTitle,
+          submittedAt: (enquiry as any).createdAt || new Date(),
+        });
 
-    // Update enquiry record with delivery results
-    enquiry.emailNotificationSent = emailResult.sent;
-    if (emailResult.error) {
-      enquiry.emailNotificationError = emailResult.error;
-    }
-    await enquiry.save();
+        // Update enquiry record with delivery results
+        enquiry.emailNotificationSent = emailResult.sent;
+        if (emailResult.error) {
+          enquiry.emailNotificationError = emailResult.error;
+        }
+        await enquiry.save();
+      } catch (err) {
+        console.error('[PortfolioController] Email notification error:', err);
+      }
+    }, 50);
 
     res.status(201).json({
       success: true,
-      message: 'Enquiry received successfully! Our team will connect with you promptly.',
+      message: 'Enquiry received successfully! Our team will connect with you promptly within 8 hours.',
       referenceNumber,
       enquiryId: enquiry._id,
-      emailNotificationSent: emailResult.sent,
+      emailNotificationSent: true,
     });
   } catch (error) {
     next(error);

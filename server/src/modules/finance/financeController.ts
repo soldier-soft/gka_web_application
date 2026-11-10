@@ -23,9 +23,9 @@ export const getInvoices = async (req: Request, res: Response, next: NextFunctio
 
     const { projectId, clientId, status, deleted } = req.query;
     const filter: any = {};
-    if (projectId) filter.projectId = projectId;
-    if (clientId) filter.clientId = clientId;
-    if (status) filter.status = status;
+    if (projectId && typeof projectId === 'string') filter.projectId = projectId;
+    if (clientId && typeof clientId === 'string') filter.clientId = clientId;
+    if (status && typeof status === 'string') filter.status = status;
 
     if (deleted === 'true') {
       filter.isDeleted = true;

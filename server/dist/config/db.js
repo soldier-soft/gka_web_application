@@ -11,9 +11,9 @@ const connectDB = async () => {
     const connectOptions = {
         autoIndex: true,
         maxPoolSize: 20,
-        serverSelectionTimeoutMS: 30000,
-        connectTimeoutMS: 30000,
-        socketTimeoutMS: 45000,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        socketTimeoutMS: 20000,
         dbName: 'gka_construction_erp',
     };
     // 1. Attempt primary MongoDB connection (e.g. MongoDB Atlas)

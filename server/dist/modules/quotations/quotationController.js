@@ -28,11 +28,11 @@ const getQuotations = async (req, res, next) => {
         await Quotation_1.Quotation.deleteMany({ isDeleted: true, deletedAt: { $lte: thirtyDaysAgo } });
         const { projectId, clientId, status, deleted } = req.query;
         const filter = {};
-        if (projectId)
+        if (projectId && typeof projectId === 'string')
             filter.projectId = projectId;
-        if (clientId)
+        if (clientId && typeof clientId === 'string')
             filter.clientId = clientId;
-        if (status)
+        if (status && typeof status === 'string')
             filter.status = status;
         if (deleted === 'true') {
             filter.isDeleted = true;
