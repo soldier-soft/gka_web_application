@@ -1,10 +1,10 @@
 /**
  * GKA Construction Progressive Web App (PWA) Service Worker
- * Version: 1.0.1
+ * Version: 1.0.2
  * Architecture: App Shell + Network-First (APIs & Navigation) + Cache-First (Static Assets)
  */
 
-const VERSION = 'v1.0.1';
+const VERSION = 'v1.0.2';
 const SHELL_CACHE = `gka-shell-${VERSION}`;
 const STATIC_CACHE = `gka-static-${VERSION}`;
 const IMAGE_CACHE = `gka-images-${VERSION}`;

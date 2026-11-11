@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.permanentDeleteQuotation = exports.restoreQuotation = exports.deleteQuotation = exports.updateQuotation = exports.convertToInvoice = exports.downloadQuotationDOCX = exports.downloadQuotationPDF = exports.approveQuotation = exports.createQuotation = exports.getQuotationById = exports.getQuotations = exports.getRateLibrary = void 0;
 const fs_1 = __importDefault(require("fs"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const mongoose_1 = __importDefault(require("mongoose"));
 const Quotation_1 = require("../../models/Quotation");
 const Project_1 = require("../../models/Project");
 const Invoice_1 = require("../../models/Invoice");
@@ -30,14 +31,20 @@ const generateNextUniqueNumber = async (Model, field, prefix) => {
 };
 const escapeRegex = (val) => val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const resolveOrCreateClientDoc = async (params) => {
-    let clientDoc = params.clientId ? await Client_1.Client.findById(params.clientId) : null;
-    if (!clientDoc && params.projectId) {
-        const projDoc = await Project_1.Project.findById(params.projectId);
+    const safeClientId = params.clientId && mongoose_1.default.Types.ObjectId.isValid(String(params.clientId))
+        ? String(params.clientId)
+        : undefined;
+    const safeProjectId = params.projectId && mongoose_1.default.Types.ObjectId.isValid(String(params.projectId))
+        ? String(params.projectId)
+        : undefined;
+    let clientDoc = safeClientId ? await Client_1.Client.findById(safeClientId) : null;
+    if (!clientDoc && safeProjectId) {
+        const projDoc = await Project_1.Project.findById(safeProjectId);
         if (projDoc?.clientId) {
             clientDoc = await Client_1.Client.findById(projDoc.clientId);
         }
     }
-    const fallbackName = (params.clientName || params.clientCompany || 'Valued Client').trim();
+    const fallbackName = (params.clientName?.trim() || params.clientCompany?.trim() || 'Valued Client');
     const normalizedEmail = (params.clientEmail?.trim() || (0, constants_1.formatClientPortalUsername)(fallbackName)).toLowerCase();
     if (!clientDoc) {
         const searchOr = [{ email: normalizedEmail }];
@@ -52,11 +59,11 @@ const resolveOrCreateClientDoc = async (params) => {
     if (!clientDoc) {
         clientDoc = await Client_1.Client.create({
             name: fallbackName,
-            companyName: (params.clientCompany || fallbackName).trim(),
+            companyName: params.clientCompany?.trim() || fallbackName,
             email: normalizedEmail,
-            phone: (params.clientPhone || '8838030917').trim(),
+            phone: params.clientPhone?.trim() || '8838030917',
             billingAddress: {
-                street: (params.clientAddress || params.siteLocation || 'Chennai').trim(),
+                street: params.clientAddress?.trim() || params.siteLocation?.trim() || 'Chennai',
                 city: 'Chennai',
                 state: 'Tamil Nadu',
                 pincode: '600130',
@@ -285,9 +292,18 @@ const createQuotation = async (req, res, next) => {
             : await generateNextUniqueNumber(Quotation_1.Quotation, 'quotationNumber', 'GKA-QUO');
         const validUntil = new Date();
         validUntil.setDate(validUntil.getDate() + (Number(validDays) || 30));
+        const safeClientId = clientId && mongoose_1.default.Types.ObjectId.isValid(String(clientId))
+            ? String(clientId)
+            : undefined;
+        const safeProjectId = projectId && mongoose_1.default.Types.ObjectId.isValid(String(projectId))
+            ? String(projectId)
+            : undefined;
+        const safeLeadId = leadId && mongoose_1.default.Types.ObjectId.isValid(String(leadId))
+            ? String(leadId)
+            : undefined;
         const clientDoc = await resolveOrCreateClientDoc({
-            clientId: clientId || undefined,
-            projectId: projectId || undefined,
+            clientId: safeClientId,
+            projectId: safeProjectId,
             clientName,
             clientCompany,
             clientEmail,
@@ -297,16 +313,16 @@ const createQuotation = async (req, res, next) => {
             siteLocation,
         });
         const finalClientId = clientDoc._id;
-        const finalClientName = (clientName || clientDoc.name || 'Valued Client').trim();
-        const finalClientCompany = (clientCompany || clientDoc.companyName || finalClientName).trim();
-        const defaultGstin = (clientGstin || clientDoc.billingAddress?.gstin || '').trim() || undefined;
-        const resolvedAddress = (clientAddress || clientDoc.billingAddress?.street || siteLocation || '').trim();
-        const resolvedLocation = (siteLocation || resolvedAddress || 'Chennai').trim();
-        const resolvedTitle = (projectTitle || subject || 'Civil & Construction Works').trim();
+        const finalClientName = (clientName?.trim() || clientDoc.name || 'Valued Client').trim();
+        const finalClientCompany = (clientCompany?.trim() || clientDoc.companyName || finalClientName).trim();
+        const defaultGstin = (clientGstin?.trim() || clientDoc.billingAddress?.gstin || '').trim() || undefined;
+        const resolvedAddress = (clientAddress?.trim() || clientDoc.billingAddress?.street || siteLocation?.trim() || '').trim();
+        const resolvedLocation = (siteLocation?.trim() || resolvedAddress || 'Chennai').trim();
+        const resolvedTitle = (projectTitle?.trim() || subject?.trim() || 'Civil & Construction Works').trim();
         const quotation = await Quotation_1.Quotation.create({
             quotationNumber,
-            projectId: projectId || undefined,
-            leadId,
+            projectId: safeProjectId,
+            leadId: safeLeadId,
             clientId: finalClientId,
             clientName: finalClientName,
             clientContactPerson: clientContactPerson || finalClientName,

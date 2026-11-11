@@ -218,6 +218,8 @@ const createApp = () => {
             path_1.default.resolve(__dirname, '../../client/dist/index.html'),
         ].filter((f) => !!f && fs_1.default.existsSync(f));
         if (indexCandidates.length > 0) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
             return res.sendFile(indexCandidates[0]);
         }
         res.status(404).type('text/plain').send('Application index.html not found');

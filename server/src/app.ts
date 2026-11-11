@@ -249,6 +249,8 @@ export const createApp = (): express.Application => {
     ].filter((f): f is string => !!f && fs.existsSync(f));
 
     if (indexCandidates.length > 0) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
       return res.sendFile(indexCandidates[0]);
     }
 
