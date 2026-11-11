@@ -17,6 +17,7 @@ import {
   Share2,
   Edit3,
   Building2,
+  Briefcase,
   Wrench,
   Hotel,
 } from 'lucide-react';
@@ -244,15 +245,18 @@ export const QuotationsPage: React.FC = () => {
   // New Quotation form state
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [quotationNumber, setQuotationNumber] = useState('GKA-QUO-2026-001');
+  const [quotationNumber, setQuotationNumber] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientCompany, setClientCompany] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
   const [clientGstin, setClientGstin] = useState('');
   const [projectTitle, setProjectTitle] = useState('');
   const [siteLocation, setSiteLocation] = useState('');
   const [subject, setSubject] = useState('');
   const [senderName, setSenderName] = useState('Arivazhagan');
   const [senderCompany, setSenderCompany] = useState('GKA CONSTRUCTION');
+  const [recentConvertedInvoice, setRecentConvertedInvoice] = useState<any>(null);
   const [isNegotiated, setIsNegotiated] = useState(false);
   const [negotiatedDiscountRupees, setNegotiatedDiscountRupees] = useState<number>(0);
   const [negotiatedNotes, setNegotiatedNotes] = useState<string>('');
@@ -415,11 +419,14 @@ export const QuotationsPage: React.FC = () => {
       }));
 
       const res = await api.createQuotation({
-        quotationNumber,
+        quotationNumber: quotationNumber.trim() || undefined,
+        clientId: selectedClientId || undefined,
         projectId: selectedProjectId || undefined,
         clientName,
         clientContactPerson: clientName,
         clientCompany,
+        clientEmail: clientEmail.trim() || undefined,
+        clientPhone: clientPhone.trim() || undefined,
         clientGstin: clientGstin.trim() || undefined,
         clientAddress: siteLocation,
         projectTitle,
@@ -437,7 +444,7 @@ export const QuotationsPage: React.FC = () => {
       // Optional non-blocking CRM tracking sync
       api.createEnquiry({
         name: clientName,
-        phone: '8838030917',
+        phone: clientPhone.trim() || '8838030917',
         siteLocation,
         projectCategory: 'commercial',
         source: 'direct',
@@ -459,15 +466,22 @@ export const QuotationsPage: React.FC = () => {
 
   const handleSelectExistingClient = (clientId: string) => {
     setSelectedClientId(clientId);
-    if (!clientId) return;
+    if (!clientId) {
+      setClientEmail('');
+      setClientPhone('');
+      return;
+    }
     const c = clients.find((item) => item._id === clientId);
     if (c) {
       if (c.name) setClientName(c.name);
-      if (c.company || c.name) setClientCompany(c.company || c.name);
-      const addr = c.billingAddress?.street || c.billingAddress?.city || '';
+      const compName = c.companyName || c.company || c.name;
+      if (compName) setClientCompany(compName);
+      if (c.email) setClientEmail(c.email);
+      if (c.phone) setClientPhone(c.phone);
+      const addr = [c.billingAddress?.street, c.billingAddress?.city].filter(Boolean).join(', ');
       if (addr) setSiteLocation(addr);
       const gst = c.billingAddress?.gstin || c.gstin || '';
-      if (gst) setClientGstin(gst);
+      setClientGstin(gst);
     }
   };
 
@@ -477,11 +491,12 @@ export const QuotationsPage: React.FC = () => {
     const c = clients.find((item) => item._id === clientId);
     if (c) {
       if (c.name) setEditClientName(c.name);
-      if (c.company || c.name) setEditClientCompany(c.company || c.name);
-      const addr = c.billingAddress?.street || c.billingAddress?.city || '';
+      const compName = c.companyName || c.company || c.name;
+      if (compName) setEditClientCompany(compName);
+      const addr = [c.billingAddress?.street, c.billingAddress?.city].filter(Boolean).join(', ');
       if (addr) setEditSiteLocation(addr);
       const gst = c.billingAddress?.gstin || c.gstin || '';
-      if (gst) setEditClientGstin(gst);
+      setEditClientGstin(gst);
     }
   };
 
@@ -528,10 +543,13 @@ export const QuotationsPage: React.FC = () => {
       setConvertingId(quotationId);
       const res = await api.convertQuotationToInvoice(quotationId);
       if (res.success && res.invoice) {
-        alert(`Quotation successfully converted to Tax Invoice ${res.invoice.invoiceNumber}.`);
+        setRecentConvertedInvoice(res.invoice);
         await fetchQuotationsAndProjects();
-        // Trigger auto downloads
-        window.open(`/api/v1/finance/invoices/${res.invoice._id}/pdf`, '_blank');
+        await downloadFile(
+          `/finance/invoices/${res.invoice._id}/pdf`,
+          `GKA_Invoice_${res.invoice.invoiceNumber}.pdf`,
+          true
+        ).catch(() => {});
       }
     } catch (err: any) {
       alert(err.message || 'Error converting quotation to invoice');
@@ -599,6 +617,9 @@ export const QuotationsPage: React.FC = () => {
   // Open Edit Quotation Modal
   const handleOpenEditQuotation = (q: any) => {
     setEditingQuotation(q);
+    setSelectedEditClientId(
+      q.clientId?._id || (typeof q.clientId === 'string' ? q.clientId : '')
+    );
     setEditProjectId(
       q.projectId?._id || (typeof q.projectId === 'string' ? q.projectId : '')
     );
@@ -692,6 +713,7 @@ export const QuotationsPage: React.FC = () => {
 
       const res = await api.updateQuotation(editingQuotation._id, {
         quotationNumber: editQuotationNumber,
+        clientId: selectedEditClientId || undefined,
         projectId: editProjectId || null,
         clientName: editClientName,
         clientContactPerson: editClientName,
@@ -751,7 +773,11 @@ export const QuotationsPage: React.FC = () => {
           </a>
 
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              const year = new Date().getFullYear();
+              setQuotationNumber(`GKA-QUO-${year}-${String(quotations.length + recycleQuotations.length + 1).padStart(3, '0')}`);
+              setShowModal(true);
+            }}
             className="px-4 py-2 rounded-lg text-xs font-bold bg-[#0F254B] text-white hover:bg-[#1E3A8A] transition-colors shadow-sm flex items-center gap-2"
           >
             <Plus className="w-4 h-4 text-[#D6A21D]" />
@@ -760,14 +786,42 @@ export const QuotationsPage: React.FC = () => {
         </div>
       </div>
 
+      {recentConvertedInvoice && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-emerald-950 shadow-sm">
+          <div className="flex items-center gap-2 font-semibold">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>
+              Tax Invoice <strong>{recentConvertedInvoice.invoiceNumber}</strong> generated & linked to project!
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/admin/invoices')}
+              className="px-3 py-1.5 rounded-lg bg-[#0F254B] text-white font-bold hover:bg-[#1E3A8A] flex items-center gap-1"
+            >
+              <span>Open Invoices & Billing</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#D6A21D]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setRecentConvertedInvoice(null)}
+              className="p-1 text-emerald-700 hover:bg-emerald-100 rounded"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* View Tabs: Active Quotations vs Recycle Bin */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowRecycleBin(false)}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${!showRecycleBin
-                ? 'bg-[#0F254B] text-white shadow-sm'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              ? 'bg-[#0F254B] text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
               }`}
           >
             <FileText className="w-3.5 h-3.5" />
@@ -776,8 +830,8 @@ export const QuotationsPage: React.FC = () => {
           <button
             onClick={() => setShowRecycleBin(true)}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${showRecycleBin
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
+              ? 'bg-rose-600 text-white shadow-sm'
+              : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
               }`}
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -870,8 +924,8 @@ export const QuotationsPage: React.FC = () => {
                       <td className="py-3.5 px-4">
                         <span
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${q.status === 'approved'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-amber-100 text-amber-800'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
                             }`}
                         >
                           {q.status}
@@ -939,21 +993,23 @@ export const QuotationsPage: React.FC = () => {
                             <Share2 className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* Approve or Convert */}
-                          {q.status !== 'approved' ? (
+                          {/* Workflow Action: Convert to Project -> Convert to Invoice */}
+                          {q.status !== 'approved' || !q.projectId ? (
                             <button
                               onClick={() => handleApproveQuotation(q._id)}
                               disabled={approvingId === q._id}
-                              className="px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                              className="px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1"
+                              title="Approve quotation and convert to active project workspace"
                             >
-                              {approvingId === q._id ? 'Approving...' : 'Approve'}
+                              <Briefcase className="w-3 h-3" />
+                              <span>{approvingId === q._id ? 'Converting...' : 'Convert to Project'}</span>
                             </button>
                           ) : (
                             <button
                               onClick={() => handleConvertToInvoice(q._id)}
                               disabled={convertingId === q._id}
                               className="px-2.5 py-1 rounded text-[11px] font-bold bg-[#0F254B] hover:bg-[#1E3A8A] text-white shadow-sm flex items-center gap-1"
-                              title="Convert approved quotation to sequential tax invoice"
+                              title="Convert project-linked quotation to Tax Invoice"
                             >
                               <ArrowRight className="w-3 h-3 text-[#D6A21D]" />
                               <span>{convertingId === q._id ? 'Converting...' : 'Convert to Invoice'}</span>
@@ -1042,8 +1098,8 @@ export const QuotationsPage: React.FC = () => {
                           <td className="py-3.5 px-4 text-center">
                             <span
                               className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border ${daysLeft <= 5
-                                  ? 'bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
-                                  : 'bg-amber-100 text-amber-800 border-amber-300'
+                                ? 'bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
+                                : 'bg-amber-100 text-amber-800 border-amber-300'
                                 }`}
                             >
                               ⏳ Purges in {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
@@ -1144,7 +1200,7 @@ export const QuotationsPage: React.FC = () => {
                     <option value="">-- Choose Existing Client Profile --</option>
                     {clients.map((c) => (
                       <option key={c._id} value={c._id}>
-                        {c.name} {c.company ? `(${c.company})` : ''} — {c.phone || c.email}
+                        {c.name} {(c.companyName || c.company) ? `(${c.companyName || c.company})` : ''} — {c.phone || c.email}
                       </option>
                     ))}
                   </select>
@@ -1167,15 +1223,17 @@ export const QuotationsPage: React.FC = () => {
                           setSiteLocation(
                             `${match.siteAddress?.street || ''}, ${match.siteAddress?.city || ''}`.trim()
                           );
-                          if (match.clientName) setClientName(match.clientName);
-                          const gst = (match.clientId as any)?.billingAddress?.gstin || (match.clientId as any)?.gstin || '';
-                          setClientGstin(gst);
+                          if (!selectedClientId) {
+                            if (match.clientName) setClientName(match.clientName);
+                            const gst = (match.clientId as any)?.billingAddress?.gstin || (match.clientId as any)?.gstin || '';
+                            if (gst) setClientGstin(gst);
+                          }
                         }
                       }
                     }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-900 text-xs"
                   >
-                    <option value="">-- Unlinked / Standalone Quotation --</option>
+                    <option value="">-- New Project on Approval / Standalone --</option>
                     {projects.map((p) => (
                       <option key={p._id} value={p._id}>
                         {p.projectId} — {p.title}
@@ -1525,7 +1583,7 @@ export const QuotationsPage: React.FC = () => {
                     <option value="">-- Choose Existing Client Profile --</option>
                     {clients.map((c) => (
                       <option key={c._id} value={c._id}>
-                        {c.name} {c.company ? `(${c.company})` : ''} — {c.phone || c.email}
+                        {c.name} {(c.companyName || c.company) ? `(${c.companyName || c.company})` : ''} — {c.phone || c.email}
                       </option>
                     ))}
                   </select>

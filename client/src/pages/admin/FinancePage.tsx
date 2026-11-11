@@ -29,20 +29,45 @@ import { formatINR, toPaise, toRupees } from '@shared/types';
 import { GKA_COMPANY } from '@shared/constants';
 import { ShareDocumentModal } from '../../components/common/ShareDocumentModal';
 
-export const FinancePage: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') as 'invoices' | 'payments' | 'expenses' | 'gst' | null;
+interface FinancePageProps {
+  defaultTab?: 'invoices' | 'payments' | 'expenses' | 'gst';
+}
 
+const formatMonthLabel = (period?: string) => {
+  if (!period || !/^\d{4}-\d{2}$/.test(period)) return period || 'Current';
+  const [y, m] = period.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, 1).toLocaleDateString('en-IN', {
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+export const FinancePage: React.FC<FinancePageProps> = ({ defaultTab }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get('tab') as 'invoices' | 'payments' | 'expenses' | 'gst' | null;
+  const urlPeriod = searchParams.get('period');
+  const urlHighlightInvoice = searchParams.get('invoice');
+
+  const resolvedTab = urlTab || defaultTab || 'invoices';
   const [activeTab, setActiveTab] = useState<'invoices' | 'payments' | 'expenses' | 'gst'>(
-    initialTab === 'gst' ? 'gst' : initialTab === 'payments' ? 'payments' : initialTab === 'expenses' ? 'expenses' : 'invoices'
+    resolvedTab === 'gst' ? 'gst' : resolvedTab === 'payments' ? 'payments' : resolvedTab === 'expenses' ? 'expenses' : 'invoices'
   );
+
+  useEffect(() => {
+    const nextTab = urlTab || defaultTab || 'invoices';
+    setActiveTab(nextTab);
+  }, [urlTab, defaultTab]);
 
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareInvoice, setShareInvoice] = useState<any>(null);
 
   const handleTabChange = (tab: 'invoices' | 'payments' | 'expenses' | 'gst') => {
     setActiveTab(tab);
-    setSearchParams({ tab });
+    const nextParams: Record<string, string> = { tab };
+    if (tab === 'gst' && selectedTaxRecord?.period) {
+      nextParams.period = selectedTaxRecord.period;
+    }
+    setSearchParams(nextParams);
   };
 
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -50,7 +75,9 @@ export const FinancePage: React.FC = () => {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [taxRecords, setTaxRecords] = useState<any[]>([]);
+  const [invoicesByPeriod, setInvoicesByPeriod] = useState<Record<string, any[]>>({});
   const [selectedTaxRecord, setSelectedTaxRecord] = useState<any>(null);
+  const [gstBannerMsg, setGstBannerMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -91,7 +118,15 @@ export const FinancePage: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchFinanceData = async () => {
+  const selectTaxRecord = (rec: any) => {
+    setSelectedTaxRecord(rec);
+    if (rec) {
+      setItcRupees(Math.round((rec.eligibleItcPaise || 0) / 100));
+      setTaxPayRupees(Math.round((rec.netTaxPayablePaise || 0) / 100));
+    }
+  };
+
+  const fetchFinanceData = async (preferredPeriod?: string) => {
     try {
       setLoading(true);
       const [invRes, payRes, expRes, projRes, taxRes] = await Promise.all([
@@ -99,7 +134,7 @@ export const FinancePage: React.FC = () => {
         api.getPayments(),
         api.getExpenses(),
         api.getProjects(),
-        api.getTaxReconciliations().catch(() => ({ success: false, records: [] })),
+        api.getTaxReconciliations().catch(() => ({ success: false, records: [], invoicesByPeriod: {} })),
       ]);
 
       if (invRes.success) setInvoices(invRes.invoices);
@@ -107,13 +142,16 @@ export const FinancePage: React.FC = () => {
       if (expRes.success) setExpenses(expRes.expenses);
       if (taxRes.success && taxRes.records?.length > 0) {
         setTaxRecords(taxRes.records);
-        setSelectedTaxRecord(taxRes.records[0]);
-        setItcRupees(Math.round((taxRes.records[0].eligibleItcPaise || 0) / 100));
-        setTaxPayRupees(Math.round((taxRes.records[0].netTaxPayablePaise || 0) / 100));
+        setInvoicesByPeriod(taxRes.invoicesByPeriod || {});
+        const targetPeriod = preferredPeriod || urlPeriod || selectedTaxRecord?.period;
+        const matchedRec =
+          (targetPeriod && taxRes.records.find((r: any) => r.period === targetPeriod)) ||
+          taxRes.records[0];
+        selectTaxRecord(matchedRec);
       }
       if (projRes.success) {
         setProjects(projRes.projects);
-        if (projRes.projects.length > 0) {
+        if (projRes.projects.length > 0 && !payProject) {
           setPayProject(projRes.projects[0]._id);
           setExpProject(projRes.projects[0]._id);
         }
@@ -126,8 +164,8 @@ export const FinancePage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchFinanceData();
-  }, []);
+    fetchFinanceData(urlPeriod || undefined);
+  }, [urlPeriod]);
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,7 +305,11 @@ export const FinancePage: React.FC = () => {
       });
       if (res.success) {
         setShowTaxFilingModal(false);
-        fetchFinanceData();
+        setGstBannerMsg(
+          res.message ||
+            `GST Return filed (${taxFilingArn}) for ${selectedTaxRecord.period} — synced with Invoices & Dashboard.`
+        );
+        await fetchFinanceData(selectedTaxRecord.period);
       }
     } catch (err: any) {
       alert(err.message || 'Error recording tax return filing');
@@ -276,12 +318,39 @@ export const FinancePage: React.FC = () => {
     }
   };
 
-  // Financial aggregates — strict revenue integrity
-  const verifiedPayments = payments.filter((p) => p.verificationStatus === 'verified' || !p.verificationStatus);
+  const handleTogglePeriodInvoiceGst = async (inv: any) => {
+    try {
+      const arn =
+        selectedTaxRecord?.returnAckNumber ||
+        inv.gstFilingArn ||
+        window.prompt(`Enter ARN reference for ${inv.invoiceNumber}:`, 'AA3310260012345') ||
+        'AA3310260012345';
+      const nextFiled = !inv.gstFiled;
+      const res = await api.toggleInvoiceGst(inv._id, {
+        gstFiled: nextFiled,
+        gstFilingArn: nextFiled ? arn : undefined,
+        gstTaxPeriod: selectedTaxRecord?.period || inv.gstTaxPeriod,
+      });
+      if (res.success) {
+        setGstBannerMsg(res.message);
+        await fetchFinanceData(selectedTaxRecord?.period);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating invoice GST status');
+    }
+  };
+
+  // Financial aggregates — strict revenue integrity (verified + reconciled count as collected)
+  const verifiedPayments = payments.filter(
+    (p) => p.verificationStatus === 'verified' || p.verificationStatus === 'reconciled' || !p.verificationStatus
+  );
   const pendingPayments = payments.filter((p) => p.verificationStatus === 'verification_pending');
 
   const totalInvoicedPaise = invoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
-  const totalCollectedPaise = verifiedPayments.reduce((acc, p) => acc + (p.amountPaise || 0), 0);
+  const totalCollectedPaise = Math.max(
+    verifiedPayments.reduce((acc, p) => acc + (p.amountPaise || 0), 0),
+    invoices.reduce((acc, i) => acc + (i.paidAmountPaise || 0), 0)
+  );
   const totalPendingClaimsPaise = pendingPayments.reduce((acc, p) => acc + (p.amountPaise || 0), 0);
   const totalExpensesPaise = expenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
   const totalReceivablesPaise = Math.max(0, totalInvoicedPaise - totalCollectedPaise);
@@ -530,7 +599,7 @@ export const FinancePage: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {payments.map((p) => {
                     const isPending = p.verificationStatus === 'verification_pending';
-                    const isVerified = p.verificationStatus === 'verified' || !p.verificationStatus;
+                    const isVerified = p.verificationStatus === 'verified' || p.verificationStatus === 'reconciled' || !p.verificationStatus;
                     const isRejected = p.verificationStatus === 'rejected';
 
                     return (
@@ -662,21 +731,91 @@ export const FinancePage: React.FC = () => {
         </div>
       )}
 
-      {/* GST & Tax Settlement View (ITC Ledger & Compliance) */}
+      {/* GST & Tax Settlement View (Month-Wise Categories + ITC Ledger + Synchronized ARN Filing) */}
       {activeTab === 'gst' && (
         <div className="space-y-6">
+          {gstBannerMsg && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{gstBannerMsg}</span>
+              </div>
+              <button onClick={() => setGstBannerMsg(null)} className="px-2 font-bold text-emerald-700">
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Month-Wise GST Category Tabs */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-subtle space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-xs font-heading font-bold uppercase tracking-wider text-brand-navy-950">
+                  Month-Wise GST Categories ({taxRecords.length} Month Period{taxRecords.length === 1 ? '' : 's'})
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Select a month category to inspect categorized invoices, reconcile ITC, and file GST with ARN (syncs simultaneously with Invoices & Owner Dashboard).
+                </p>
+              </div>
+              <Link
+                to="/admin/invoices"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-brand-navy-950 inline-flex items-center gap-1.5 self-start sm:self-auto"
+              >
+                <span>Manage All Invoices</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {taxRecords.map((rec) => {
+                const isSelected = selectedTaxRecord?.period === rec.period;
+                const monthInvs = invoicesByPeriod[rec.period] || [];
+                const isFiled = rec.returnStatus === 'filed';
+                return (
+                  <button
+                    key={rec._id}
+                    type="button"
+                    onClick={() => {
+                      selectTaxRecord(rec);
+                      setSearchParams({ tab: 'gst', period: rec.period });
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${
+                      isSelected
+                        ? 'bg-brand-navy-950 text-white border-brand-navy-950 shadow-sm'
+                        : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>{formatMonthLabel(rec.period)}</span>
+                    <span className={`font-mono text-[10px] ${isSelected ? 'text-brand-gold-300' : 'text-slate-500'}`}>
+                      ({monthInvs.length} inv)
+                    </span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                        isFiled
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {isFiled ? 'Filed' : 'Pending'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Top Compliance Bar */}
           <div className="bg-brand-navy-950 text-white rounded-2xl p-5 border border-brand-navy-800 shadow-lg space-y-3">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <span className="text-[11px] font-bold text-brand-gold-400 tracking-wider uppercase">
-                  Government of India — GST Portal Settlement
+                  Government of India — Month-Wise GST Portal Settlement
                 </span>
                 <h2 className="text-xl font-heading font-extrabold text-white mt-0.5">
-                  Tax Period: {selectedTaxRecord?.period || '2026-10'} ({selectedTaxRecord?.financialYear || 'FY 2026-27'})
+                  Tax Period: {formatMonthLabel(selectedTaxRecord?.period)} [{selectedTaxRecord?.period || 'Current'}] ({selectedTaxRecord?.financialYear || 'FY 2026-27'})
                 </h2>
                 <p className="text-xs text-slate-300 mt-1">
-                  GSTIN: <span className="font-mono font-bold text-brand-gold-300">33AAAAA0000A1Z5</span> | Legal Entity: <span className="font-semibold text-white">GKA CONSTRUCTION</span> | Jurisdiction: Tamil Nadu
+                  GSTIN: <span className="font-mono font-bold text-brand-gold-300">{GKA_COMPANY.gstin}</span> | Legal Entity: <span className="font-semibold text-white">GKA CONSTRUCTION</span> | Jurisdiction: Tamil Nadu
                 </p>
               </div>
 
@@ -821,6 +960,109 @@ export const FinancePage: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Month-Wise Categorized Invoices Table inside GST Portal */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-brand-navy-900" />
+                <h3 className="font-heading font-bold text-xs text-brand-navy-950 uppercase tracking-wider">
+                  Tax Invoices Categorized in {formatMonthLabel(selectedTaxRecord?.period)} ({(invoicesByPeriod[selectedTaxRecord?.period] || []).length})
+                </h3>
+              </div>
+              <span className="text-[11px] text-slate-500">
+                Filing GST Return (ARN) above updates every invoice below & the Invoices Dashboard simultaneously.
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/50 border-b border-slate-200 text-slate-500 font-semibold text-[11px]">
+                  <tr>
+                    <th className="py-3 px-4">Invoice # & Issue Date</th>
+                    <th className="py-3 px-4">Client & Project</th>
+                    <th className="py-3 px-4 text-right font-mono">Taxable Base</th>
+                    <th className="py-3 px-4 text-right font-mono">CGST + SGST (18%)</th>
+                    <th className="py-3 px-4 text-center">GST Filing Status & ARN</th>
+                    <th className="py-3 px-4 text-right">Quick Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(invoicesByPeriod[selectedTaxRecord?.period] || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400">
+                        No invoices assigned to {formatMonthLabel(selectedTaxRecord?.period)} yet. Use "Move to GST" from Invoices & Billing to add bills here.
+                      </td>
+                    </tr>
+                  ) : (
+                    (invoicesByPeriod[selectedTaxRecord?.period] || []).map((inv: any) => {
+                      const isHighlighted = urlHighlightInvoice && urlHighlightInvoice === inv._id;
+                      const gstAmountPaise = (inv.cgstPaise || 0) + (inv.sgstPaise || 0) + (inv.igstPaise || 0);
+                      return (
+                        <tr
+                          key={inv._id}
+                          className={isHighlighted ? 'bg-blue-50/80' : 'hover:bg-slate-50/70 transition-colors'}
+                        >
+                          <td className="py-3 px-4 font-mono font-bold text-brand-navy-950">
+                            {inv.invoiceNumber}
+                            <span className="block text-[10px] font-sans font-normal text-slate-400">
+                              {new Date(inv.issueDate).toLocaleDateString('en-IN')}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <strong className="text-slate-900 block">{inv.clientName}</strong>
+                            <span className="text-[11px] text-slate-500">{inv.projectTitle}</span>
+                            {inv.clientGstin && (
+                              <span className="block font-mono text-[10px] text-blue-700 font-bold">
+                                GSTIN: {inv.clientGstin}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-semibold text-slate-700">
+                            {formatINR(inv.subtotalPaise || 0)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-brand-navy-950">
+                            {formatINR(gstAmountPaise)}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {inv.gstFiled ? (
+                              <div className="inline-flex flex-col items-center">
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  ✓ GST Filed
+                                </span>
+                                {inv.gstFilingArn && (
+                                  <span className="text-[10px] font-mono font-bold text-emerald-700 mt-0.5">
+                                    ARN: {inv.gstFilingArn}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                Pending Return
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePeriodInvoiceGst(inv)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
+                                inv.gstFiled
+                                  ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                              }`}
+                            >
+                              {inv.gstFiled ? 'Mark Unfiled' : 'File This Invoice'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -1109,7 +1351,10 @@ export const FinancePage: React.FC = () => {
                 <label className="block font-semibold text-slate-700 mb-1">Project Site *</label>
                 <select
                   value={payProject}
-                  onChange={(e) => setPayProject(e.target.value)}
+                  onChange={(e) => {
+                    setPayProject(e.target.value);
+                    setPayInvoiceId('');
+                  }}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
                 >
                   {projects.map((p) => (
@@ -1117,6 +1362,28 @@ export const FinancePage: React.FC = () => {
                       {p.projectId} — {p.title}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Apply To Invoice</label>
+                <select
+                  value={payInvoiceId}
+                  onChange={(e) => setPayInvoiceId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
+                >
+                  <option value="">Auto-Allocate Unpaid Project Invoices (FIFO)</option>
+                  {invoices
+                    .filter(
+                      (inv) =>
+                        String(inv.projectId?._id || inv.projectId) === String(payProject) &&
+                        (inv.totalAmountPaise || 0) - (inv.paidAmountPaise || 0) > 0
+                    )
+                    .map((inv) => (
+                      <option key={inv._id} value={inv._id}>
+                        {inv.invoiceNumber} — Due: {formatINR((inv.totalAmountPaise || 0) - (inv.paidAmountPaise || 0))}
+                      </option>
+                    ))}
                 </select>
               </div>
 

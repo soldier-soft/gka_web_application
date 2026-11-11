@@ -324,10 +324,16 @@ export const DashboardPage: React.FC = () => {
             Bills (Invoices)
           </Link>
           <Link
-            to="/admin/finance?tab=gst"
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+            to="/admin/payments"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-900 hover:bg-emerald-100 transition-colors shadow-sm"
           >
-            GST Filing
+            Payment Counter
+          </Link>
+          <Link
+            to="/admin/gst"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 border border-blue-200 text-blue-900 hover:bg-blue-100 transition-colors shadow-sm"
+          >
+            GST Filing (Month-Wise)
           </Link>
           <Link
             to="/admin/crm"
@@ -369,7 +375,12 @@ export const DashboardPage: React.FC = () => {
         <div className="bg-white rounded-xl p-5 border-2 border-rose-200 shadow-subtle space-y-2 bg-rose-50/20">
           <div className="flex justify-between items-center text-slate-500">
             <span className="text-xs font-bold uppercase tracking-wider text-rose-700">Total Outstanding (Bills Due)</span>
-            <AlertCircle className="w-4 h-4 text-rose-600" />
+            <Link
+              to="/admin/payments"
+              className="text-[10px] font-bold text-rose-700 hover:underline flex items-center gap-1"
+            >
+              <span>Collect Payment →</span>
+            </Link>
           </div>
           <p className="text-2xl font-extrabold font-heading text-rose-600">
             {formatINR(stats?.receivablesPaise || 0)}
@@ -423,13 +434,31 @@ export const DashboardPage: React.FC = () => {
         <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-subtle space-y-2">
           <div className="flex justify-between items-center text-slate-500">
             <span className="text-xs font-semibold uppercase tracking-wider">GST Net Tax Liability</span>
-            <ShieldCheck className="w-4 h-4 text-indigo-600" />
+            <Link
+              to="/admin/gst"
+              className="text-[10px] font-bold text-indigo-700 hover:underline flex items-center gap-1"
+            >
+              <span>GST Portal →</span>
+            </Link>
           </div>
           <p className="text-2xl font-bold font-heading text-indigo-900">
             {formatINR(stats?.netGstPayablePaise || 0)}
           </p>
-          <p className="text-[11px] text-slate-400 capitalize">
-            Status: {stats?.gstFilingStatus === 'filed' ? 'Filed' : 'Pending Filing'} (18% GST Reconciliation)
+          <p className="text-[11px] text-slate-500">
+            Status:{' '}
+            <strong className={stats?.gstFilingStatus === 'filed' ? 'text-emerald-700' : 'text-amber-700'}>
+              {stats?.gstFilingStatus === 'filed'
+                ? 'Filed'
+                : stats?.gstFilingStatus === 'partially_filed'
+                ? 'Partially Filed'
+                : 'Pending Filing'}
+            </strong>{' '}
+            ({stats?.gstCompliancePercent ?? 0}% • {stats?.gstFiledInvoicesCount ?? 0}/{stats?.totalInvoices ?? 0} bills)
+            {stats?.latestGstArn && (
+              <span className="block font-mono text-[10px] text-emerald-700 font-bold mt-0.5">
+                ARN: {stats.latestGstArn}
+              </span>
+            )}
           </p>
         </div>
 

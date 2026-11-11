@@ -74,7 +74,13 @@ const InvoiceSchema = new mongoose_1.Schema({
     gstFiled: { type: Boolean, default: false, index: true },
     gstFilingDate: { type: Date },
     gstFilingArn: { type: String },
-    gstTaxPeriod: { type: String, default: '2026-10' },
+    gstTaxPeriod: {
+        type: String,
+        default: () => {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        },
+    },
     subject: { type: String, default: 'Tax Invoice for Construction Works & Allied Services' },
     clientContactPerson: { type: String },
     clientCompany: { type: String },

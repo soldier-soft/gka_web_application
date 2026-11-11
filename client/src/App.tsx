@@ -32,6 +32,7 @@ import { QuotationsPage } from './pages/admin/QuotationsPage';
 import { SiteOpsPage } from './pages/admin/SiteOpsPage';
 import { InventoryPage } from './pages/admin/InventoryPage';
 import { FinancePage } from './pages/admin/FinancePage';
+import { PaymentCollectionPage } from './pages/admin/PaymentCollectionPage';
 import { PortfolioAdminPage } from './pages/admin/PortfolioAdminPage';
 import { InvoicesPage } from './pages/admin/InvoicesPage';
 import { ProfilePage } from './pages/admin/ProfilePage';
@@ -130,6 +131,8 @@ export const App: React.FC = () => {
                 <Route path="projects/:id" element={<ProjectDetailPage />} />
                 <Route path="quotations" element={<QuotationsPage />} />
                 <Route path="invoices" element={<InvoicesPage />} />
+                <Route path="payments" element={<PaymentCollectionPage />} />
+                <Route path="gst" element={<FinancePage defaultTab="gst" />} />
                 <Route path="site-ops" element={<SiteOpsPage />} />
                 <Route path="inventory" element={<InventoryPage />} />
                 <Route path="finance" element={<FinancePage />} />

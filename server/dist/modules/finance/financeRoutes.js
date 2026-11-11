@@ -27,6 +27,7 @@ router.patch('/payments/:id/reject', (0, roleCheck_1.requireRoles)('super_admin'
 router.get('/profitability/:projectId', (0, roleCheck_1.requireRoles)('super_admin', 'project_manager', 'accounts'), financeController_1.getProfitabilityReport);
 // GST & Tax Reconciliation (Owner & Accounts ONLY)
 router.get('/gst/periods', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.getTaxReconciliations);
+router.post('/gst/move-invoice', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.moveInvoiceToGst);
 router.patch('/gst/periods/:id/eligible-itc', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.updateEligibleItc);
 router.post('/gst/periods/:id/payment', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.recordTaxPayment);
 router.post('/gst/periods/:id/filing', (0, roleCheck_1.requireRoles)('super_admin', 'accounts'), financeController_1.recordTaxFiling);

@@ -447,16 +447,16 @@ export const api = {
     return request<{ success: boolean; count: number; payments: any[] }>(`/finance/payments${q}`);
   },
   recordPayment: (data: any) =>
-    request<{ success: boolean; payment: any }>('/finance/payments', {
+    request<{ success: boolean; message?: string; payment: any; touchedInvoices?: any[]; project?: any }>('/finance/payments', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
   verifyPayment: (id: string) =>
-    request<{ success: boolean; message: string; payment: any }>(`/finance/payments/${id}/verify`, {
+    request<{ success: boolean; message: string; payment: any; touchedInvoices?: any[]; project?: any }>(`/finance/payments/${id}/verify`, {
       method: 'PATCH',
     }),
   reconcilePayment: (id: string) =>
-    request<{ success: boolean; message: string; payment: any }>(`/finance/payments/${id}/reconcile`, {
+    request<{ success: boolean; message: string; payment: any; project?: any }>(`/finance/payments/${id}/reconcile`, {
       method: 'PATCH',
     }),
   rejectPayment: (id: string, reason?: string) =>
@@ -469,7 +469,12 @@ export const api = {
 
   // GST & Tax Reconciliation
   getTaxReconciliations: () =>
-    request<{ success: boolean; count: number; records: any[] }>('/finance/gst/periods'),
+    request<{ success: boolean; count: number; records: any[]; invoicesByPeriod?: Record<string, any[]> }>('/finance/gst/periods'),
+  moveInvoiceToGst: (invoiceId: string, period?: string) =>
+    request<{ success: boolean; message: string; invoice: any; record: any }>('/finance/gst/move-invoice', {
+      method: 'POST',
+      body: JSON.stringify({ invoiceId, period }),
+    }),
   updateEligibleItc: (id: string, data: { eligibleItcPaise: number; taxAdjustmentsPaise?: number; reason?: string }) =>
     request<{ success: boolean; message: string; record: any }>(`/finance/gst/periods/${id}/eligible-itc`, {
       method: 'PATCH',
@@ -481,7 +486,7 @@ export const api = {
       body: JSON.stringify(data),
     }),
   recordTaxFiling: (id: string, data: any) =>
-    request<{ success: boolean; message: string; record: any }>(`/finance/gst/periods/${id}/filing`, {
+    request<{ success: boolean; message: string; record: any; updatedInvoicesCount?: number }>(`/finance/gst/periods/${id}/filing`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

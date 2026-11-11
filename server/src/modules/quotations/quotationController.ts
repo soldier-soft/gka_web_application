@@ -19,6 +19,195 @@ import { GoogleDriveService } from '../../services/googleDriveService';
 import { sendQuotationAlertEmail, sendInvoiceAlertEmail, streamToBuffer } from '../../services/emailService';
 import { toPaise } from '../../shared/types';
 
+const generateNextUniqueNumber = async (
+  Model: any,
+  field: string,
+  prefix: string
+): Promise<string> => {
+  const currentYear = new Date().getFullYear();
+  let seq = (await Model.countDocuments()) + 1;
+  while (true) {
+    const candidate = `${prefix}-${currentYear}-${String(seq).padStart(3, '0')}`;
+    const existing = await Model.exists({ [field]: candidate });
+    if (!existing) return candidate;
+    seq += 1;
+  }
+};
+
+const escapeRegex = (val: string) => val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const resolveOrCreateClientDoc = async (params: {
+  clientId?: any;
+  projectId?: any;
+  clientName?: string;
+  clientCompany?: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  clientGstin?: string;
+  clientAddress?: string;
+  siteLocation?: string;
+}) => {
+  let clientDoc = params.clientId ? await Client.findById(params.clientId) : null;
+
+  if (!clientDoc && params.projectId) {
+    const projDoc = await Project.findById(params.projectId);
+    if (projDoc?.clientId) {
+      clientDoc = await Client.findById(projDoc.clientId);
+    }
+  }
+
+  const fallbackName = (params.clientName || params.clientCompany || 'Valued Client').trim();
+  const normalizedEmail = (
+    params.clientEmail?.trim() || formatClientPortalUsername(fallbackName)
+  ).toLowerCase();
+
+  if (!clientDoc) {
+    const searchOr: any[] = [{ email: normalizedEmail }];
+    if (params.clientName?.trim()) {
+      searchOr.push({ name: new RegExp(`^${escapeRegex(params.clientName.trim())}$`, 'i') });
+    }
+    if (params.clientCompany?.trim()) {
+      searchOr.push({ companyName: new RegExp(`^${escapeRegex(params.clientCompany.trim())}$`, 'i') });
+    }
+    clientDoc = await Client.findOne({ $or: searchOr });
+  }
+
+  if (!clientDoc) {
+    clientDoc = await Client.create({
+      name: fallbackName,
+      companyName: (params.clientCompany || fallbackName).trim(),
+      email: normalizedEmail,
+      phone: (params.clientPhone || '8838030917').trim(),
+      billingAddress: {
+        street: (params.clientAddress || params.siteLocation || 'Chennai').trim(),
+        city: 'Chennai',
+        state: 'Tamil Nadu',
+        pincode: '600130',
+        gstin: params.clientGstin?.trim() || undefined,
+      },
+    });
+  }
+
+  return clientDoc;
+};
+
+const ensureProjectForQuotation = async (quotation: any) => {
+  let project = quotation.projectId ? await Project.findById(quotation.projectId) : null;
+
+  if (!project) {
+    const clientDoc = await resolveOrCreateClientDoc({
+      clientId: quotation.clientId,
+      clientName: quotation.clientName,
+      clientCompany: quotation.clientCompany,
+      clientEmail: quotation.clientEmail,
+      clientPhone: quotation.clientPhone,
+      clientGstin: (quotation as any).clientGstin,
+      clientAddress: quotation.clientAddress,
+      siteLocation: quotation.siteLocation,
+    });
+    quotation.clientId = clientDoc._id as any;
+
+    const projectIdStr = await generateNextUniqueNumber(Project, 'projectId', 'GKA-PRJ');
+    const resolvedTitle =
+      quotation.subject ||
+      quotation.projectTitle ||
+      (quotation.items && quotation.items[0]?.description) ||
+      'Civil & Building Construction Works';
+
+    project = await Project.create({
+      projectId: projectIdStr,
+      title: resolvedTitle,
+      category: 'residential',
+      clientId: clientDoc._id,
+      siteAddress: {
+        street: quotation.siteLocation || quotation.clientAddress || 'Chennai',
+        city: 'Chennai',
+        state: 'Tamil Nadu',
+        pincode: '600130',
+      },
+      scopeOfWork: (quotation.items || []).map((it: any) => it.description).filter(Boolean).slice(0, 10),
+      startDate: new Date(),
+      targetEndDate: quotation.validUntil || new Date(Date.now() + 180 * 86400000),
+      status: 'active',
+      progressPercent: 0,
+      contractValuePaise: quotation.totalAmountPaise,
+      totalBudgetPaise: quotation.subtotalPaise,
+      invoicedAmountPaise: 0,
+      collectedAmountPaise: 0,
+    });
+
+    const milestoneDocs = STANDARD_MILESTONES.map((m, idx) => {
+      const pStart = new Date(Date.now() + idx * 25 * 86400000);
+      const pEnd = new Date(Date.now() + (idx + 1) * 25 * 86400000);
+      return {
+        projectId: project!._id,
+        code: m.code,
+        title: m.title,
+        description: m.description,
+        plannedStartDate: pStart,
+        plannedEndDate: pEnd,
+        weightagePercent: m.weightagePercent,
+        progressPercent: 0,
+        status: 'pending' as const,
+        isPublishedToClient: true,
+        orderIndex: m.orderIndex,
+      };
+    });
+    await Milestone.insertMany(milestoneDocs);
+
+    const portalEmailCandidate = (clientDoc.email || formatClientPortalUsername(clientDoc.name)).toLowerCase();
+    let user = await User.findOne({
+      $or: [
+        { clientId: clientDoc._id },
+        { _id: clientDoc.userId },
+        { email: portalEmailCandidate },
+        { email: formatClientPortalUsername(clientDoc.name).toLowerCase() },
+      ],
+    });
+
+    if (!user) {
+      const portalUsername = clientDoc.email?.includes('@gkaconstruction.com')
+        ? clientDoc.email.toLowerCase()
+        : formatClientPortalUsername(clientDoc.name);
+      const defaultPassword = 'GKAclient2026!';
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(defaultPassword, salt);
+
+      user = await User.create({
+        name: clientDoc.name,
+        email: portalUsername,
+        phone: clientDoc.phone || '8838030917',
+        passwordHash,
+        defaultPassword,
+        role: 'client',
+        clientId: clientDoc._id,
+        assignedProjects: [project._id],
+        isActive: true,
+      });
+      await Client.findByIdAndUpdate(clientDoc._id, { userId: user._id, email: portalUsername });
+    } else {
+      if (!user.assignedProjects.some((pid: any) => String(pid) === String(project!._id))) {
+        user.assignedProjects.push(project._id as any);
+      }
+      if (!user.clientId) user.clientId = clientDoc._id as any;
+      if (!user.defaultPassword) user.defaultPassword = 'GKAclient2026!';
+      await user.save();
+      await Client.findByIdAndUpdate(clientDoc._id, { userId: user._id });
+    }
+
+    quotation.projectId = project._id as any;
+    quotation.projectTitle = project.title;
+    quotation.convertedToBudget = true;
+  } else {
+    project.contractValuePaise = quotation.totalAmountPaise;
+    project.totalBudgetPaise = quotation.subtotalPaise;
+    await project.save();
+    quotation.convertedToBudget = true;
+  }
+
+  return project;
+};
+
 export const getRateLibrary = async (req: Request, res: Response): Promise<void> => {
   res.json({ success: true, rates: STANDARD_RATE_LIBRARY });
 };
@@ -90,6 +279,7 @@ export const getQuotationById = async (req: Request, res: Response, next: NextFu
 export const createQuotation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const {
+      quotationNumber: requestedQuotationNumber,
       projectId,
       leadId,
       clientId,
@@ -98,6 +288,8 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
       clientCompany,
       clientGstin,
       clientAddress,
+      clientEmail,
+      clientPhone,
       projectTitle,
       siteLocation,
       subject,
@@ -145,53 +337,52 @@ export const createQuotation = async (req: Request, res: Response, next: NextFun
     const sgstPaise = totalTaxPaise - cgstPaise;
     const totalAmountPaise = taxableAmountPaise + totalTaxPaise;
 
-    const count = await Quotation.countDocuments();
-    const currentYear = new Date().getFullYear();
-    const quotationNumber = `GKA-QUO-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+    const cleanRequestedNum = typeof requestedQuotationNumber === 'string'
+      ? requestedQuotationNumber.trim().toUpperCase()
+      : '';
+    const quotationNumber =
+      cleanRequestedNum && !(await Quotation.exists({ quotationNumber: cleanRequestedNum }))
+        ? cleanRequestedNum
+        : await generateNextUniqueNumber(Quotation, 'quotationNumber', 'GKA-QUO');
 
     const validUntil = new Date();
     validUntil.setDate(validUntil.getDate() + (Number(validDays) || 30));
 
-    let defaultGstin = clientGstin;
-    if (!defaultGstin && (clientId || projectId)) {
-      const clientDoc = await Client.findById(clientId);
-      if (clientDoc) {
-        defaultGstin = clientDoc.billingAddress?.gstin;
-      }
-      if (!defaultGstin && projectId) {
-        const projDoc = await Project.findById(projectId);
-        if (projDoc?.clientId) {
-          const clientFromProj = await Client.findById(projDoc.clientId);
-          if (clientFromProj) defaultGstin = clientFromProj.billingAddress?.gstin;
-        }
-      }
-    }
+    const clientDoc = await resolveOrCreateClientDoc({
+      clientId: clientId || undefined,
+      projectId: projectId || undefined,
+      clientName,
+      clientCompany,
+      clientEmail,
+      clientPhone,
+      clientGstin,
+      clientAddress,
+      siteLocation,
+    });
 
-    let finalClientId = clientId;
-    let finalClientName = clientName;
-    let finalClientCompany = clientCompany;
-    if (projectId) {
-      const projDoc = await Project.findById(projectId).populate('clientId');
-      if (projDoc?.clientId) {
-        finalClientId = (projDoc.clientId as any)._id || projDoc.clientId;
-        finalClientName = (projDoc.clientId as any).name || clientName;
-        finalClientCompany = (projDoc.clientId as any).companyName || clientCompany;
-      }
-    }
+    const finalClientId = clientDoc._id;
+    const finalClientName = (clientName || clientDoc.name || 'Valued Client').trim();
+    const finalClientCompany = (clientCompany || clientDoc.companyName || finalClientName).trim();
+    const defaultGstin = (clientGstin || clientDoc.billingAddress?.gstin || '').trim() || undefined;
+    const resolvedAddress = (clientAddress || clientDoc.billingAddress?.street || siteLocation || '').trim();
+    const resolvedLocation = (siteLocation || resolvedAddress || 'Chennai').trim();
+    const resolvedTitle = (projectTitle || subject || 'Civil & Construction Works').trim();
 
     const quotation = await Quotation.create({
       quotationNumber,
-      projectId,
+      projectId: projectId || undefined,
       leadId,
       clientId: finalClientId,
       clientName: finalClientName,
       clientContactPerson: clientContactPerson || finalClientName,
       clientCompany: finalClientCompany || 'VIVANTHA HOTEL',
       clientGstin: defaultGstin,
-      clientAddress: clientAddress || '',
-      projectTitle,
-      siteLocation,
-      subject: subject || `Quotation for Construction Works - ${projectTitle}`,
+      clientAddress: resolvedAddress,
+      clientEmail: clientEmail || clientDoc.email,
+      clientPhone: clientPhone || clientDoc.phone,
+      projectTitle: resolvedTitle,
+      siteLocation: resolvedLocation,
+      subject: subject || `Quotation for Construction Works - ${resolvedTitle}`,
       senderName: senderName || 'HARI A',
       senderCompany: senderCompany || 'GKA CONSTRUCTION',
       items: calculatedItems,
@@ -263,140 +454,8 @@ export const approveQuotation = async (req: Request, res: Response, next: NextFu
     quotation.approvedAt = new Date();
     quotation.approvedBy = req.user?.id as any;
 
-    // Workflow: Quotation -> Approve for project (with project title of quotation subject or project scope)
-    if (!quotation.projectId) {
-      // 1. Resolve or create client
-      let clientDoc = quotation.clientId ? await Client.findById(quotation.clientId) : null;
-      if (!clientDoc) {
-        const clientEmail = (quotation.clientEmail || formatClientPortalUsername(quotation.clientName)).toLowerCase();
-        clientDoc = await Client.findOne({
-          $or: [{ email: clientEmail }, { name: quotation.clientName }],
-        });
-
-        if (!clientDoc) {
-          clientDoc = await Client.create({
-            name: quotation.clientName || 'Valued Client',
-            companyName: quotation.clientCompany,
-            email: clientEmail,
-            phone: quotation.clientPhone || '8838030917',
-            billingAddress: {
-              street: quotation.clientAddress || quotation.siteLocation || '',
-              city: 'Chennai',
-              state: 'Tamil Nadu',
-              pincode: '600130',
-              gstin: (quotation as any).clientGstin || undefined,
-            },
-          });
-        }
-        quotation.clientId = clientDoc._id as any;
-      }
-
-      // 2. Generate unique project ID
-      const count = await Project.countDocuments();
-      const currentYear = new Date().getFullYear();
-      const projectIdStr = `GKA-PRJ-${currentYear}-${String(count + 1).padStart(3, '0')}`;
-
-      // Project title: quotation subject or project scope or projectTitle
-      const projectTitle =
-        quotation.subject ||
-        quotation.projectTitle ||
-        (quotation.items && quotation.items[0]?.description) ||
-        'Civil & Building Construction Works';
-
-      // 3. Create Project
-      const project = await Project.create({
-        projectId: projectIdStr,
-        title: projectTitle,
-        category: 'residential',
-        clientId: clientDoc._id,
-        siteAddress: {
-          street: quotation.siteLocation || quotation.clientAddress || '',
-          city: 'Chennai',
-          state: 'Tamil Nadu',
-          pincode: '600130',
-        },
-        scopeOfWork: (quotation.items || []).map((it: any) => it.description).filter(Boolean).slice(0, 10),
-        startDate: new Date(),
-        targetEndDate: quotation.validUntil || new Date(Date.now() + 180 * 86400000),
-        status: 'active',
-        progressPercent: 0,
-        contractValuePaise: quotation.totalAmountPaise,
-        totalBudgetPaise: quotation.subtotalPaise,
-        invoicedAmountPaise: 0,
-        collectedAmountPaise: 0,
-      });
-
-      // 4. Seed Standard Milestones
-      const milestoneDocs = STANDARD_MILESTONES.map((m, idx) => {
-        const pStart = new Date(Date.now() + idx * 25 * 86400000);
-        const pEnd = new Date(Date.now() + (idx + 1) * 25 * 86400000);
-        return {
-          projectId: project._id,
-          code: m.code,
-          title: m.title,
-          description: m.description,
-          plannedStartDate: pStart,
-          plannedEndDate: pEnd,
-          weightagePercent: m.weightagePercent,
-          progressPercent: 0,
-          status: 'pending' as const,
-          isPublishedToClient: true,
-          orderIndex: m.orderIndex,
-        };
-      });
-      await Milestone.insertMany(milestoneDocs);
-
-      // 5. Ensure Client User Account exists with password and linked project
-      let user = await User.findOne({
-        $or: [
-          { clientId: clientDoc._id },
-          { _id: clientDoc.userId },
-          { email: clientDoc.email.toLowerCase() },
-        ],
-      });
-
-      if (!user) {
-        const portalUsername = clientDoc.email.includes('@gkaconstruction.com')
-          ? clientDoc.email.toLowerCase()
-          : formatClientPortalUsername(clientDoc.name);
-        const defaultPassword = 'GKAclient2026!';
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(defaultPassword, salt);
-
-        user = await User.create({
-          name: clientDoc.name,
-          email: portalUsername,
-          phone: clientDoc.phone || '8838030917',
-          passwordHash,
-          defaultPassword,
-          role: 'client',
-          clientId: clientDoc._id,
-          assignedProjects: [project._id],
-          isActive: true,
-        });
-        await Client.findByIdAndUpdate(clientDoc._id, { userId: user._id, email: portalUsername });
-      } else {
-        if (!user.assignedProjects.includes(project._id as any)) {
-          user.assignedProjects.push(project._id as any);
-        }
-        if (!user.clientId) user.clientId = clientDoc._id as any;
-        if (!user.defaultPassword) user.defaultPassword = 'GKAclient2026!';
-        await user.save();
-        await Client.findByIdAndUpdate(clientDoc._id, { userId: user._id });
-      }
-
-      // Link quotation to project
-      quotation.projectId = project._id as any;
-      quotation.projectTitle = project.title;
-      quotation.convertedToBudget = true;
-    } else {
-      // If quotation is already linked to a project, update project contract value & budget!
-      await Project.findByIdAndUpdate(quotation.projectId, {
-        contractValuePaise: quotation.totalAmountPaise,
-        totalBudgetPaise: quotation.subtotalPaise,
-      });
-      quotation.convertedToBudget = true;
-    }
+    // Workflow: Quotation -> Convert to Project (with project title of quotation subject or project scope)
+    const project = await ensureProjectForQuotation(quotation);
 
     await quotation.save();
 
@@ -418,8 +477,9 @@ export const approveQuotation = async (req: Request, res: Response, next: NextFu
 
     res.json({
       success: true,
-      message: 'Quotation approved successfully and project workspace initialized.',
+      message: 'Quotation approved and converted to active Project successfully.',
       quotation,
+      project,
     });
   } catch (error) {
     next(error);
@@ -577,129 +637,9 @@ export const convertToInvoice = async (req: Request, res: Response, next: NextFu
     }
 
     // Auto-create or resolve project if not yet linked
-    let project = quotation.projectId ? await Project.findById(quotation.projectId) : null;
-    if (!project) {
-      // 1. Resolve or create client
-      let clientDoc = quotation.clientId ? await Client.findById(quotation.clientId) : null;
-      if (!clientDoc) {
-        const clientEmail = (quotation.clientEmail || formatClientPortalUsername(quotation.clientName)).toLowerCase();
-        clientDoc = await Client.findOne({
-          $or: [{ email: clientEmail }, { name: quotation.clientName }],
-        });
-
-        if (!clientDoc) {
-          clientDoc = await Client.create({
-            name: quotation.clientName || 'Valued Client',
-            companyName: quotation.clientCompany,
-            email: clientEmail,
-            phone: quotation.clientPhone || '8838030917',
-            billingAddress: {
-              street: quotation.clientAddress || quotation.siteLocation || '',
-              city: 'Chennai',
-              state: 'Tamil Nadu',
-              pincode: '600130',
-              gstin: (quotation as any).clientGstin || undefined,
-            },
-          });
-        }
-        quotation.clientId = clientDoc._id as any;
-      }
-
-      // 2. Generate unique project ID
-      const count = await Project.countDocuments();
-      const currentYear = new Date().getFullYear();
-      const projectIdStr = `GKA-PRJ-${currentYear}-${String(count + 1).padStart(3, '0')}`;
-      const projectTitle =
-        quotation.subject ||
-        quotation.projectTitle ||
-        (quotation.items && quotation.items[0]?.description) ||
-        'Civil & Building Construction Works';
-
-      // 3. Create Project
-      project = await Project.create({
-        projectId: projectIdStr,
-        title: projectTitle,
-        category: 'residential',
-        clientId: clientDoc._id,
-        siteAddress: {
-          street: quotation.siteLocation || quotation.clientAddress || '',
-          city: 'Chennai',
-          state: 'Tamil Nadu',
-          pincode: '600130',
-        },
-        scopeOfWork: (quotation.items || []).map((it: any) => it.description).filter(Boolean).slice(0, 10),
-        startDate: new Date(),
-        targetEndDate: quotation.validUntil || new Date(Date.now() + 180 * 86400000),
-        status: 'active',
-        progressPercent: 0,
-        contractValuePaise: quotation.totalAmountPaise,
-        totalBudgetPaise: quotation.subtotalPaise,
-        invoicedAmountPaise: 0,
-        collectedAmountPaise: 0,
-      });
-
-      // 4. Seed Standard Milestones
-      const milestoneDocs = STANDARD_MILESTONES.map((m, idx) => {
-        const pStart = new Date(Date.now() + idx * 25 * 86400000);
-        const pEnd = new Date(Date.now() + (idx + 1) * 25 * 86400000);
-        return {
-          projectId: project!._id,
-          code: m.code,
-          title: m.title,
-          description: m.description,
-          plannedStartDate: pStart,
-          plannedEndDate: pEnd,
-          weightagePercent: m.weightagePercent,
-          progressPercent: 0,
-          status: 'pending' as const,
-          isPublishedToClient: true,
-          orderIndex: m.orderIndex,
-        };
-      });
-      await Milestone.insertMany(milestoneDocs);
-
-      // 5. Ensure Client User Account exists with password and linked project
-      let user = await User.findOne({
-        $or: [
-          { clientId: clientDoc._id },
-          { _id: clientDoc.userId },
-          { email: clientDoc.email.toLowerCase() },
-        ],
-      });
-
-      if (!user) {
-        const portalUsername = clientDoc.email.includes('@gkaconstruction.com')
-          ? clientDoc.email.toLowerCase()
-          : formatClientPortalUsername(clientDoc.name);
-        const defaultPassword = 'GKAclient2026!';
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(defaultPassword, salt);
-
-        user = await User.create({
-          name: clientDoc.name,
-          email: portalUsername,
-          phone: clientDoc.phone || '8838030917',
-          passwordHash,
-          defaultPassword,
-          role: 'client',
-          clientId: clientDoc._id,
-          assignedProjects: [project._id],
-          isActive: true,
-        });
-        await Client.findByIdAndUpdate(clientDoc._id, { userId: user._id, email: portalUsername });
-      } else {
-        if (!user.assignedProjects.includes(project._id as any)) {
-          user.assignedProjects.push(project._id as any);
-        }
-        if (!user.clientId) user.clientId = clientDoc._id as any;
-        if (!user.defaultPassword) user.defaultPassword = 'GKAclient2026!';
-        await user.save();
-        await Client.findByIdAndUpdate(clientDoc._id, { userId: user._id });
-      }
-
-      quotation.projectId = project._id as any;
-      quotation.projectTitle = project.title;
-      quotation.convertedToBudget = true;
+    const wasMissingProject = !quotation.projectId;
+    const project = await ensureProjectForQuotation(quotation);
+    if (wasMissingProject) {
       await quotation.save();
     }
 
@@ -733,9 +673,7 @@ export const convertToInvoice = async (req: Request, res: Response, next: NextFu
     const sgstPaise = taxPaise - cgstPaise;
     const totalAmountPaise = taxablePaise + taxPaise;
 
-    const count = await Invoice.countDocuments();
-    const currentYear = new Date().getFullYear();
-    const invoiceNumber = `GKA-INV-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+    const invoiceNumber = await generateNextUniqueNumber(Invoice, 'invoiceNumber', 'GKA-INV');
 
     const invoiceTerms = [...DEFAULT_INVOICE_TERMS];
     if (isNegotiated && negotiatedNotes) {
@@ -749,6 +687,9 @@ export const convertToInvoice = async (req: Request, res: Response, next: NextFu
         clientGstin = clientDoc.billingAddress?.gstin;
       }
     }
+
+    const nowDate = new Date();
+    const currentTaxPeriod = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}`;
 
     const invoice = await Invoice.create({
       invoiceNumber,
@@ -774,8 +715,9 @@ export const convertToInvoice = async (req: Request, res: Response, next: NextFu
       totalAmountPaise,
       paidAmountPaise: 0,
       dueAmountPaise: totalAmountPaise,
-      issueDate: new Date(),
+      issueDate: nowDate,
       dueDate: new Date(dueDate || Date.now() + 14 * 86400000),
+      gstTaxPeriod: currentTaxPeriod,
       status: 'issued',
       notes: quotation.notes || (isNegotiated && negotiatedNotes ? `Agreed Special Settlement: ${negotiatedNotes}` : `Converted from Approved Quotation ${quotation.quotationNumber}.`),
     });
@@ -910,13 +852,17 @@ export const updateQuotation = async (req: Request, res: Response, next: NextFun
     if (status !== undefined) quotation.status = status;
     if (validUntil) quotation.validUntil = new Date(validUntil);
 
+    if (req.body.clientId) {
+      quotation.clientId = req.body.clientId;
+    }
+
     if (req.body.projectId !== undefined) {
       quotation.projectId = req.body.projectId || undefined;
       if (req.body.projectId) {
         const proj = await Project.findById(req.body.projectId);
         if (proj) {
-          quotation.projectTitle = proj.title;
-          if (proj.siteAddress) {
+          if (!projectTitle) quotation.projectTitle = proj.title;
+          if (!siteLocation && proj.siteAddress) {
             quotation.siteLocation = `${proj.siteAddress.street || ''}, ${proj.siteAddress.city || ''}`.trim().replace(/^,/, '');
           }
         }

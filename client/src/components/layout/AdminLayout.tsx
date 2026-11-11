@@ -8,6 +8,7 @@ import {
   Camera,
   Boxes,
   IndianRupee,
+  Wallet,
   Eye,
   LogOut,
   Menu,
@@ -100,10 +101,11 @@ export const AdminLayout: React.FC = () => {
     { name: 'Portfolio & Ideas', path: '/admin/portfolio', icon: Sparkles },
     { name: 'Quotations & Estimator', path: '/admin/quotations', icon: Calculator },
     { name: 'Invoices & Billing', path: '/admin/invoices', icon: FileSpreadsheet },
+    { name: 'Payment Collection Counter', path: '/admin/payments', icon: Wallet },
     { name: 'Site Operations', path: '/admin/site-ops', icon: Camera },
     { name: 'Inventory & Materials', path: '/admin/inventory', icon: Boxes },
     { name: 'Finance & Profitability', path: '/admin/finance', icon: IndianRupee },
-    { name: 'GST & Tax Settlement', path: '/admin/finance?tab=gst', icon: Receipt },
+    { name: 'GST Portal (Month-Wise)', path: '/admin/gst', icon: Receipt },
     { name: 'My Profile', path: '/admin/profile', icon: UserIcon },
   ];
 
@@ -148,17 +150,16 @@ export const AdminLayout: React.FC = () => {
             const isActive = isCurrentQuery
               ? (location.pathname + location.search) === item.path
               : location.pathname === item.path ||
-                (item.path !== '/admin/dashboard' && location.pathname.startsWith(item.path) && !location.search);
+              (item.path !== '/admin/dashboard' && location.pathname.startsWith(item.path) && !location.search);
             const Icon = item.icon;
             return (
               <Link
                 key={item.name}
                 to={item.path}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  isActive
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive
                     ? 'bg-brand-navy-800 text-brand-gold-400 shadow-sm border border-brand-navy-700 font-semibold'
                     : 'text-slate-300 hover:text-white hover:bg-white/5'
-                }`}
+                  }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-brand-gold-400' : 'text-slate-400'}`} />
                 <span>{item.name}</span>

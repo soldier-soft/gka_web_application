@@ -18,6 +18,7 @@ import {
   rejectPayment,
   getProfitabilityReport,
   getTaxReconciliations,
+  moveInvoiceToGst,
   updateEligibleItc,
   recordTaxPayment,
   recordTaxFiling,
@@ -55,6 +56,7 @@ router.get('/profitability/:projectId', requireRoles('super_admin', 'project_man
 
 // GST & Tax Reconciliation (Owner & Accounts ONLY)
 router.get('/gst/periods', requireRoles('super_admin', 'accounts'), getTaxReconciliations);
+router.post('/gst/move-invoice', requireRoles('super_admin', 'accounts'), moveInvoiceToGst);
 router.patch('/gst/periods/:id/eligible-itc', requireRoles('super_admin', 'accounts'), updateEligibleItc);
 router.post('/gst/periods/:id/payment', requireRoles('super_admin', 'accounts'), recordTaxPayment);
 router.post('/gst/periods/:id/filing', requireRoles('super_admin', 'accounts'), recordTaxFiling);

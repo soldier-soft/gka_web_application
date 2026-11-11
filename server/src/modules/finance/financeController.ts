@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import fs from 'fs';
+import path from 'path';
 import { Invoice } from '../../models/Invoice';
 import { Expense } from '../../models/Expense';
 import { Payment } from '../../models/Payment';
@@ -14,6 +15,283 @@ import { GoogleDriveService } from '../../services/googleDriveService';
 import { sendInvoiceAlertEmail, streamToBuffer } from '../../services/emailService';
 import { toPaise } from '../../shared/types';
 import { DEFAULT_INVOICE_TERMS, formatClientPortalUsername, toRupees } from '../../shared/constants';
+
+const formatTaxPeriod = (dateInput?: Date | string): string => {
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}$/.test(dateInput.trim())) {
+    return dateInput.trim();
+  }
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const safeDate = Number.isNaN(d.getTime()) ? new Date() : d;
+  return `${safeDate.getFullYear()}-${String(safeDate.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const getFinancialYearForPeriod = (period: string): string => {
+  const [yrStr, moStr] = period.split('-');
+  const yr = Number(yrStr) || new Date().getFullYear();
+  const mo = Number(moStr) || 4;
+  if (mo >= 4) {
+    return `FY ${yr}-${String(yr + 1).slice(-2)}`;
+  }
+  return `FY ${yr - 1}-${String(yr).slice(-2)}`;
+};
+
+const generateUniqueFinanceNumber = async (
+  Model: any,
+  field: string,
+  prefix: string
+): Promise<string> => {
+  const currentYear = new Date().getFullYear();
+  let seq = (await Model.countDocuments()) + 1;
+  while (true) {
+    const candidate = `${prefix}-${currentYear}-${String(seq).padStart(3, '0')}`;
+    const exists = await Model.exists({ [field]: candidate });
+    if (!exists) return candidate;
+    seq += 1;
+  }
+};
+
+const savePaymentProofDataUrl = (proofDataUrl?: string, proofFileName?: string): string | undefined => {
+  if (!proofDataUrl || typeof proofDataUrl !== 'string' || !proofDataUrl.startsWith('data:')) {
+    return undefined;
+  }
+  const matches = proofDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!matches) return undefined;
+
+  const mimeType = matches[1];
+  const base64Data = matches[2];
+  const buffer = Buffer.from(base64Data, 'base64');
+
+  const safeExtFromMime = mimeType.includes('pdf')
+    ? '.pdf'
+    : mimeType.includes('png')
+      ? '.png'
+      : mimeType.includes('webp')
+        ? '.webp'
+        : '.jpg';
+  const requestedExt = proofFileName ? path.extname(proofFileName).toLowerCase() : '';
+  const ext = ['.png', '.jpg', '.jpeg', '.pdf', '.webp'].includes(requestedExt) ? requestedExt : safeExtFromMime;
+
+  const uploadsDir = path.resolve(process.cwd(), 'uploads', 'payment_proofs');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  const fileName = `proof_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}${ext}`;
+  const fullPath = path.join(uploadsDir, fileName);
+  fs.writeFileSync(fullPath, buffer);
+  return `/uploads/payment_proofs/${fileName}`;
+};
+
+const recalculateProjectFinancials = async (projectId: any) => {
+  if (!projectId) return null;
+  const activeInvoices = await Invoice.find({
+    projectId,
+    isDeleted: { $ne: true },
+    status: { $ne: 'cancelled' },
+  });
+  const totalInvoiced = activeInvoices.reduce((acc, inv) => acc + (inv.totalAmountPaise || 0), 0);
+  const totalPaidFromInvoices = activeInvoices.reduce((acc, inv) => acc + (inv.paidAmountPaise || 0), 0);
+
+  const verifiedPayments = await Payment.find({
+    projectId,
+    verificationStatus: { $in: ['verified', 'reconciled', undefined, null] },
+  });
+  const totalPaidFromPayments = verifiedPayments.reduce((acc, p) => acc + (p.amountPaise || 0), 0);
+  const collectedAmountPaise = Math.max(totalPaidFromPayments, totalPaidFromInvoices);
+
+  return Project.findByIdAndUpdate(
+    projectId,
+    {
+      invoicedAmountPaise: totalInvoiced,
+      collectedAmountPaise,
+    },
+    { new: true }
+  );
+};
+
+const applyVerifiedPaymentToInvoices = async (
+  projectId: any,
+  preferredInvoiceId: any,
+  amountPaise: number,
+  paymentMode?: string
+): Promise<any[]> => {
+  const touchedInvoices: any[] = [];
+  if (!projectId && !preferredInvoiceId) return touchedInvoices;
+
+  let remaining = Math.max(0, Number(amountPaise) || 0);
+  if (remaining <= 0) return touchedInvoices;
+
+  const candidateFilter: any = {
+    isDeleted: { $ne: true },
+    status: { $ne: 'cancelled' },
+  };
+  if (projectId) {
+    candidateFilter.projectId = projectId;
+  } else if (preferredInvoiceId) {
+    candidateFilter._id = preferredInvoiceId;
+  }
+
+  const allCandidates = await Invoice.find(candidateFilter).sort({ issueDate: 1, createdAt: 1 });
+  const orderedQueue = [...allCandidates];
+  if (preferredInvoiceId) {
+    const prefIdx = orderedQueue.findIndex((inv) => String(inv._id) === String(preferredInvoiceId));
+    if (prefIdx > 0) {
+      const [prefDoc] = orderedQueue.splice(prefIdx, 1);
+      orderedQueue.unshift(prefDoc);
+    }
+  }
+
+  for (const invoice of orderedQueue) {
+    if (remaining <= 0) break;
+    const currentDue = Math.max(0, (invoice.totalAmountPaise || 0) - (invoice.paidAmountPaise || 0));
+    if (currentDue <= 0) continue;
+
+    const alloc = Math.min(remaining, currentDue);
+    invoice.paidAmountPaise = (invoice.paidAmountPaise || 0) + alloc;
+    invoice.dueAmountPaise = Math.max(0, (invoice.totalAmountPaise || 0) - invoice.paidAmountPaise);
+    invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
+    await invoice.save();
+    touchedInvoices.push(invoice);
+    remaining -= alloc;
+  }
+
+  if (touchedInvoices.length > 0) {
+    const primaryInvoice = touchedInvoices[0];
+    setTimeout(async () => {
+      try {
+        const stream = PDFService.generateInvoicePDF(primaryInvoice);
+        const buffer = await streamToBuffer(stream);
+        await sendInvoiceAlertEmail(
+          primaryInvoice,
+          buffer,
+          true,
+          `Payment of ₹${toRupees(Number(amountPaise)).toLocaleString('en-IN')} credited via ${paymentMode || 'bank_transfer'}`
+        );
+      } catch (mErr) {
+        console.error('[Payment] Alert email error:', mErr);
+      }
+    }, 100);
+  }
+
+  return touchedInvoices;
+};
+
+const syncTaxPeriodLedger = async (
+  period: string,
+  actingUserId?: any,
+  actingUserName?: string
+) => {
+  const cleanPeriod = formatTaxPeriod(period);
+  const periodInvoices = await Invoice.find({
+    isDeleted: { $ne: true },
+    status: { $ne: 'cancelled' },
+    gstTaxPeriod: cleanPeriod,
+  });
+
+  let totalTaxableSalesPaise = 0;
+  let outputCgstPaise = 0;
+  let outputSgstPaise = 0;
+  let outputIgstPaise = 0;
+
+  periodInvoices.forEach((inv) => {
+    totalTaxableSalesPaise += inv.subtotalPaise || 0;
+    outputCgstPaise += inv.cgstPaise || 0;
+    outputSgstPaise += inv.sgstPaise || 0;
+    outputIgstPaise += inv.igstPaise || 0;
+  });
+
+  const totalOutputTaxPaise = outputCgstPaise + outputSgstPaise + outputIgstPaise;
+
+  const [yr, mo] = cleanPeriod.split('-').map(Number);
+  const startOfMonth = new Date(yr, (mo || 1) - 1, 1);
+  const startOfNextMonth = new Date(yr, mo || 1, 1);
+
+  const periodExpenses = await Expense.find({
+    expenseDate: { $gte: startOfMonth, $lt: startOfNextMonth },
+  });
+  const totalPurchasesPaise = periodExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
+  const totalPurchaseGstPaise = Math.round(totalPurchasesPaise * 0.18);
+
+  const allInvoicesFiled =
+    periodInvoices.length > 0 && periodInvoices.every((inv) => Boolean(inv.gstFiled));
+  const firstFiledWithArn = periodInvoices.find((inv) => inv.gstFiled && inv.gstFilingArn);
+
+  let record = await TaxReconciliation.findOne({ period: cleanPeriod });
+  if (!record) {
+    const eligibleItcPaise = Math.round(totalPurchaseGstPaise * 0.85);
+    const ineligibleItcPaise = Math.max(0, totalPurchaseGstPaise - eligibleItcPaise);
+    const netTaxPayablePaise = Math.max(0, totalOutputTaxPaise - eligibleItcPaise);
+
+    record = await TaxReconciliation.create({
+      period: cleanPeriod,
+      financialYear: getFinancialYearForPeriod(cleanPeriod),
+      totalTaxableSalesPaise,
+      outputCgstPaise,
+      outputSgstPaise,
+      outputIgstPaise,
+      totalOutputTaxPaise,
+      totalTaxablePurchasesPaise: totalPurchasesPaise,
+      totalPurchaseGstPaise,
+      eligibleItcPaise,
+      ineligibleItcPaise,
+      pendingVerificationItcPaise: 0,
+      taxAdjustmentsPaise: 0,
+      netTaxPayablePaise,
+      paymentStatus: 'pending',
+      returnStatus: allInvoicesFiled ? 'filed' : 'not_filed',
+      returnFilingDate: allInvoicesFiled ? (firstFiledWithArn?.gstFilingDate || new Date()) : undefined,
+      returnAckNumber: allInvoicesFiled ? firstFiledWithArn?.gstFilingArn : undefined,
+      reconciliationStatus: allInvoicesFiled ? 'reconciled' : 'draft_needs_review',
+      notes: `Monthly GST reconciliation for ${cleanPeriod} synced from ${periodInvoices.length} invoice(s).`,
+      auditTrail: [
+        {
+          fieldChanged: 'initial_calculation',
+          oldValue: 0,
+          newValue: eligibleItcPaise,
+          reason: `System period initialization for ${cleanPeriod}`,
+          changedBy: actingUserId || new mongoose.Types.ObjectId(),
+          changedByName: actingUserName || 'Accounts Admin',
+          changedAt: new Date(),
+        },
+      ],
+    });
+  } else {
+    const hasCustomItc = (record.auditTrail || []).some((a: any) => a.fieldChanged === 'eligibleItcPaise');
+    const eligibleItcPaise = hasCustomItc
+      ? record.eligibleItcPaise
+      : Math.round(totalPurchaseGstPaise * 0.85);
+    const ineligibleItcPaise = Math.max(0, totalPurchaseGstPaise - eligibleItcPaise);
+    const netTaxPayablePaise = Math.max(
+      0,
+      totalOutputTaxPaise - eligibleItcPaise + (record.taxAdjustmentsPaise || 0)
+    );
+
+    record.totalTaxableSalesPaise = totalTaxableSalesPaise;
+    record.outputCgstPaise = outputCgstPaise;
+    record.outputSgstPaise = outputSgstPaise;
+    record.outputIgstPaise = outputIgstPaise;
+    record.totalOutputTaxPaise = totalOutputTaxPaise;
+    record.totalTaxablePurchasesPaise = totalPurchasesPaise;
+    record.totalPurchaseGstPaise = totalPurchaseGstPaise;
+    record.eligibleItcPaise = eligibleItcPaise;
+    record.ineligibleItcPaise = ineligibleItcPaise;
+    record.netTaxPayablePaise = netTaxPayablePaise;
+
+    if (allInvoicesFiled && record.returnStatus !== 'filed') {
+      record.returnStatus = 'filed';
+      record.reconciliationStatus = 'reconciled';
+      if (!record.returnFilingDate) {
+        record.returnFilingDate = firstFiledWithArn?.gstFilingDate || new Date();
+      }
+      if (!record.returnAckNumber && firstFiledWithArn?.gstFilingArn) {
+        record.returnAckNumber = firstFiledWithArn.gstFilingArn;
+      }
+    }
+
+    await record.save();
+  }
+
+  return record;
+};
 
 export const getInvoices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -133,9 +411,9 @@ export const createInvoice = async (req: Request, res: Response, next: NextFunct
       }
     }
 
-    const count = await Invoice.countDocuments();
-    const currentYear = new Date().getFullYear();
-    const invoiceNumber = `GKA-INV-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+    const invoiceNumber = await generateUniqueFinanceNumber(Invoice, 'invoiceNumber', 'GKA-INV');
+    const resolvedIssueDate = new Date(issueDate || Date.now());
+    const resolvedTaxPeriod = formatTaxPeriod(resolvedIssueDate);
 
     const invoice = await Invoice.create({
       invoiceNumber,
@@ -161,15 +439,16 @@ export const createInvoice = async (req: Request, res: Response, next: NextFunct
       totalAmountPaise,
       paidAmountPaise: 0,
       dueAmountPaise: totalAmountPaise,
-      issueDate: new Date(issueDate || Date.now()),
+      issueDate: resolvedIssueDate,
       dueDate: new Date(dueDate || Date.now() + 14 * 86400000),
+      gstTaxPeriod: resolvedTaxPeriod,
       status: 'issued',
       notes,
     });
 
-    // Update Project invoiced amount
-    project.invoicedAmountPaise += totalAmountPaise;
-    await project.save();
+    // Update Project invoiced amount & month GST ledger
+    await recalculateProjectFinancials(project._id);
+    await syncTaxPeriodLedger(resolvedTaxPeriod, req.user?.id, req.user?.name);
 
     // Background PDF Dispatch & Google Drive synchronization
     setTimeout(async () => {
@@ -457,6 +736,12 @@ export const updateInvoice = async (req: Request, res: Response, next: NextFunct
     }
 
     await invoice.save();
+    await recalculateProjectFinancials(invoice.projectId);
+    await syncTaxPeriodLedger(
+      formatTaxPeriod(invoice.gstTaxPeriod || invoice.issueDate),
+      req.user?.id,
+      req.user?.name
+    );
 
     // Background alert email dispatch with PDF attachment for invoice update
     setTimeout(async () => {
@@ -495,14 +780,69 @@ export const toggleInvoiceGst = async (req: Request, res: Response, next: NextFu
     invoice.gstFiled = isFiled;
     invoice.gstFilingDate = isFiled ? new Date() : undefined;
     if (gstFilingArn !== undefined) invoice.gstFilingArn = gstFilingArn;
-    if (gstTaxPeriod !== undefined) invoice.gstTaxPeriod = gstTaxPeriod;
+    if (gstTaxPeriod !== undefined) {
+      invoice.gstTaxPeriod = formatTaxPeriod(gstTaxPeriod);
+    } else if (!invoice.gstTaxPeriod) {
+      invoice.gstTaxPeriod = formatTaxPeriod(invoice.issueDate);
+    }
 
     await invoice.save();
+
+    // Sync the month's TaxReconciliation record with invoice GST status
+    const targetPeriod = formatTaxPeriod(invoice.gstTaxPeriod || invoice.issueDate);
+    const updatedRecord = await syncTaxPeriodLedger(targetPeriod, req.user?.id, req.user?.name);
+    if (!isFiled && updatedRecord && updatedRecord.returnStatus === 'filed') {
+      updatedRecord.returnStatus = 'not_filed';
+      updatedRecord.reconciliationStatus = 'draft_needs_review';
+      await updatedRecord.save();
+    } else if (isFiled && gstFilingArn && updatedRecord && !updatedRecord.returnAckNumber) {
+      updatedRecord.returnAckNumber = gstFilingArn;
+      await updatedRecord.save();
+    }
 
     res.json({
       success: true,
       message: `Invoice ${invoice.invoiceNumber} GST status updated to ${isFiled ? 'FILED' : 'UNFILED'}.`,
       invoice,
+      taxRecord: updatedRecord,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const moveInvoiceToGst = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { invoiceId, period } = req.body;
+    if (!invoiceId) {
+      res.status(400).json({ success: false, message: 'invoiceId is required' });
+      return;
+    }
+
+    const invoice = await Invoice.findOne({ _id: invoiceId, isDeleted: { $ne: true } });
+    if (!invoice) {
+      res.status(404).json({ success: false, message: 'Invoice not found' });
+      return;
+    }
+
+    const targetPeriod = period
+      ? formatTaxPeriod(period)
+      : formatTaxPeriod(invoice.issueDate || invoice.gstTaxPeriod);
+    const previousPeriod = invoice.gstTaxPeriod ? formatTaxPeriod(invoice.gstTaxPeriod) : null;
+
+    invoice.gstTaxPeriod = targetPeriod;
+    await invoice.save();
+
+    const record = await syncTaxPeriodLedger(targetPeriod, req.user?.id, req.user?.name);
+    if (previousPeriod && previousPeriod !== targetPeriod) {
+      await syncTaxPeriodLedger(previousPeriod, req.user?.id, req.user?.name);
+    }
+
+    res.json({
+      success: true,
+      message: `Invoice ${invoice.invoiceNumber} moved to GST period ${targetPeriod}.`,
+      invoice,
+      record,
     });
   } catch (error) {
     next(error);
@@ -522,12 +862,8 @@ export const deleteInvoice = async (req: Request, res: Response, next: NextFunct
     invoice.deletedAt = new Date();
     await invoice.save();
 
-    // Recalculate project invoiced amounts
-    if (invoice.projectId) {
-      const activeInvoices = await Invoice.find({ projectId: invoice.projectId, isDeleted: { $ne: true } });
-      const totalInvoiced = activeInvoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
-      await Project.findByIdAndUpdate(invoice.projectId, { invoicedAmountPaise: totalInvoiced });
-    }
+    await recalculateProjectFinancials(invoice.projectId);
+    await syncTaxPeriodLedger(formatTaxPeriod(invoice.gstTaxPeriod || invoice.issueDate), req.user?.id, req.user?.name);
 
     res.json({
       success: true,
@@ -552,12 +888,8 @@ export const restoreInvoice = async (req: Request, res: Response, next: NextFunc
     invoice.deletedAt = undefined as any;
     await invoice.save();
 
-    // Recalculate project invoiced amounts
-    if (invoice.projectId) {
-      const activeInvoices = await Invoice.find({ projectId: invoice.projectId, isDeleted: { $ne: true } });
-      const totalInvoiced = activeInvoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
-      await Project.findByIdAndUpdate(invoice.projectId, { invoicedAmountPaise: totalInvoiced });
-    }
+    await recalculateProjectFinancials(invoice.projectId);
+    await syncTaxPeriodLedger(formatTaxPeriod(invoice.gstTaxPeriod || invoice.issueDate), req.user?.id, req.user?.name);
 
     res.json({
       success: true,
@@ -578,12 +910,7 @@ export const permanentDeleteInvoice = async (req: Request, res: Response, next: 
       return;
     }
 
-    // Recalculate project invoiced amounts
-    if (invoice.projectId) {
-      const activeInvoices = await Invoice.find({ projectId: invoice.projectId, isDeleted: { $ne: true } });
-      const totalInvoiced = activeInvoices.reduce((acc, i) => acc + (i.totalAmountPaise || 0), 0);
-      await Project.findByIdAndUpdate(invoice.projectId, { invoicedAmountPaise: totalInvoiced });
-    }
+    await recalculateProjectFinancials(invoice.projectId);
 
     res.json({
       success: true,
@@ -689,65 +1016,84 @@ export const recordPayment = async (req: Request, res: Response, next: NextFunct
       notes,
       verificationStatus,
       proofFileUrl,
+      proofDataUrl,
+      proofFileName,
     } = req.body;
 
-    const count = await Payment.countDocuments();
-    const currentYear = new Date().getFullYear();
-    const paymentNumber = `GKA-REC-${currentYear}-${String(count + 1).padStart(3, '0')}`;
+    if (!projectId) {
+      res.status(400).json({ success: false, message: 'projectId is required to record payment collection' });
+      return;
+    }
 
+    const project = await Project.findById(projectId).populate('clientId', 'name companyName');
+    if (!project) {
+      res.status(404).json({ success: false, message: 'Project not found' });
+      return;
+    }
+
+    const resolvedClientId =
+      clientId || (project.clientId as any)?._id || project.clientId;
+    const resolvedClientName =
+      clientName ||
+      (project.clientId as any)?.name ||
+      (project.clientId as any)?.companyName ||
+      project.title ||
+      'Valued Client';
+
+    if (!resolvedClientId) {
+      res.status(400).json({ success: false, message: 'Linked Client ID could not be resolved for this project' });
+      return;
+    }
+
+    const paymentNumber = await generateUniqueFinanceNumber(Payment, 'paymentNumber', 'GKA-REC');
     const isVerified = verificationStatus === 'verified' || !verificationStatus;
+    const savedProofUrl = savePaymentProofDataUrl(proofDataUrl, proofFileName) || proofFileUrl;
+    const resolvedRef =
+      typeof transactionReference === 'string' && transactionReference.trim()
+        ? transactionReference.trim()
+        : `COUNTER-${paymentNumber}`;
 
     const payment = await Payment.create({
       paymentNumber,
       projectId,
-      clientId,
-      clientName,
-      invoiceId,
+      clientId: resolvedClientId,
+      clientName: resolvedClientName,
+      invoiceId: invoiceId || undefined,
       amountPaise: Number(amountPaise),
       paymentDate: new Date(paymentDate || Date.now()),
       paymentMode: paymentMode || 'bank_transfer',
-      transactionReference,
+      transactionReference: resolvedRef,
       recordedBy: req.user?.id,
       verificationStatus: isVerified ? 'verified' : 'verification_pending',
       verifiedBy: isVerified ? req.user?.id : undefined,
       verifiedAt: isVerified ? new Date() : undefined,
-      proofFileUrl,
+      proofFileUrl: savedProofUrl,
       notes,
     });
 
-    // Only verified payments update actual collected cash and invoice balances!
+    let touchedInvoices: any[] = [];
+    let updatedProject: any = null;
+
+    // Verified payments immediately allocate across project invoices (FIFO) and sync project balances!
     if (isVerified) {
-      if (invoiceId) {
-        const invoice = await Invoice.findById(invoiceId);
-        if (invoice) {
-          invoice.paidAmountPaise += Number(amountPaise);
-          invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
-          invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
-          await invoice.save();
-
-          setTimeout(async () => {
-            try {
-              const stream = PDFService.generateInvoicePDF(invoice);
-              const buffer = await streamToBuffer(stream);
-              await sendInvoiceAlertEmail(
-                invoice,
-                buffer,
-                true,
-                `Payment of ₹${toRupees(Number(amountPaise)).toLocaleString('en-IN')} recorded via ${paymentMode || 'bank_transfer'}`
-              );
-            } catch (mErr) {
-              console.error('[Payment] Alert email error:', mErr);
-            }
-          }, 100);
-        }
-      }
-
-      await Project.findByIdAndUpdate(projectId, {
-        $inc: { collectedAmountPaise: Number(amountPaise) },
-      });
+      touchedInvoices = await applyVerifiedPaymentToInvoices(
+        projectId,
+        invoiceId,
+        Number(amountPaise),
+        paymentMode
+      );
+      updatedProject = await recalculateProjectFinancials(projectId);
     }
 
-    res.status(201).json({ success: true, payment });
+    res.status(201).json({
+      success: true,
+      message: isVerified
+        ? `Payment ${payment.paymentNumber} collected and reconciled across ${touchedInvoices.length || 0} invoice(s).`
+        : `Payment ${payment.paymentNumber} uploaded and queued for verification.`,
+      payment,
+      touchedInvoices,
+      project: updatedProject,
+    });
   } catch (error) {
     next(error);
   }
@@ -773,38 +1119,21 @@ export const verifyPayment = async (req: Request, res: Response, next: NextFunct
     payment.verifiedAt = new Date();
     await payment.save();
 
-    // Now update invoice balance
-    if (payment.invoiceId) {
-      const invoice = await Invoice.findById(payment.invoiceId);
-      if (invoice) {
-        invoice.paidAmountPaise += payment.amountPaise;
-        invoice.dueAmountPaise = Math.max(0, invoice.totalAmountPaise - invoice.paidAmountPaise);
-        invoice.status = invoice.dueAmountPaise === 0 ? 'paid' : 'partially_paid';
-        await invoice.save();
+    const touchedInvoices = await applyVerifiedPaymentToInvoices(
+      payment.projectId,
+      payment.invoiceId,
+      payment.amountPaise,
+      payment.paymentMode
+    );
+    const updatedProject = await recalculateProjectFinancials(payment.projectId);
 
-        setTimeout(async () => {
-          try {
-            const stream = PDFService.generateInvoicePDF(invoice);
-            const buffer = await streamToBuffer(stream);
-            await sendInvoiceAlertEmail(
-              invoice,
-              buffer,
-              true,
-              `Payment of ₹${toRupees(payment.amountPaise).toLocaleString('en-IN')} verified & credited to invoice`
-            );
-          } catch (mErr) {
-            console.error('[Payment] Verify alert email error:', mErr);
-          }
-        }, 100);
-      }
-    }
-
-    // Update Project collected amount
-    await Project.findByIdAndUpdate(payment.projectId, {
-      $inc: { collectedAmountPaise: payment.amountPaise },
+    res.json({
+      success: true,
+      message: 'Payment verified and credited simultaneously to project & invoice dues.',
+      payment,
+      touchedInvoices,
+      project: updatedProject,
     });
-
-    res.json({ success: true, message: 'Payment verified and credited to project collections.', payment });
   } catch (error) {
     next(error);
   }
@@ -820,11 +1149,27 @@ export const reconcilePayment = async (req: Request, res: Response, next: NextFu
       return;
     }
 
+    const wasPending = payment.verificationStatus === 'verification_pending';
     payment.verificationStatus = 'reconciled';
     payment.reconciliationDate = new Date();
     await payment.save();
 
-    res.json({ success: true, message: 'Payment marked as reconciled against bank statement.', payment });
+    if (wasPending) {
+      await applyVerifiedPaymentToInvoices(
+        payment.projectId,
+        payment.invoiceId,
+        payment.amountPaise,
+        payment.paymentMode
+      );
+    }
+    const updatedProject = await recalculateProjectFinancials(payment.projectId);
+
+    res.json({
+      success: true,
+      message: 'Payment marked as reconciled against bank statement.',
+      payment,
+      project: updatedProject,
+    });
   } catch (error) {
     next(error);
   }
@@ -908,88 +1253,52 @@ export const getProfitabilityReport = async (req: Request, res: Response, next: 
 
 export const getTaxReconciliations = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    let records = await TaxReconciliation.find().sort({ period: -1 });
+    const allInvoices = await Invoice.find({ isDeleted: { $ne: true }, status: { $ne: 'cancelled' } })
+      .populate('projectId', 'title projectId')
+      .populate('clientId', 'name companyName billingAddress')
+      .sort({ issueDate: -1, createdAt: -1 });
 
-    const allInvoices = await Invoice.find({ isDeleted: { $ne: true }, status: { $ne: 'cancelled' } });
-    let totalTaxableSalesPaise = 0;
-    let outputCgstPaise = 0;
-    let outputSgstPaise = 0;
-    let outputIgstPaise = 0;
-
-    allInvoices.forEach((inv) => {
-      totalTaxableSalesPaise += inv.subtotalPaise || 0;
-      outputCgstPaise += inv.cgstPaise || 0;
-      outputSgstPaise += inv.sgstPaise || 0;
-      outputIgstPaise += inv.igstPaise || 0;
-    });
-
-    const totalOutputTaxPaise = outputCgstPaise + outputSgstPaise + outputIgstPaise;
-
-    const allExpenses = await Expense.find();
-    const totalPurchasesPaise = allExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
-    const totalPurchaseGstPaise = Math.round(totalPurchasesPaise * 0.18);
-
-    // If no record exists, auto-seed one from existing invoices and expenses
-    if (records.length === 0) {
-      const eligibleItcPaise = Math.round(totalPurchaseGstPaise * 0.85); // 85% eligible ITC baseline
-      const ineligibleItcPaise = totalPurchaseGstPaise - eligibleItcPaise;
-      const netTaxPayablePaise = Math.max(0, totalOutputTaxPaise - eligibleItcPaise);
-
-      const defaultRecord = await TaxReconciliation.create({
-        period: '2026-10',
-        financialYear: 'FY 2026-27',
-        totalTaxableSalesPaise,
-        outputCgstPaise,
-        outputSgstPaise,
-        outputIgstPaise,
-        totalOutputTaxPaise,
-        totalTaxablePurchasesPaise: totalPurchasesPaise,
-        totalPurchaseGstPaise,
-        eligibleItcPaise,
-        ineligibleItcPaise,
-        pendingVerificationItcPaise: 0,
-        taxAdjustmentsPaise: 0,
-        netTaxPayablePaise,
-        paymentStatus: 'pending',
-        returnStatus: 'not_filed',
-        reconciliationStatus: 'draft_needs_review',
-        notes: 'Live reconciliation period calculated from active project tax invoices and material bills.',
-        auditTrail: [
-          {
-            fieldChanged: 'initial_calculation',
-            oldValue: 0,
-            newValue: eligibleItcPaise,
-            reason: 'System initialization based on verified commercial procurement invoices',
-            changedBy: req.user?.id || new mongoose.Types.ObjectId(),
-            changedByName: req.user?.name || 'Accounts Admin',
-            changedAt: new Date(),
-          },
-        ],
-      });
-
-      records = [defaultRecord];
-    } else if (records[0].returnStatus !== 'filed') {
-      // Keep draft tax record in live sync with newly created invoices / bills
-      const currentRec = records[0];
-      const hasCustomItc = (currentRec.auditTrail || []).some((a: any) => a.fieldChanged === 'eligibleItcPaise');
-      const eligibleItcPaise = hasCustomItc ? currentRec.eligibleItcPaise : Math.round(totalPurchaseGstPaise * 0.85);
-      const ineligibleItcPaise = Math.max(0, totalPurchaseGstPaise - eligibleItcPaise);
-      const netTaxPayablePaise = Math.max(0, totalOutputTaxPaise - eligibleItcPaise + (currentRec.taxAdjustmentsPaise || 0));
-
-      currentRec.totalTaxableSalesPaise = totalTaxableSalesPaise;
-      currentRec.outputCgstPaise = outputCgstPaise;
-      currentRec.outputSgstPaise = outputSgstPaise;
-      currentRec.outputIgstPaise = outputIgstPaise;
-      currentRec.totalOutputTaxPaise = totalOutputTaxPaise;
-      currentRec.totalTaxablePurchasesPaise = totalPurchasesPaise;
-      currentRec.totalPurchaseGstPaise = totalPurchaseGstPaise;
-      currentRec.eligibleItcPaise = eligibleItcPaise;
-      currentRec.ineligibleItcPaise = ineligibleItcPaise;
-      currentRec.netTaxPayablePaise = netTaxPayablePaise;
-      await currentRec.save();
+    // Guarantee every active invoice belongs to a valid YYYY-MM month category
+    for (const inv of allInvoices) {
+      if (!inv.gstTaxPeriod || !/^\d{4}-\d{2}$/.test(inv.gstTaxPeriod)) {
+        inv.gstTaxPeriod = formatTaxPeriod(inv.issueDate);
+        await inv.save();
+      }
     }
 
-    res.json({ success: true, count: records.length, records });
+    const existingRecords = await TaxReconciliation.find();
+    const periodSet = new Set<string>();
+    allInvoices.forEach((inv) => periodSet.add(formatTaxPeriod(inv.gstTaxPeriod || inv.issueDate)));
+    existingRecords.forEach((r) => {
+      if (/^\d{4}-\d{2}$/.test(r.period)) periodSet.add(r.period);
+    });
+
+    if (periodSet.size === 0) {
+      periodSet.add(formatTaxPeriod(new Date()));
+    }
+
+    for (const period of periodSet) {
+      await syncTaxPeriodLedger(period, req.user?.id, req.user?.name);
+    }
+
+    const records = await TaxReconciliation.find({ period: { $in: Array.from(periodSet) } }).sort({ period: -1 });
+
+    const invoicesByPeriod: Record<string, any[]> = {};
+    for (const p of Array.from(periodSet).sort().reverse()) {
+      invoicesByPeriod[p] = [];
+    }
+    for (const inv of allInvoices) {
+      const p = formatTaxPeriod(inv.gstTaxPeriod || inv.issueDate);
+      if (!invoicesByPeriod[p]) invoicesByPeriod[p] = [];
+      invoicesByPeriod[p].push(inv);
+    }
+
+    res.json({
+      success: true,
+      count: records.length,
+      records,
+      invoicesByPeriod,
+    });
   } catch (error) {
     next(error);
   }
@@ -1084,16 +1393,42 @@ export const recordTaxFiling = async (req: Request, res: Response, next: NextFun
       return;
     }
 
+    const filingDate = new Date(returnFilingDate || Date.now());
+    const ackNumber = (
+      typeof returnAckNumber === 'string' && returnAckNumber.trim()
+        ? returnAckNumber.trim()
+        : `ARN-AA331026${Math.floor(100000 + Math.random() * 900000)}`
+    ).toUpperCase();
+
     record.returnStatus = 'filed';
-    record.returnFilingDate = new Date(returnFilingDate || Date.now());
-    record.returnAckNumber = returnAckNumber || `ARN-AA331026${Math.floor(100000 + Math.random() * 900000)}`;
+    record.reconciliationStatus = 'reconciled';
+    record.returnFilingDate = filingDate;
+    record.returnAckNumber = ackNumber;
 
     await record.save();
 
+    // Simultaneously mark ALL active invoices in this period as GST Filed with this ARN!
+    const updateRes = await Invoice.updateMany(
+      {
+        isDeleted: { $ne: true },
+        status: { $ne: 'cancelled' },
+        gstTaxPeriod: record.period,
+      },
+      {
+        $set: {
+          gstFiled: true,
+          gstFilingDate: filingDate,
+          gstFilingArn: ackNumber,
+          gstTaxPeriod: record.period,
+        },
+      }
+    );
+
     res.json({
       success: true,
-      message: 'GST Return filing acknowledged and recorded.',
+      message: `GST Return for ${record.period} filed (${ackNumber}) and synced to ${updateRes.modifiedCount ?? 0} invoice(s).`,
       record,
+      updatedInvoicesCount: updateRes.modifiedCount ?? 0,
     });
   } catch (error) {
     next(error);

@@ -58,6 +58,7 @@ export const InvoicesPage: React.FC = () => {
 
   // GST Toggle State
   const [gstModalArn, setGstModalArn] = useState('AA3310260012345');
+  const [movingGstId, setMovingGstId] = useState<string | null>(null);
   const [gstModalPeriod, setGstModalPeriod] = useState('2026-10');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -291,7 +292,7 @@ export const InvoicesPage: React.FC = () => {
         setShowCreateModal(false);
         fetchInvoiceData();
         // Trigger auto Google Drive sync
-        api.syncToGoogleDrive('invoice', res.invoice._id).catch(() => {});
+        api.syncToGoogleDrive('invoice', res.invoice._id).catch(() => { });
         triggerAutoDownloads(res.invoice._id, res.invoice.invoiceNumber);
       }
     } catch (err: any) {
@@ -311,7 +312,7 @@ export const InvoicesPage: React.FC = () => {
         setShowConvertModal(false);
         fetchInvoiceData();
         // Trigger auto Google Drive sync
-        api.syncToGoogleDrive('invoice', res.invoice._id).catch(() => {});
+        api.syncToGoogleDrive('invoice', res.invoice._id).catch(() => { });
         triggerAutoDownloads(res.invoice._id, res.invoice.invoiceNumber);
       }
     } catch (err: any) {
@@ -478,10 +479,33 @@ export const InvoicesPage: React.FC = () => {
   };
 
   // Open GST Toggle Modal
+  const getInvoiceMonthPeriod = (inv: any) => {
+    if (inv?.gstTaxPeriod && /^\d{4}-\d{2}$/.test(inv.gstTaxPeriod)) {
+      return inv.gstTaxPeriod;
+    }
+    const d = inv?.issueDate ? new Date(inv.issueDate) : new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const handleMoveToGst = async (inv: any) => {
+    try {
+      setMovingGstId(inv._id);
+      const period = getInvoiceMonthPeriod(inv);
+      const res = await api.moveInvoiceToGst(inv._id, period);
+      if (res.success) {
+        navigate(`/admin/gst?period=${encodeURIComponent(period)}&invoice=${encodeURIComponent(inv._id)}`);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error moving invoice to GST page');
+    } finally {
+      setMovingGstId(null);
+    }
+  };
+
   const handleOpenGstToggle = (inv: any) => {
     setSelectedInvoice(inv);
     setGstModalArn(inv.gstFilingArn || 'AA3310260012345');
-    setGstModalPeriod(inv.gstTaxPeriod || '2026-10');
+    setGstModalPeriod(getInvoiceMonthPeriod(inv));
     setShowGstModal(true);
   };
 
@@ -533,6 +557,21 @@ export const InvoicesPage: React.FC = () => {
           >
             <span>📁 Google Drive: GKA CONSTRUCTION</span>
           </a>
+
+          <Link
+            to="/admin/payments"
+            className="px-3.5 py-2 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 hover:bg-emerald-100 transition-colors shadow-sm flex items-center gap-1.5"
+          >
+            <span>💳 Collection Counter</span>
+          </Link>
+
+          <Link
+            to="/admin/gst"
+            className="px-3.5 py-2 rounded-lg text-xs font-bold bg-blue-50 text-blue-900 border border-blue-300 hover:bg-blue-100 transition-colors shadow-sm flex items-center gap-1.5"
+          >
+            <Receipt className="w-3.5 h-3.5 text-blue-700" />
+            <span>Month-Wise GST Page</span>
+          </Link>
 
           {approvedQuotations.length > 0 && (
             <button
@@ -592,10 +631,10 @@ export const InvoicesPage: React.FC = () => {
           <span className="text-[11px] font-bold text-[#0F254B] uppercase flex items-center justify-between">
             <span>GST Filing Compliance</span>
             <Link
-              to="/admin/finance?tab=gst"
+              to="/admin/gst"
               className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-0.5"
             >
-              <span>Ledger →</span>
+              <span>GST Portal →</span>
             </Link>
           </span>
           <p className="text-lg font-bold font-heading text-[#0F254B] font-mono">
@@ -612,22 +651,20 @@ export const InvoicesPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowRecycleBin(false)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              !showRecycleBin
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${!showRecycleBin
                 ? 'bg-[#0F254B] text-white shadow-sm'
                 : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-            }`}
+              }`}
           >
             <Receipt className="w-3.5 h-3.5" />
             <span>Active Tax Invoices ({invoices.length})</span>
           </button>
           <button
             onClick={() => setShowRecycleBin(true)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              showRecycleBin
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${showRecycleBin
                 ? 'bg-rose-600 text-white shadow-sm'
                 : 'bg-white text-rose-700 hover:bg-rose-50 border border-rose-200'
-            }`}
+              }`}
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Recycle Bin ({recycleInvoices.length})</span>
@@ -645,254 +682,276 @@ export const InvoicesPage: React.FC = () => {
         <>
           {/* 3. Filters & Search */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-subtle flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between text-xs">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search by invoice number, client or project name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0F254B]"
-          />
-        </div>
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search by invoice number, client or project name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0F254B]"
+              />
+            </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={projectFilter}
-            onChange={(e) => setProjectFilter(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
-          >
-            <option value="all">All Project Sites</option>
-            {projects.map((p) => (
-              <option key={p._id} value={p._id}>
-                {p.projectId} — {p.title}
-              </option>
-            ))}
-          </select>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
+              >
+                <option value="all">All Project Sites</option>
+                {projects.map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.projectId} — {p.title}
+                  </option>
+                ))}
+              </select>
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
-          >
-            <option value="all">All Payment Statuses</option>
-            <option value="issued">Issued / Unpaid</option>
-            <option value="partially_paid">Partially Paid</option>
-            <option value="paid">Fully Paid</option>
-            <option value="overdue">Overdue</option>
-          </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
+              >
+                <option value="all">All Payment Statuses</option>
+                <option value="issued">Issued / Unpaid</option>
+                <option value="partially_paid">Partially Paid</option>
+                <option value="paid">Fully Paid</option>
+                <option value="overdue">Overdue</option>
+              </select>
 
-          <select
-            value={gstFilter}
-            onChange={(e) => setGstFilter(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
-          >
-            <option value="all">All GST States</option>
-            <option value="filed">✓ GST Filed in Return</option>
-            <option value="unfiled">⏳ Unfiled (Pending GSTR-1)</option>
-          </select>
-        </div>
-      </div>
-
-      {/* 4. Invoices Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-xs text-slate-400">Loading invoice ledger...</div>
-        ) : filteredInvoices.length === 0 ? (
-          <div className="p-12 text-center text-xs text-slate-400">
-            No tax invoices found matching your filters.
+              <select
+                value={gstFilter}
+                onChange={(e) => setGstFilter(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-slate-200 bg-white font-medium text-slate-700"
+              >
+                <option value="all">All GST States</option>
+                <option value="filed">✓ GST Filed in Return</option>
+                <option value="unfiled">⏳ Unfiled (Pending GSTR-1)</option>
+              </select>
+            </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                <tr>
-                  <th className="py-3.5 px-4">Invoice #</th>
-                  <th className="py-3.5 px-4">Client & Project Workspace</th>
-                  <th className="py-3.5 px-4 font-mono">Total (Inc. 18% GST)</th>
-                  <th className="py-3.5 px-4 font-mono text-emerald-700">Paid Amount</th>
-                  <th className="py-3.5 px-4 font-mono text-rose-600">Balance Due</th>
-                  <th className="py-3.5 px-4 text-center">Payment Status</th>
-                  <th className="py-3.5 px-4 text-center">GST Compliance</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredInvoices.map((inv) => {
-                  const projectId = inv.projectId?._id || inv.projectId;
-                  const isPaid = inv.status === 'paid';
-                  const isPartiallyPaid = inv.status === 'partially_paid';
 
-                  return (
-                    <tr key={inv._id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Invoice # & Date */}
-                      <td className="py-3.5 px-4 font-mono font-bold text-[#0F254B]">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span>{inv.invoiceNumber}</span>
-                          {inv.isNegotiated && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                              🤝 Negotiated
-                            </span>
-                          )}
-                        </div>
-                        <span className="block text-[10px] text-slate-400 font-normal">
-                          Issued: {new Date(inv.issueDate).toLocaleDateString('en-IN')}
-                        </span>
-                      </td>
-
-                      {/* Client & Project with direct workspace link */}
-                      <td className="py-3.5 px-4">
-                        <strong className="text-slate-900 block">{inv.projectTitle}</strong>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-slate-500 text-[11px]">{inv.clientName}</span>
-                          {(inv.clientGstin || inv.clientId?.billingAddress?.gstin || inv.clientId?.gstin) && (
-                            <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-900 border border-blue-200 font-mono text-[9px] font-bold">
-                              GST: {inv.clientGstin || inv.clientId?.billingAddress?.gstin || inv.clientId?.gstin}
-                            </span>
-                          )}
-                        </div>
-                        {projectId && (
-                          <Link
-                            to={`/admin/projects/${projectId}?tab=invoices_receipts`}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline mt-0.5"
-                          >
-                            <span>Open Project Workspace</span>
-                            <ArrowRight className="w-2.5 h-2.5" />
-                          </Link>
-                        )}
-                      </td>
-
-                      {/* Amounts */}
-                      <td className="py-3.5 px-4 font-mono font-bold text-sm text-[#0F254B]">
-                        {formatINR(inv.totalAmountPaise)}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-semibold text-emerald-700">
-                        {formatINR(inv.paidAmountPaise || 0)}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-rose-600">
-                        {formatINR(inv.dueAmountPaise || 0)}
-                      </td>
-
-                      {/* Payment Status */}
-                      <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${
-                            isPaid
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : isPartiallyPaid
-                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                              : 'bg-amber-100 text-amber-800 border border-amber-300'
-                          }`}
-                        >
-                          {inv.status?.replace('_', ' ')}
-                        </span>
-                      </td>
-
-                      {/* GST Return Filing Toggle & Status */}
-                      <td className="py-3.5 px-4 text-center">
-                        {inv.gstFiled ? (
-                          <button
-                            onClick={() => handleOpenGstToggle(inv)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors"
-                            title="Click to view or edit GST filing ARN"
-                          >
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            <span>GST Filed</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleOpenGstToggle(inv)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition-colors"
-                            title="Click to mark as filed in GSTR-1"
-                          >
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            <span>Pending Return</span>
-                          </button>
-                        )}
-                        {inv.gstFilingArn && (
-                          <span className="block text-[9px] font-mono text-slate-400 mt-0.5">
-                            ARN: {inv.gstFilingArn}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Live Preview Modal */}
-                          <button
-                            onClick={() => {
-                              setSelectedInvoice(inv);
-                              setShowPreviewModal(true);
-                            }}
-                            className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-100"
-                            title="Live Preview GKA Format"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Edit Invoice */}
-                          <button
-                            onClick={() => handleOpenEdit(inv)}
-                            className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-100"
-                            title="Edit Invoice Details & Line Items"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* PDF Download */}
-                          <a
-                            href={getFileUrl(`/api/v1/finance/invoices/${inv._id}/pdf`)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1.5 rounded-lg text-[#0F254B] hover:bg-slate-100 font-bold"
-                            title="Download Official PDF"
-                          >
-                            <FileDown className="w-3.5 h-3.5" />
-                          </a>
-
-                          {/* DOCX Download */}
-                          <a
-                            href={getFileUrl(`/api/v1/finance/invoices/${inv._id}/docx`)}
-                            className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 font-bold"
-                            title="Download Editable DOCX"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                          </a>
-
-                          {/* Share via WhatsApp & Mail */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShareInvoice(inv);
-                              setShowShareModal(true);
-                            }}
-                            className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-bold"
-                            title="Share via WhatsApp & Mail"
-                          >
-                            <Share2 className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Move to Recycle Bin */}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteInvoice(inv)}
-                            disabled={deletingInvId === inv._id}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            title="Move to Recycle Bin (Stored safely for 30 days before auto-purge)"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
+          {/* 4. Invoices Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden">
+            {loading ? (
+              <div className="p-12 text-center text-xs text-slate-400">Loading invoice ledger...</div>
+            ) : filteredInvoices.length === 0 ? (
+              <div className="p-12 text-center text-xs text-slate-400">
+                No tax invoices found matching your filters.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="py-3.5 px-4">Invoice #</th>
+                      <th className="py-3.5 px-4">Client & Project Workspace</th>
+                      <th className="py-3.5 px-4 font-mono">Total (Inc. 18% GST)</th>
+                      <th className="py-3.5 px-4 font-mono text-emerald-700">Paid Amount</th>
+                      <th className="py-3.5 px-4 font-mono text-rose-600">Balance Due</th>
+                      <th className="py-3.5 px-4 text-center">Payment Status</th>
+                      <th className="py-3.5 px-4 text-center">GST Compliance</th>
+                      <th className="py-3.5 px-4 text-right">Actions</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredInvoices.map((inv) => {
+                      const projectId = inv.projectId?._id || inv.projectId;
+                      const isPaid = inv.status === 'paid';
+                      const isPartiallyPaid = inv.status === 'partially_paid';
+
+                      return (
+                        <tr key={inv._id} className="hover:bg-slate-50/70 transition-colors">
+                          {/* Invoice # & Date */}
+                          <td className="py-3.5 px-4 font-mono font-bold text-[#0F254B]">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>{inv.invoiceNumber}</span>
+                              {inv.isNegotiated && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                  🤝 Negotiated
+                                </span>
+                              )}
+                            </div>
+                            <span className="block text-[10px] text-slate-400 font-normal">
+                              Issued: {new Date(inv.issueDate).toLocaleDateString('en-IN')}
+                            </span>
+                          </td>
+
+                          {/* Client & Project with direct workspace link */}
+                          <td className="py-3.5 px-4">
+                            <strong className="text-slate-900 block">{inv.projectTitle}</strong>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-slate-500 text-[11px]">{inv.clientName}</span>
+                              {(inv.clientGstin || inv.clientId?.billingAddress?.gstin || inv.clientId?.gstin) && (
+                                <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-900 border border-blue-200 font-mono text-[9px] font-bold">
+                                  GST: {inv.clientGstin || inv.clientId?.billingAddress?.gstin || inv.clientId?.gstin}
+                                </span>
+                              )}
+                            </div>
+                            {projectId && (
+                              <Link
+                                to={`/admin/projects/${projectId}?tab=invoices_receipts`}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline mt-0.5"
+                              >
+                                <span>Open Project Workspace</span>
+                                <ArrowRight className="w-2.5 h-2.5" />
+                              </Link>
+                            )}
+                          </td>
+
+                          {/* Amounts */}
+                          <td className="py-3.5 px-4 font-mono font-bold text-sm text-[#0F254B]">
+                            {formatINR(inv.totalAmountPaise)}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-semibold text-emerald-700">
+                            {formatINR(inv.paidAmountPaise || 0)}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-rose-600">
+                            {formatINR(inv.dueAmountPaise || 0)}
+                          </td>
+
+                          {/* Payment Status */}
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${isPaid
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  : isPartiallyPaid
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                    : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                }`}
+                            >
+                              {inv.status?.replace('_', ' ')}
+                            </span>
+                          </td>
+
+                          {/* GST Return Filing Toggle & Status */}
+                          <td className="py-3.5 px-4 text-center">
+                            {inv.gstFiled ? (
+                              <button
+                                onClick={() => handleOpenGstToggle(inv)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+                                title="Click to view or edit GST filing ARN"
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>GST Filed</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleOpenGstToggle(inv)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition-colors"
+                                title="Click to mark as filed in GSTR-1"
+                              >
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>Pending Return</span>
+                              </button>
+                            )}
+                            <span className="block text-[9px] font-semibold text-blue-700 mt-0.5">
+                              Month: {getInvoiceMonthPeriod(inv)}
+                            </span>
+                            {inv.gstFilingArn && (
+                              <span className="block text-[9px] font-mono text-emerald-700 font-bold mt-0.5">
+                                ARN: {inv.gstFilingArn}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              {/* Move to GST Portal */}
+                              <button
+                                type="button"
+                                onClick={() => handleMoveToGst(inv)}
+                                disabled={movingGstId === inv._id}
+                                className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 shadow-sm transition-colors ${inv.gstFiled
+                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                                  }`}
+                                title="Categorize this invoice in the Month-Wise GST Page and proceed to ARN filing"
+                              >
+                                <Receipt className="w-3 h-3" />
+                                <span>
+                                  {movingGstId === inv._id
+                                    ? 'Moving...'
+                                    : inv.gstFiled
+                                      ? 'In GST Page'
+                                      : 'Move to GST'}
+                                </span>
+                              </button>
+                              {/* Live Preview Modal */}
+                              <button
+                                onClick={() => {
+                                  setSelectedInvoice(inv);
+                                  setShowPreviewModal(true);
+                                }}
+                                className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-100"
+                                title="Live Preview GKA Format"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Edit Invoice */}
+                              <button
+                                onClick={() => handleOpenEdit(inv)}
+                                className="p-1.5 rounded-lg text-slate-600 hover:text-[#0F254B] hover:bg-slate-100"
+                                title="Edit Invoice Details & Line Items"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* PDF Download */}
+                              <a
+                                href={getFileUrl(`/api/v1/finance/invoices/${inv._id}/pdf`)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 rounded-lg text-[#0F254B] hover:bg-slate-100 font-bold"
+                                title="Download Official PDF"
+                              >
+                                <FileDown className="w-3.5 h-3.5" />
+                              </a>
+
+                              {/* DOCX Download */}
+                              <a
+                                href={getFileUrl(`/api/v1/finance/invoices/${inv._id}/docx`)}
+                                className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 font-bold"
+                                title="Download Editable DOCX"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                              </a>
+
+                              {/* Share via WhatsApp & Mail */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShareInvoice(inv);
+                                  setShowShareModal(true);
+                                }}
+                                className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-bold"
+                                title="Share via WhatsApp & Mail"
+                              >
+                                <Share2 className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Move to Recycle Bin */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteInvoice(inv)}
+                                disabled={deletingInvId === inv._id}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Move to Recycle Bin (Stored safely for 30 days before auto-purge)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
         </>
       ) : (
         <div className="space-y-4">
@@ -960,24 +1019,22 @@ export const InvoicesPage: React.FC = () => {
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <span
-                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                                isPaid
+                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${isPaid
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : isPartiallyPaid
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-slate-100 text-slate-700'
-                              }`}
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
                             >
                               {inv.status ? inv.status.toUpperCase() : 'ISSUED'}
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border ${
-                                daysLeft <= 5
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border ${daysLeft <= 5
                                   ? 'bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
                                   : 'bg-amber-100 text-amber-800 border-amber-300'
-                              }`}
+                                }`}
                             >
                               ⏳ Purges in {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
                             </span>

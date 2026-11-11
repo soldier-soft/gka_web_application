@@ -399,7 +399,7 @@ const getDashboardStats = async (req, res, next) => {
             totalInvoicedPaise: 0,
             totalCollectedPaise: 0,
         };
-        // Live Invoices Aggregation (Bills & Receivables Due)
+        // Live Invoices Aggregation (Bills & Receivables Due + GST Status)
         const invoiceAggregation = await Invoice_1.Invoice.aggregate([
             { $match: { status: { $ne: 'cancelled' }, isDeleted: { $ne: true } } },
             {
@@ -409,13 +409,14 @@ const getDashboardStats = async (req, res, next) => {
                     totalPaidPaise: { $sum: '$paidAmountPaise' },
                     totalDuePaise: { $sum: '$dueAmountPaise' },
                     totalOutputTaxPaise: { $sum: { $add: ['$cgstPaise', '$sgstPaise', '$igstPaise'] } },
+                    gstFiledCount: { $sum: { $cond: [{ $eq: ['$gstFiled', true] }, 1, 0] } },
                     count: { $sum: 1 },
                 },
             },
         ]);
-        // Live Payments Aggregation (Verified bank collections)
+        // Live Payments Aggregation (Verified & reconciled bank collections)
         const paymentAggregation = await Payment_1.Payment.aggregate([
-            { $match: { verificationStatus: { $in: ['verified', undefined, null] } } },
+            { $match: { verificationStatus: { $in: ['verified', 'reconciled', undefined, null] } } },
             {
                 $group: {
                     _id: null,
@@ -435,32 +436,48 @@ const getDashboardStats = async (req, res, next) => {
                 },
             },
         ]);
-        // Live GST liability (18% output GST strictly calculated)
+        // Live GST liability & Month-wise GST Filing Sync
         const allExpenses = await Expense_1.Expense.find();
         const purchases = allExpenses.reduce((acc, e) => acc + (e.amountPaise || 0), 0);
         const eligibleItc = Math.round(purchases * 0.18 * 0.85);
         const latestTaxRecord = await TaxReconciliation_1.TaxReconciliation.findOne().sort({ period: -1 });
+        const latestFiledInvoice = await Invoice_1.Invoice.findOne({
+            isDeleted: { $ne: true },
+            status: { $ne: 'cancelled' },
+            gstFiled: true,
+        })
+            .sort({ gstFilingDate: -1, updatedAt: -1 })
+            .lean();
+        const gstFiledInvoicesCount = invoiceAggregation[0]?.gstFiledCount || 0;
+        const totalInvoices = invoiceAggregation[0]?.count || 0;
+        const gstCompliancePercent = totalInvoices > 0 ? Math.round((gstFiledInvoicesCount / totalInvoices) * 100) : 0;
         let netGstPayablePaise = 0;
         let gstFilingStatus = 'not_filed';
-        if (latestTaxRecord && latestTaxRecord.returnStatus === 'filed') {
-            netGstPayablePaise = latestTaxRecord.netTaxPayablePaise || 0;
+        if ((totalInvoices > 0 && gstFiledInvoicesCount === totalInvoices) ||
+            (latestTaxRecord && latestTaxRecord.returnStatus === 'filed')) {
+            netGstPayablePaise = latestTaxRecord?.netTaxPayablePaise || 0;
             gstFilingStatus = 'filed';
+        }
+        else if (gstFiledInvoicesCount > 0) {
+            const outputTax = invoiceAggregation[0]?.totalOutputTaxPaise || 0;
+            netGstPayablePaise = Math.max(0, outputTax - eligibleItc);
+            gstFilingStatus = 'partially_filed';
         }
         else {
             const outputTax = invoiceAggregation[0]?.totalOutputTaxPaise || 0;
             netGstPayablePaise = Math.max(0, outputTax - eligibleItc);
             gstFilingStatus = latestTaxRecord?.returnStatus || 'not_filed';
         }
+        const latestGstArn = latestTaxRecord?.returnAckNumber || latestFiledInvoice?.gstFilingArn || undefined;
         // Consolidated metrics ensuring absolute synchronization
         const invoicedPaise = invoiceAggregation[0]?.totalInvoicedPaise ?? projectStats.totalInvoicedPaise;
-        const collectedPaise = paymentAggregation[0]?.totalCollectedPaise ?? projectStats.totalCollectedPaise;
+        const collectedPaise = Math.max(paymentAggregation[0]?.totalCollectedPaise ?? 0, invoiceAggregation[0]?.totalPaidPaise ?? 0, projectStats.totalCollectedPaise ?? 0);
         const receivablesPaise = invoiceAggregation[0]?.totalDuePaise !== undefined
             ? invoiceAggregation[0].totalDuePaise
             : Math.max(0, invoicedPaise - collectedPaise);
         const estimatedFinalProfitPaise = Math.max(0, projectStats.totalContractValuePaise - projectStats.totalBudgetPaise);
         const quotationValuePaise = quotationAggregation[0]?.totalQuotationValuePaise || 0;
         const totalQuotations = quotationAggregation[0]?.count || 0;
-        const totalInvoices = invoiceAggregation[0]?.count || 0;
         // Monthly Quotation vs Bills (Invoices) aggregation (rolling 6 months)
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const now = new Date();
@@ -592,6 +609,9 @@ const getDashboardStats = async (req, res, next) => {
                 quotationValuePaise,
                 totalQuotations,
                 totalInvoices,
+                gstFiledInvoicesCount,
+                gstCompliancePercent,
+                latestGstArn,
                 netGstPayablePaise,
                 gstFilingStatus,
                 monthlyTrends,
